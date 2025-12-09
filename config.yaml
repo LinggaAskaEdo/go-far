@@ -1,0 +1,74 @@
+server:
+  port: 8181
+  write_timeout: 10s
+  read_timeout: 10s
+  idle_timeout: 60s
+  shutdown_timeout: 5s
+  mode: release # debug, release
+
+logger:
+  enabled: true
+  level: info # debug, info, warn, error
+  format: json # json, console
+  output: stdout # stdout, file
+  path: ./logs/app.log
+  max_size: 100 # megabytes
+  max_backups: 7
+  max_age: 30 # days
+  compress: true # disabled by default
+
+postgres:
+  enabled: true
+  driver: postgres
+  host: localhost
+  port: 5432
+  user: postgres
+  password: a5k4CooL
+  dbname: gofar
+  sslmode: false
+  max_open_conns: 25
+  max_idle_conns: 5
+  conn_max_lifetime: 1h
+  conn_max_idle_time: 30m
+
+mysql:
+  enabled: false
+  driver: mysql
+  host: localhost
+  port: 3306
+  user: root
+  password: a5k4CooL
+  dbname: gofar
+  sslmode: false
+  max_open_conns: 25
+  max_idle_conns: 5
+  conn_max_lifetime: 1h
+  conn_max_idle_time: 30m
+
+redis:
+  enabled: true
+  network: tcp
+  address: "localhost:6379"
+  password: ""
+  cache_ttl: 60s
+  max_retries: 3
+  min_retry_backoff: 8ms
+  max_retry_backoff: 512ms
+  dial_timeout: 5s
+  read_timeout: 3s
+  write_timeout: 3s
+  pool_size: 10
+  min_idle_conns: 5
+  max_idle_conns: 5
+  max_active_conns: 10
+  pool_timeout: 30s
+
+queries:
+  path: ./etc/queries/
+
+auth:
+  private_key: ./etc/cert/id_rsa
+  public_key: ./etc/cert/id_rsa.pub
+  expired_token: 5m
+  expired_refresh_token: 15m
+  # auto_logoff: 30m
