@@ -26,7 +26,6 @@ func (d *userRepository) Create(ctx context.Context, user *domain.User) error {
 		now,
 		now,
 	).Scan(&user.ID)
-
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("Failed to create user")
 		return exception.InternalServerError("Failed to create user")
@@ -56,6 +55,7 @@ func (d *userRepository) FindByID(ctx context.Context, id int64) (*domain.User, 
 	err = d.db.GetContext(ctx, &user, query, id)
 	if err != nil {
 		if err == sql.ErrNoRows {
+			zerolog.Ctx(ctx).Debug().Int64("id", id).Msg("User not found")
 			return nil, exception.NotFoundError("User not found")
 		}
 
@@ -151,6 +151,7 @@ func (d *userRepository) Update(ctx context.Context, id int64, user *domain.User
 
 	rows, _ := result.RowsAffected()
 	if rows == 0 {
+		zerolog.Ctx(ctx).Debug().Int64("id", id).Msg("User not found for update")
 		return exception.NotFoundError("User not found")
 	}
 
@@ -171,6 +172,7 @@ func (d *userRepository) Delete(ctx context.Context, id int64) error {
 
 	rows, _ := result.RowsAffected()
 	if rows == 0 {
+		zerolog.Ctx(ctx).Debug().Int64("id", id).Msg("User not found for deletion")
 		return exception.NotFoundError("User not found")
 	}
 

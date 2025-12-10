@@ -22,9 +22,6 @@ type Auth interface {
 	GenerateToken(c *gin.Context, data any) (*TokenDetails, error)
 	ValidateToken(c *gin.Context) (*AccessDetails, error)
 	ValidateRefreshToken(c *gin.Context, token string) (*AccessDetails, error)
-	// InvalidateToken(c *gin.Context) error
-	// InvalidateRefreshToken(c *gin.Context, accessDetails *AccessDetails) error
-	// CheckToken(c *gin.Context, userID string) error
 }
 
 var onceAuth = &sync.Once{}
@@ -34,7 +31,6 @@ type AuthOptions struct {
 	PublicKey           string        `yaml:"public_key"`
 	ExpiredToken        time.Duration `yaml:"expired_token"`
 	ExpiredRefreshToken time.Duration `yaml:"expired_refresh_token"`
-	// AutoLogoff          time.Duration `yaml:"auto_logoff"`
 }
 
 type auth struct {

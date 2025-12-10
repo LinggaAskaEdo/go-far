@@ -83,12 +83,13 @@ install-tools: ## Install development tools
 	@echo "Installing tools..."
 	@go install github.com/swaggo/swag/cmd/swag@latest
 	@go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+	@go install github.com/pressly/goose/v3/cmd/goose@latest
 	@echo "Tools installed"
 
 sql-postgres-create: ## Create SQL migration files for postgres
 	@echo "Creating postgres SQL migration files..."
 	@read -p "Enter migration name (use underscores): " name; \
-		goose -dir ./etc/migrations create postgres_$${name} sql
+		goose -dir ./etc/migrations/postgres create postgres_$${name} sql
 
 sql-postgres-up: ## Apply up migrations for postgres
 	@echo "Applying up migrations for postgres..."; \
@@ -98,5 +99,21 @@ sql-postgres-up: ## Apply up migrations for postgres
 			read -p "Enter postgres password: " pass ; \
 			stty echo ; \
 			echo ; \
-			goose -dir ./etc/migrations postgres "host=localhost user=postgres password=$$pass dbname=gofar sslmode=disable" up ; \
+			goose -dir ./etc/migrations/postgres postgres "host=localhost user=postgres password=$$pass dbname=gofar sslmode=disable" up ; \
+		}
+
+sql-mysql-create: ## Create SQL migration files for mysql
+	@echo "Creating mysql SQL migration files..."
+	@read -p "Enter migration name (use underscores): " name; \
+		goose -dir ./etc/migrations/mysql create mysql_$${name} sql
+
+sql-mysql-up: ## Apply up migrations for mysql
+	@echo "Applying up migrations for mysql..."; \
+		{ \
+			stty -echo ; \
+			trap 'stty echo' EXIT ; \
+			read -p "Enter mysql password: " pass ; \
+			stty echo ; \
+			echo ; \
+			goose -dir ./etc/migrations/mysql mysql "host=localhost user=root password=$$pass dbname=gofar sslmode=disable" up ; \
 		}

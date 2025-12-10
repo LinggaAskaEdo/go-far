@@ -469,7 +469,7 @@ const docTemplate = `{
 var SwaggerInfo = &swag.Spec{
 	Version:          "1.0",
 	Host:             "localhost:8181",
-	BasePath:         "/api/v1",
+	BasePath:         "",
 	Schemes:          []string{"http", "https"},
 	Title:            "Go Far",
 	Description:      "Clean Architecture CRUD API with Go",

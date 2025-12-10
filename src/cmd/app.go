@@ -3,6 +3,7 @@ package main
 import (
 	"flag"
 
+	_ "go-far/docs"
 	"go-far/src/config"
 	resthandler "go-far/src/handler/rest"
 	"go-far/src/preference"
@@ -93,7 +94,6 @@ func init() {
 // @license.url	http://www.apache.org/licenses/LICENSE-2.0.html
 //
 // @host			localhost:8181
-// @BasePath		/api/v1
 // @schemes		http https
 func main() {
 	defer func() {

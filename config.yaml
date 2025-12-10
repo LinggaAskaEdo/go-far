@@ -71,4 +71,13 @@ auth:
   public_key: ./etc/cert/id_rsa.pub
   expired_token: 5m
   expired_refresh_token: 15m
-  # auto_logoff: 30m
+
+scheduler:
+  enabled: true
+  jobs:
+    user_generator:
+      enabled: true
+      cron: "*/30 * * * * *"  # Every 30 seconds
+      batch_size: 5
+      min_age: 18
+      max_age: 80

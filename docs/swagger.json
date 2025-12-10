@@ -20,7 +20,6 @@
         "version": "1.0"
     },
     "host": "localhost:8181",
-    "basePath": "/api/v1",
     "paths": {
         "/users": {
             "get": {

@@ -10,13 +10,31 @@ import (
 )
 
 type Config struct {
-	Server   config.ServerOptions   `yaml:"server"`
-	Logger   config.LoggerOptions   `yaml:"logger"`
-	Postgres config.DatabaseOptions `yaml:"postgres"`
-	MySQL    config.DatabaseOptions `yaml:"mysql"`
-	Redis    config.RedisOptions    `yaml:"redis"`
-	Queries  config.QueriesOptions  `yaml:"queries"`
-	Auth     config.AuthOptions     `yaml:"auth"`
+	Server    config.ServerOptions   `yaml:"server"`
+	Logger    config.LoggerOptions   `yaml:"logger"`
+	Postgres  config.DatabaseOptions `yaml:"postgres"`
+	MySQL     config.DatabaseOptions `yaml:"mysql"`
+	Redis     config.RedisOptions    `yaml:"redis"`
+	Queries   config.QueriesOptions  `yaml:"queries"`
+	Auth      config.AuthOptions     `yaml:"auth"`
+	Scheduler SchedulerConfig        `yaml:"scheduler"`
+}
+
+type SchedulerConfig struct {
+	Enabled bool                `yaml:"enabled"`
+	Jobs    SchedulerJobsConfig `yaml:"jobs"`
+}
+
+type SchedulerJobsConfig struct {
+	UserGenerator UserGeneratorJobConfig `yaml:"user_generator"`
+}
+
+type UserGeneratorJobConfig struct {
+	Enabled   bool   `yaml:"enabled"`
+	Cron      string `yaml:"cron"`
+	BatchSize int    `yaml:"batch_size"`
+	MinAge    int    `yaml:"min_age"`
+	MaxAge    int    `yaml:"max_age"`
 }
 
 func InitConfig() (*Config, error) {

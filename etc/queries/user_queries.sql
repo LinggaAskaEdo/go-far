@@ -58,3 +58,7 @@ DELETE FROM users WHERE id = $1;
 
 -- name: CheckEmailExists
 SELECT COUNT(*) FROM users WHERE email = $1 AND id != $2;
+
+-- name: BulkInsertUsers
+INSERT INTO users (name, email, age, created_at, updated_at)
+VALUES ($1, $2, $3, $4, $5);
