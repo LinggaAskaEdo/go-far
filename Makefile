@@ -52,8 +52,8 @@ cert-install: ## Install certificates
 
 cert-create: ## Generate RSA key pair if not exists
 	@echo "Generating RSA key pair if not exists..."
-	@if ! ls -AU "./etc/certs/" | read _; then \
-		openssl genrsa -out ./etc/certs/id_rsa 4096 && openssl rsa -in ./etc/certs/id_rsa -pubout -out ./etc/certs/id_rsa.pub; \
+	@if ! ls -AU "./etc/cert/" | read _; then \
+		openssl genrsa -out ./etc/cert/id_rsa 4096 && openssl rsa -in ./etc/cert/id_rsa -pubout -out ./etc/cert/id_rsa.pub; \
 	else \
 		echo "Directory is not empty !!!"; \
 	fi
