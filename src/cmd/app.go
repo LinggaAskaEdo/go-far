@@ -6,6 +6,7 @@ import (
 	_ "go-far/docs"
 	"go-far/src/config"
 	resthandler "go-far/src/handler/rest"
+	schedHandler "go-far/src/handler/scheduler"
 	"go-far/src/preference"
 	"go-far/src/repository"
 	"go-far/src/service"
@@ -75,6 +76,10 @@ func init() {
 
 	// REST Handler Initialization
 	resthandler.InitRestHandler(httpGin, auth, middleware, service)
+
+	//Scheduler Initialization
+	scheduler := config.InitScheduler(log, conf.Scheduler)
+	schedHandler.InitSchedulerHandler(log, scheduler, service, conf.Scheduler.SchedulerJobs)
 
 	// HTTP Server Initialization
 	httpServer := config.InitHttpServer(log, conf.Server, httpGin)

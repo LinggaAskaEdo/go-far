@@ -21,7 +21,7 @@ func (s *userService) CreateUser(ctx context.Context, req domain.CreateUserReque
 	return user, nil
 }
 
-func (s *userService) GetUser(ctx context.Context, id int64) (*domain.User, error) {
+func (s *userService) GetUser(ctx context.Context, id string) (*domain.User, error) {
 	return s.userRepository.FindByID(ctx, id)
 }
 
@@ -30,7 +30,7 @@ func (s *userService) ListUsers(ctx context.Context, filter domain.UserFilter) (
 	return s.userRepository.FindAll(ctx, filter)
 }
 
-func (s *userService) UpdateUser(ctx context.Context, id int64, req domain.UpdateUserRequest) (*domain.User, error) {
+func (s *userService) UpdateUser(ctx context.Context, id string, req domain.UpdateUserRequest) (*domain.User, error) {
 	existingUser, err := s.userRepository.FindByID(ctx, id)
 	if err != nil {
 		return nil, err
@@ -55,6 +55,6 @@ func (s *userService) UpdateUser(ctx context.Context, id int64, req domain.Updat
 	return s.userRepository.FindByID(ctx, id)
 }
 
-func (s *userService) DeleteUser(ctx context.Context, id int64) error {
+func (s *userService) DeleteUser(ctx context.Context, id string) error {
 	return s.userRepository.Delete(ctx, id)
 }

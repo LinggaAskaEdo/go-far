@@ -1,4 +1,6 @@
-.PHONY: help build run test clean swagger migrate deps cert-install cert-create lint fmt vet check install-tools
+.PHONY: all help build run clean swagger migrate deps cert-install cert-create fmt vet lint test check install-tools sql-postgres-create sql-postgres-up sql-mysql-create sql-mysql-up
+
+all: clean check swagger build run ## Execute all steps `clean check swagger build run`
 
 help: ## Show this help message
 	@printf "\033[36m%-30s\033[0m %s\n" "Target" "Description"
@@ -25,12 +27,12 @@ clean: ## Clean build artifacts
 swagger: ## Generate swagger documentation
 	@echo "Generating Swagger docs..."
 	@rm -rf ./docs/
-	@swag fmt
-	@swag init -g ./src/cmd/app.go -o ./docs
+	@(swag fmt -d ./src 2>&1 | grep -v "warning: failed to get package name in dir") || true
+	@(swag init -g ./src/cmd/app.go -o ./docs 2>&1 | grep -v "warning: failed to get package name in dir") || true
 	@echo "Fixing generated docs (removing LeftDelim/RightDelim)..."
-	@sed -i.bak '/LeftDelim/d' ./docs/docs.go || sed -i '/LeftDelim/d' ./docs/docs.go
-	@sed -i.bak '/RightDelim/d' ./docs/docs.go || sed -i '/RightDelim/d' ./docs/docs.go
-	@rm -f ./docs/docs.go.bak
+	@sed -i.bak '/LeftDelim/d' ./docs/docs.go 2>/dev/null || sed -i '/LeftDelim/d' ./docs/docs.go 2>/dev/null
+	@sed -i.bak '/RightDelim/d' ./docs/docs.go 2>/dev/null || sed -i '/RightDelim/d' ./docs/docs.go 2>/dev/null
+	@rm -f ./docs/docs.go.bak 2>/dev/null || true
 	@echo "Swagger docs generated and fixed successfully"
 
 migrate: ## Run database migrations
@@ -50,8 +52,8 @@ cert-install: ## Install certificates
 
 cert-create: ## Generate RSA key pair if not exists
 	@echo "Generating RSA key pair if not exists..."
-	@if ! ls -AU "./etc/cert/" | read _; then \
-		openssl genrsa -out ./etc/cert/id_rsa 4096 && openssl rsa -in ./etc/cert/id_rsa -pubout -out ./etc/cert/id_rsa.pub; \
+	@if ! ls -AU "./etc/certs/" | read _; then \
+		openssl genrsa -out ./etc/certs/id_rsa 4096 && openssl rsa -in ./etc/certs/id_rsa -pubout -out ./etc/certs/id_rsa.pub; \
 	else \
 		echo "Directory is not empty !!!"; \
 	fi

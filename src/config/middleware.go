@@ -129,7 +129,7 @@ func (mw *middleware) getRequestID(ctx context.Context) string {
 
 func (mw *middleware) CORS() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		strMethods := []string{"GET", "POST"}
+		strMethods := []string{"GET", "POST", "PUT", "DELETE"}
 
 		c.Header("Access-Control-Allow-Headers:", "*")
 		c.Header("Access-Control-Allow-Origin", "*")

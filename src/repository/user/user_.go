@@ -37,14 +37,14 @@ func (d *userRepository) Create(ctx context.Context, user *domain.User) error {
 	return nil
 }
 
-func (d *userRepository) FindByID(ctx context.Context, id int64) (*domain.User, error) {
-	cacheKey := fmt.Sprintf("user:%d", id)
+func (d *userRepository) FindByID(ctx context.Context, id string) (*domain.User, error) {
+	cacheKey := fmt.Sprintf("user:%s", id)
 
 	cached, err := d.redis.Get(ctx, cacheKey).Result()
 	if err == nil {
 		var user domain.User
 		if err := json.Unmarshal([]byte(cached), &user); err == nil {
-			zerolog.Ctx(ctx).Debug().Int64("id", id).Msg("User found in cache")
+			zerolog.Ctx(ctx).Debug().Str("id", id).Msg("User found in cache")
 			return &user, nil
 		}
 	}
@@ -55,11 +55,11 @@ func (d *userRepository) FindByID(ctx context.Context, id int64) (*domain.User, 
 	err = d.db.GetContext(ctx, &user, query, id)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			zerolog.Ctx(ctx).Debug().Int64("id", id).Msg("User not found")
+			zerolog.Ctx(ctx).Debug().Str("id", id).Msg("User not found")
 			return nil, exception.NotFoundError("User not found")
 		}
 
-		zerolog.Ctx(ctx).Error().Err(err).Int64("id", id).Msg("Failed to find user")
+		zerolog.Ctx(ctx).Error().Err(err).Str("id", id).Msg("Failed to find user")
 		return nil, exception.InternalServerError("Failed to find user")
 	}
 
@@ -131,7 +131,7 @@ func (d *userRepository) FindAll(ctx context.Context, filter domain.UserFilter) 
 	return users, total, nil
 }
 
-func (d *userRepository) Update(ctx context.Context, id int64, user *domain.User) error {
+func (d *userRepository) Update(ctx context.Context, id string, user *domain.User) error {
 	query, _ := d.queryLoader.Get("UpdateUser")
 
 	result, err := d.db.ExecContext(
@@ -145,38 +145,38 @@ func (d *userRepository) Update(ctx context.Context, id int64, user *domain.User
 	)
 
 	if err != nil {
-		zerolog.Ctx(ctx).Error().Err(err).Int64("id", id).Msg("Failed to update user")
+		zerolog.Ctx(ctx).Error().Err(err).Str("id", id).Msg("Failed to update user")
 		return exception.InternalServerError("Failed to update user")
 	}
 
 	rows, _ := result.RowsAffected()
 	if rows == 0 {
-		zerolog.Ctx(ctx).Debug().Int64("id", id).Msg("User not found for update")
+		zerolog.Ctx(ctx).Debug().Str("id", id).Msg("User not found for update")
 		return exception.NotFoundError("User not found")
 	}
 
-	cacheKey := fmt.Sprintf("user:%d", id)
+	cacheKey := fmt.Sprintf("user:%s", id)
 	d.redis.Del(ctx, cacheKey)
 
 	return nil
 }
 
-func (d *userRepository) Delete(ctx context.Context, id int64) error {
+func (d *userRepository) Delete(ctx context.Context, id string) error {
 	query, _ := d.queryLoader.Get("DeleteUser")
 
 	result, err := d.db.ExecContext(ctx, query, id)
 	if err != nil {
-		zerolog.Ctx(ctx).Error().Err(err).Int64("id", id).Msg("Failed to delete user")
+		zerolog.Ctx(ctx).Error().Err(err).Str("id", id).Msg("Failed to delete user")
 		return exception.InternalServerError("Failed to delete user")
 	}
 
 	rows, _ := result.RowsAffected()
 	if rows == 0 {
-		zerolog.Ctx(ctx).Debug().Int64("id", id).Msg("User not found for deletion")
+		zerolog.Ctx(ctx).Debug().Str("id", id).Msg("User not found for deletion")
 		return exception.NotFoundError("User not found")
 	}
 
-	cacheKey := fmt.Sprintf("user:%d", id)
+	cacheKey := fmt.Sprintf("user:%s", id)
 	d.redis.Del(ctx, cacheKey)
 
 	return nil

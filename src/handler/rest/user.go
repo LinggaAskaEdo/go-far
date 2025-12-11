@@ -3,12 +3,12 @@ package rest
 import (
 	"math"
 	"net/http"
-	"strconv"
 
 	"go-far/src/domain"
 	exception "go-far/src/errors"
 
 	"github.com/gin-gonic/gin"
+	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 )
 
@@ -49,25 +49,26 @@ func (r *rest) CreateUser(c *gin.Context) {
 //	@Description	Get a user by their ID
 //	@Tags			users
 //	@Produce		json
-//	@Param			id	path		int	true	"User ID"
+//	@Param			id	path		string	true	"User ID"
 //	@Success		200	{object}	domain.Response{data=domain.User}
 //	@Failure		404	{object}	domain.Response
 //	@Failure		500	{object}	domain.Response
 //	@Router			/users/{id} [get]
-func (r *rest) GetUser(c *gin.Context) {
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+func (e *rest) GetUser(c *gin.Context) {
+	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
-		_ = c.Error(exception.BadRequestError("Invalid user ID"))
+		e.httpRespError(c, exception.BadRequestError("Invalid user ID"))
 		return
 	}
 
-	user, err := r.svc.User.GetUser(c.Request.Context(), id)
+	user, err := e.svc.User.GetUser(c.Request.Context(), id.String())
 	if err != nil {
-		_ = c.Error(err)
+		e.httpRespError(c, exception.InternalServerError("Error when getting user: "+err.Error()))
 		return
 	}
 
-	c.JSON(200, domain.SuccessResponse(user))
+	// c.JSON(200, domain.SuccessResponse(user))
+	e.httpRespSuccess(c, http.StatusOK, domain.SuccessResponse(user))
 }
 
 // ListUsers godoc
@@ -89,8 +90,6 @@ func (r *rest) GetUser(c *gin.Context) {
 //	@Failure		500			{object}	domain.Response
 //	@Router			/users [get]
 func (e *rest) ListUsers(c *gin.Context) {
-	ctx := c.Request.Context()
-	zerolog.Ctx(ctx).Debug().Msg("ListUsers called with context")
 	var filter domain.UserFilter
 
 	if err := c.ShouldBindQuery(&filter); err != nil {
@@ -123,7 +122,7 @@ func (e *rest) ListUsers(c *gin.Context) {
 //	@Tags			users
 //	@Accept			json
 //	@Produce		json
-//	@Param			id		path		int							true	"User ID"
+//	@Param			id		path		string						true	"User ID"
 //	@Param			user	body		domain.UpdateUserRequest	true	"User data"
 //	@Success		200		{object}	domain.Response{data=domain.User}
 //	@Failure		400		{object}	domain.Response
@@ -131,7 +130,7 @@ func (e *rest) ListUsers(c *gin.Context) {
 //	@Failure		500		{object}	domain.Response
 //	@Router			/users/{id} [put]
 func (e *rest) UpdateUser(c *gin.Context) {
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		e.httpRespError(c, exception.BadRequestError("Invalid user ID"))
 		return
@@ -143,7 +142,7 @@ func (e *rest) UpdateUser(c *gin.Context) {
 		return
 	}
 
-	user, err := e.svc.User.UpdateUser(c.Request.Context(), id, req)
+	user, err := e.svc.User.UpdateUser(c.Request.Context(), id.String(), req)
 	if err != nil {
 		e.httpRespError(c, exception.InternalServerError("Error when updating user: "+err.Error()))
 		return
@@ -158,19 +157,19 @@ func (e *rest) UpdateUser(c *gin.Context) {
 //	@Description	Delete a user by ID
 //	@Tags			users
 //	@Produce		json
-//	@Param			id	path		int	true	"User ID"
+//	@Param			id	path		string	true	"User ID"
 //	@Success		200	{object}	domain.Response
 //	@Failure		404	{object}	domain.Response
 //	@Failure		500	{object}	domain.Response
 //	@Router			/users/{id} [delete]
 func (e *rest) DeleteUser(c *gin.Context) {
-	id, err := strconv.ParseInt(c.Param("id"), 10, 64)
+	id, err := uuid.Parse(c.Param("id"))
 	if err != nil {
 		e.httpRespError(c, exception.BadRequestError("Invalid user ID"))
 		return
 	}
 
-	if err := e.svc.User.DeleteUser(c.Request.Context(), id); err != nil {
+	if err := e.svc.User.DeleteUser(c.Request.Context(), id.String()); err != nil {
 		e.httpRespError(c, exception.InternalServerError("Error when deleting user: "+err.Error()))
 		return
 	}

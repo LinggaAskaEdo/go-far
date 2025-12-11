@@ -76,7 +76,7 @@ scheduler:
   enabled: true
   jobs:
     user_generator:
-      enabled: true
+      enabled: false
       cron: "*/30 * * * * *"  # Every 30 seconds
       batch_size: 5
       min_age: 18

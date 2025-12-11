@@ -13,10 +13,10 @@ import (
 
 type UserRepositoryItf interface {
 	Create(ctx context.Context, user *domain.User) error
-	FindByID(ctx context.Context, id int64) (*domain.User, error)
+	FindByID(ctx context.Context, id string) (*domain.User, error)
 	FindAll(ctx context.Context, filter domain.UserFilter) ([]*domain.User, int64, error)
-	Update(ctx context.Context, id int64, user *domain.User) error
-	Delete(ctx context.Context, id int64) error
+	Update(ctx context.Context, id string, user *domain.User) error
+	Delete(ctx context.Context, id string) error
 }
 
 type userRepository struct {

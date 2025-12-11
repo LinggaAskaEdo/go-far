@@ -72,9 +72,7 @@ definitions:
       email:
         type: string
       id:
-        items:
-          type: integer
-        type: array
+        type: string
       name:
         type: string
       updated_at:
@@ -200,7 +198,7 @@ paths:
         in: path
         name: id
         required: true
-        type: integer
+        type: string
       produces:
       - application/json
       responses:
@@ -226,7 +224,7 @@ paths:
         in: path
         name: id
         required: true
-        type: integer
+        type: string
       produces:
       - application/json
       responses:
@@ -259,7 +257,7 @@ paths:
         in: path
         name: id
         required: true
-        type: integer
+        type: string
       - description: User data
         in: body
         name: user
