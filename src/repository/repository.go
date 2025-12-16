@@ -14,11 +14,11 @@ type Repository struct {
 	User user.UserRepositoryItf
 }
 
-func InitRepository(db *sqlx.DB, redis *redis.Client, queryLoader *config.QueryLoader, cacheTTL time.Duration) *Repository {
+func InitRepository(sql0 *sqlx.DB, redis0 *redis.Client, queryLoader *config.QueryLoader, cacheTTL time.Duration) *Repository {
 	return &Repository{
 		User: user.InitUserRepository(
-			db,
-			redis,
+			sql0,
+			redis0,
 			queryLoader,
 			cacheTTL,
 		),

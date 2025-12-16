@@ -10,14 +10,15 @@ import (
 )
 
 type Config struct {
-	Server    config.ServerOptions    `yaml:"server"`
-	Logger    config.LoggerOptions    `yaml:"logger"`
-	Postgres  config.DatabaseOptions  `yaml:"postgres"`
-	MySQL     config.DatabaseOptions  `yaml:"mysql"`
-	Redis     config.RedisOptions     `yaml:"redis"`
-	Queries   config.QueriesOptions   `yaml:"queries"`
-	Auth      config.AuthOptions      `yaml:"auth"`
-	Scheduler config.SchedulerOptions `yaml:"scheduler"`
+	Server     config.ServerOptions     `yaml:"server"`
+	Logger     config.LoggerOptions     `yaml:"logger"`
+	Postgres   config.DatabaseOptions   `yaml:"postgres"`
+	MySQL      config.DatabaseOptions   `yaml:"mysql"`
+	Redis      config.RedisOptions      `yaml:"redis"`
+	Queries    config.QueriesOptions    `yaml:"queries"`
+	Auth       config.AuthOptions       `yaml:"auth"`
+	Middleware config.MiddlewareOptions `yaml:"middleware"`
+	Scheduler  config.SchedulerOptions  `yaml:"scheduler"`
 }
 
 func InitConfig() (*Config, error) {

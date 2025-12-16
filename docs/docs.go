@@ -36,6 +36,16 @@ const docTemplate = `{
                 "summary": "List users",
                 "parameters": [
                     {
+                        "enum": [
+                            "must-revalidate",
+                            "must-db-revalidate"
+                        ],
+                        "type": "string",
+                        "description": "Request cache control",
+                        "name": "Cache-Control",
+                        "in": "header"
+                    },
+                    {
                         "type": "string",
                         "description": "Filter by name",
                         "name": "name",
@@ -93,7 +103,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/domain.PaginatedResponse"
+                                    "$ref": "#/definitions/dto.HttpSuccessResp"
                                 },
                                 {
                                     "type": "object",
@@ -112,13 +122,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/domain.Response"
+                            "$ref": "#/definitions/dto.HTTPErrorResp"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/domain.Response"
+                            "$ref": "#/definitions/dto.HTTPErrorResp"
                         }
                     }
                 }
@@ -142,7 +152,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/domain.CreateUserRequest"
+                            "$ref": "#/definitions/dto.CreateUserRequest"
                         }
                     }
                 ],
@@ -152,7 +162,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/domain.Response"
+                                    "$ref": "#/definitions/dto.HttpSuccessResp"
                                 },
                                 {
                                     "type": "object",
@@ -168,13 +178,13 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/domain.Response"
+                            "$ref": "#/definitions/dto.HTTPErrorResp"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/domain.Response"
+                            "$ref": "#/definitions/dto.HTTPErrorResp"
                         }
                     }
                 }
@@ -205,7 +215,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/domain.Response"
+                                    "$ref": "#/definitions/dto.HttpSuccessResp"
                                 },
                                 {
                                     "type": "object",
@@ -221,13 +231,13 @@ const docTemplate = `{
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/domain.Response"
+                            "$ref": "#/definitions/dto.HTTPErrorResp"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/domain.Response"
+                            "$ref": "#/definitions/dto.HTTPErrorResp"
                         }
                     }
                 }
@@ -258,7 +268,7 @@ const docTemplate = `{
                         "in": "body",
                         "required": true,
                         "schema": {
-                            "$ref": "#/definitions/domain.UpdateUserRequest"
+                            "$ref": "#/definitions/dto.UpdateUserRequest"
                         }
                     }
                 ],
@@ -268,7 +278,7 @@ const docTemplate = `{
                         "schema": {
                             "allOf": [
                                 {
-                                    "$ref": "#/definitions/domain.Response"
+                                    "$ref": "#/definitions/dto.HttpSuccessResp"
                                 },
                                 {
                                     "type": "object",
@@ -284,19 +294,19 @@ const docTemplate = `{
                     "400": {
                         "description": "Bad Request",
                         "schema": {
-                            "$ref": "#/definitions/domain.Response"
+                            "$ref": "#/definitions/dto.HTTPErrorResp"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/domain.Response"
+                            "$ref": "#/definitions/dto.HTTPErrorResp"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/domain.Response"
+                            "$ref": "#/definitions/dto.HTTPErrorResp"
                         }
                     }
                 }
@@ -323,19 +333,19 @@ const docTemplate = `{
                     "200": {
                         "description": "OK",
                         "schema": {
-                            "$ref": "#/definitions/domain.Response"
+                            "$ref": "#/definitions/dto.HttpSuccessResp"
                         }
                     },
                     "404": {
                         "description": "Not Found",
                         "schema": {
-                            "$ref": "#/definitions/domain.Response"
+                            "$ref": "#/definitions/dto.HTTPErrorResp"
                         }
                     },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
-                            "$ref": "#/definitions/domain.Response"
+                            "$ref": "#/definitions/dto.HTTPErrorResp"
                         }
                     }
                 }
@@ -343,7 +353,30 @@ const docTemplate = `{
         }
     },
     "definitions": {
-        "domain.CreateUserRequest": {
+        "domain.User": {
+            "type": "object",
+            "properties": {
+                "age": {
+                    "type": "integer"
+                },
+                "created_at": {
+                    "type": "string"
+                },
+                "email": {
+                    "type": "string"
+                },
+                "id": {
+                    "type": "string"
+                },
+                "name": {
+                    "type": "string"
+                },
+                "updated_at": {
+                    "type": "string"
+                }
+            }
+        },
+        "dto.CreateUserRequest": {
             "type": "object",
             "required": [
                 "age",
@@ -366,59 +399,105 @@ const docTemplate = `{
                 }
             }
         },
-        "domain.ErrorData": {
+        "dto.HTTPErrorResp": {
             "type": "object",
             "properties": {
-                "code": {
-                    "type": "string"
+                "metadata": {
+                    "$ref": "#/definitions/dto.Meta"
+                }
+            }
+        },
+        "dto.HttpSuccessResp": {
+            "type": "object",
+            "properties": {
+                "metadata": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/dto.Meta"
+                        }
+                    ],
+                    "x-order": "0"
+                },
+                "data": {
+                    "x-order": "1"
+                },
+                "pagination": {
+                    "allOf": [
+                        {
+                            "$ref": "#/definitions/dto.Pagination"
+                        }
+                    ],
+                    "x-order": "2"
+                }
+            }
+        },
+        "dto.Meta": {
+            "type": "object",
+            "properties": {
+                "path": {
+                    "type": "string",
+                    "x-order": "0"
+                },
+                "status_code": {
+                    "type": "integer",
+                    "x-order": "1"
+                },
+                "status": {
+                    "type": "string",
+                    "x-order": "2"
                 },
                 "message": {
-                    "type": "string"
+                    "type": "string",
+                    "x-order": "3"
+                },
+                "error": {
+                    "type": "object",
+                    "x-order": "4"
+                },
+                "timestamp": {
+                    "type": "string",
+                    "x-order": "5"
                 }
             }
         },
-        "domain.MetaData": {
+        "dto.Pagination": {
             "type": "object",
             "properties": {
-                "page": {
-                    "type": "integer"
+                "current_page": {
+                    "type": "integer",
+                    "x-order": "0"
                 },
-                "page_size": {
-                    "type": "integer"
-                },
-                "total_items": {
-                    "type": "integer"
+                "current_elements": {
+                    "type": "integer",
+                    "x-order": "1"
                 },
                 "total_pages": {
-                    "type": "integer"
-                }
-            }
-        },
-        "domain.PaginatedResponse": {
-            "type": "object",
-            "properties": {
-                "data": {},
-                "meta": {
-                    "$ref": "#/definitions/domain.MetaData"
+                    "type": "integer",
+                    "x-order": "2"
                 },
-                "success": {
-                    "type": "boolean"
-                }
-            }
-        },
-        "domain.Response": {
-            "type": "object",
-            "properties": {
-                "data": {},
-                "error": {
-                    "$ref": "#/definitions/domain.ErrorData"
+                "total_elements": {
+                    "type": "integer",
+                    "x-order": "3"
                 },
-                "success": {
-                    "type": "boolean"
+                "sort_by": {
+                    "type": "string",
+                    "x-order": "4"
+                },
+                "sort_dir": {
+                    "type": "string",
+                    "x-order": "5"
+                },
+                "cursor_start": {
+                    "type": "string",
+                    "x-order": "6"
+                },
+                "cursor_end": {
+                    "type": "string",
+                    "x-order": "7"
                 }
             }
         },
-        "domain.UpdateUserRequest": {
+        "dto.UpdateUserRequest": {
             "type": "object",
             "properties": {
                 "age": {
@@ -433,29 +512,6 @@ const docTemplate = `{
                     "type": "string",
                     "maxLength": 100,
                     "minLength": 2
-                }
-            }
-        },
-        "domain.User": {
-            "type": "object",
-            "properties": {
-                "age": {
-                    "type": "integer"
-                },
-                "created_at": {
-                    "type": "string"
-                },
-                "email": {
-                    "type": "string"
-                },
-                "id": {
-                    "type": "string"
-                },
-                "name": {
-                    "type": "string"
-                },
-                "updated_at": {
-                    "type": "string"
                 }
             }
         }

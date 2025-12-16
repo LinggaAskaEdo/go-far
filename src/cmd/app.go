@@ -5,12 +5,11 @@ import (
 
 	_ "go-far/docs"
 	"go-far/src/config"
-	resthandler "go-far/src/handler/rest"
+	restHandler "go-far/src/handler/rest"
 	schedHandler "go-far/src/handler/scheduler"
 	"go-far/src/preference"
 	"go-far/src/repository"
 	"go-far/src/service"
-	"go-far/src/util"
 
 	"github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
@@ -18,13 +17,14 @@ import (
 )
 
 var (
-	minJitter    int
-	maxJitter    int
-	sqlClient0   *sqlx.DB
-	redisClient0 *redis.Client
-	redisClient1 *redis.Client
-	redisClient2 *redis.Client
-	app          config.App
+	minJitter int
+	maxJitter int
+	sql0      *sqlx.DB
+	redis0    *redis.Client
+	redis1    *redis.Client
+	redis2    *redis.Client
+	scheduler *config.Scheduler
+	app       config.App
 )
 
 func init() {
@@ -45,40 +45,37 @@ func init() {
 	log := config.InitLogger(conf.Logger)
 
 	// SQL Initialization
-	sqlClient0 = config.InitDB(log, conf.Postgres)
+	sql0 = config.InitDB(log, conf.Postgres)
 
 	// Redis Initialization
-	redisClient0 = config.InitRedis(log, conf.Redis, preference.REDIS_APPS)
-	redisClient1 = config.InitRedis(log, conf.Redis, preference.REDIS_AUTH)
-	redisClient2 = config.InitRedis(log, conf.Redis, preference.REDIS_LIMITER)
+	redis0 = config.InitRedis(log, conf.Redis, preference.REDIS_APPS)
+	redis1 = config.InitRedis(log, conf.Redis, preference.REDIS_AUTH)
+	redis2 = config.InitRedis(log, conf.Redis, preference.REDIS_LIMITER)
 
 	// Query Loader Initialization
-	queryLoader, err := config.InitQueryLoader(log, conf.Queries)
-	if err != nil {
-		log.Panic().Err(err).Msg("Failed to load queries")
-	}
+	queryLoader := config.InitQueryLoader(log, conf.Queries)
 
 	// Initialize dependencies
-	repository := repository.InitRepository(sqlClient0, redisClient0, queryLoader, conf.Redis.CacheTTL)
+	repository := repository.InitRepository(sql0, redis0, queryLoader, conf.Redis.CacheTTL)
 	service := service.InitService(repository)
 
 	// Initialize validator
-	util.Validator()
+	config.InitValidator(log)
 
 	// Auth Initialization
-	auth := config.InitAuth(log, conf.Auth, redisClient1)
+	auth := config.InitAuth(log, conf.Auth, redis1)
 
 	// Middleware Initialization
-	middleware := config.InitMiddleware(log, auth, redisClient2)
+	middleware := config.InitMiddleware(log, auth, redis2)
 
 	// HTTP Gin Initialization
 	httpGin := config.InitHttpGin(log, middleware)
 
 	// REST Handler Initialization
-	resthandler.InitRestHandler(httpGin, auth, middleware, service)
+	restHandler.InitRestHandler(httpGin, auth, middleware, service)
 
 	//Scheduler Initialization
-	scheduler := config.InitScheduler(log, conf.Scheduler)
+	scheduler = config.InitScheduler(log, conf.Scheduler)
 	schedHandler.InitSchedulerHandler(log, scheduler, service, conf.Scheduler.SchedulerJobs)
 
 	// HTTP Server Initialization
@@ -102,20 +99,24 @@ func init() {
 // @schemes		http https
 func main() {
 	defer func() {
-		if redisClient0 != nil {
-			redisClient0.Close()
+		if redis0 != nil {
+			redis0.Close()
 		}
 
-		if redisClient1 != nil {
-			redisClient1.Close()
+		if redis1 != nil {
+			redis1.Close()
 		}
 
-		if redisClient2 != nil {
-			redisClient2.Close()
+		if redis2 != nil {
+			redis2.Close()
 		}
 
-		if sqlClient0 != nil {
-			sqlClient0.Close()
+		if sql0 != nil {
+			sql0.Close()
+		}
+
+		if scheduler != nil {
+			scheduler.Stop()
 		}
 	}()
 

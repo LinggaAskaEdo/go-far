@@ -77,7 +77,21 @@ scheduler:
   jobs:
     user_generator:
       enabled: false
-      cron: "*/30 * * * * *"  # Every 30 seconds
+      cron: "*/30 * * * * *" # Every 30 seconds
       batch_size: 5
       min_age: 18
       max_age: 80
+
+middleware:
+  rate_limiter:
+    enabled: true
+    global:
+      limit: 100 # 100 requests
+      window: 1m # per minute
+    endpoints:
+      create_user:
+        limit: 10 # 10 requests
+        window: 1m # per minute
+      list_users:
+        limit: 50 # 50 requests
+        window: 1m # per minute

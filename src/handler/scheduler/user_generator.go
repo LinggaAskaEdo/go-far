@@ -8,6 +8,7 @@ import (
 
 	"go-far/src/config"
 	"go-far/src/domain"
+	"go-far/src/dto"
 	"go-far/src/service/user"
 
 	"github.com/rs/zerolog"
@@ -20,7 +21,7 @@ type UserGeneratorJob struct {
 	rng         *rand.Rand
 }
 
-func InitUserJobGenerator(log zerolog.Logger, userService user.UserServiceItf, cfg config.UserGeneratorJobOptions) *UserGeneratorJob {
+func InitUserGeneratorJob(log zerolog.Logger, userService user.UserServiceItf, cfg config.UserGeneratorJobOptions) *UserGeneratorJob {
 	return &UserGeneratorJob{
 		log:         log,
 		userService: userService,
@@ -51,7 +52,7 @@ func (j *UserGeneratorJob) Run(ctx context.Context) error {
 	for i := 0; i < j.config.BatchSize; i++ {
 		user := j.generateRandomUser()
 
-		req := domain.CreateUserRequest{
+		req := dto.CreateUserRequest{
 			Name:  user.Name,
 			Email: user.Email,
 			Age:   user.Age,

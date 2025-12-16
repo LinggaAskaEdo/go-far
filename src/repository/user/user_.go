@@ -8,133 +8,115 @@ import (
 	"time"
 
 	"go-far/src/domain"
-	exception "go-far/src/errors"
+	"go-far/src/dto"
+	x "go-far/src/errors"
 
+	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog"
 )
 
-func (d *userRepository) Create(ctx context.Context, user *domain.User) error {
-	query, _ := d.queryLoader.Get("CreateUser")
-
-	now := time.Now()
-	err := d.db.QueryRowContext(
-		ctx,
-		query,
-		user.Name,
-		user.Email,
-		user.Age,
-		now,
-		now,
-	).Scan(&user.ID)
+func (d *userRepository) CreateUser(ctx context.Context, user *domain.User) (*domain.User, error) {
+	tx, err := d.sql0.BeginTxx(ctx, &sql.TxOptions{
+		Isolation: sql.LevelDefault,
+	})
 	if err != nil {
-		zerolog.Ctx(ctx).Error().Err(err).Msg("Failed to create user")
-		return exception.InternalServerError("Failed to create user")
+		zerolog.Ctx(ctx).Error().Err(err).Msg("tx_create_user")
+		return user, x.Wrap(err, "tx_create_user")
 	}
 
-	user.CreatedAt = now
-	user.UpdatedAt = now
+	tx, user, err = d.createSQLUser(ctx, tx, user)
+	if err != nil {
+		_ = tx.Rollback()
+		zerolog.Ctx(ctx).Error().Err(err).Msg("sql_create_user")
+		return user, x.Wrap(err, "sql_create_user")
+	}
 
-	return nil
+	if err = tx.Commit(); err != nil {
+		zerolog.Ctx(ctx).Error().Err(err).Msg("commit_create_user")
+		return user, x.Wrap(err, "commit_create_user")
+	}
+
+	return user, nil
 }
 
-func (d *userRepository) FindByID(ctx context.Context, id string) (*domain.User, error) {
+func (d *userRepository) FindUserByID(ctx context.Context, id string) (domain.User, error) {
+	var user domain.User
+
 	cacheKey := fmt.Sprintf("user:%s", id)
 
-	cached, err := d.redis.Get(ctx, cacheKey).Result()
+	cached, err := d.redis0.Get(ctx, cacheKey).Result()
 	if err == nil {
-		var user domain.User
+
 		if err := json.Unmarshal([]byte(cached), &user); err == nil {
-			zerolog.Ctx(ctx).Debug().Str("id", id).Msg("User found in cache")
-			return &user, nil
+			zerolog.Ctx(ctx).Debug().Str("id", id).Msg("data_found_in_cache")
+			return user, nil
 		}
 	}
 
 	query, _ := d.queryLoader.Get("FindUserByID")
 
-	var user domain.User
-	err = d.db.GetContext(ctx, &user, query, id)
+	err = d.sql0.GetContext(ctx, &user, query, id)
 	if err != nil {
 		if err == sql.ErrNoRows {
-			zerolog.Ctx(ctx).Debug().Str("id", id).Msg("User not found")
-			return nil, exception.NotFoundError("User not found")
+			zerolog.Ctx(ctx).Debug().Str("id", id).Msg("user_not_found")
+			return user, x.WrapWithCode(err, x.CodeSQLEmptyRow, "user_not_found")
 		}
 
-		zerolog.Ctx(ctx).Error().Err(err).Str("id", id).Msg("Failed to find user")
-		return nil, exception.InternalServerError("Failed to find user")
+		zerolog.Ctx(ctx).Error().Err(err).Str("id", id).Msg("find_user_err")
+		return user, x.WrapWithCode(err, x.CodeSQLRowScan, "find_user_err")
 	}
 
 	data, _ := json.Marshal(user)
-	d.redis.Set(ctx, cacheKey, data, d.cacheTTL)
+	d.redis0.Set(ctx, cacheKey, data, d.cacheTTL)
 
-	return &user, nil
+	return user, nil
 }
 
-func (d *userRepository) FindAll(ctx context.Context, filter domain.UserFilter) ([]*domain.User, int64, error) {
-	if filter.Page < 1 {
-		filter.Page = 1
+func (d *userRepository) FindAllUser(ctx context.Context, cacheControl dto.CacheControl, filter dto.UserFilter) ([]domain.User, dto.Pagination, error) {
+	if cacheControl.MustRevalidate {
+		result, pagination, err := d.findAllSQLUser(ctx, filter)
+		if err != nil {
+			return result, pagination, err
+		}
+
+		if err = d.setCacheFindAllUser(ctx, filter, result, pagination); err != nil {
+			zerolog.Ctx(ctx).Warn().Err(err).Send()
+		}
+
+		return result, pagination, nil
 	}
 
-	if filter.PageSize < 1 {
-		filter.PageSize = 10
+	result, pagination, err := d.getCacheFindAllUser(ctx, filter)
+	if err == redis.Nil {
+		zerolog.Ctx(ctx).Warn().Err(err).Send()
+
+		result, pagination, err = d.findAllSQLUser(ctx, filter)
+		if err != nil {
+			return result, pagination, err
+		}
+
+		if err = d.setCacheFindAllUser(ctx, filter, result, pagination); err != nil {
+			zerolog.Ctx(ctx).Warn().Err(err).Send()
+		}
+
+		return result, pagination, nil
+	} else if err != nil {
+		zerolog.Ctx(ctx).Warn().Err(err).Send()
+
+		// fallback if there is redis error e.g. bad conn, etc.
+		// this is quite critical during high load traffic since it could be
+		// thundering our db. (thundering herd).
+		// we leave as it is to reduce code complexity [TODO LATER]
+		return d.findAllSQLUser(ctx, filter)
 	}
 
-	if filter.SortDir == "" {
-		filter.SortDir = "ASC"
-	}
-
-	// Prepare template data
-	templateData := map[string]any{
-		"Name":    filter.Name,
-		"Email":   filter.Email,
-		"MinAge":  filter.MinAge,
-		"MaxAge":  filter.MaxAge,
-		"SortBy":  filter.SortBy,
-		"SortDir": filter.SortDir,
-		"name":    filter.Name,
-		"email":   filter.Email,
-		"min_age": filter.MinAge,
-		"max_age": filter.MaxAge,
-		"limit":   filter.PageSize,
-		"offset":  (filter.Page - 1) * filter.PageSize,
-	}
-
-	// Count total
-	countQuery, countArgs, err := d.queryLoader.ExecuteTemplate("CountUsersBase", templateData)
-	if err != nil {
-		zerolog.Ctx(ctx).Error().Err(err).Msg("Failed to build count query")
-		return nil, 0, exception.InternalServerError("Failed to build count query")
-	}
-
-	var total int64
-	err = d.db.GetContext(ctx, &total, countQuery, countArgs...)
-	if err != nil {
-		zerolog.Ctx(ctx).Error().Err(err).Msg("Failed to count users")
-		return nil, 0, exception.InternalServerError("Failed to count users")
-	}
-
-	zerolog.Ctx(ctx).Debug().Int64("total", total).Msg("Total users found")
-
-	// Get users
-	query, args, err := d.queryLoader.ExecuteTemplate("FindAllUsersBase", templateData)
-	if err != nil {
-		zerolog.Ctx(ctx).Error().Err(err).Msg("Failed to build query")
-		return nil, 0, exception.InternalServerError("Failed to build query")
-	}
-
-	var users []*domain.User
-	err = d.db.SelectContext(ctx, &users, query, args...)
-	if err != nil {
-		zerolog.Ctx(ctx).Error().Err(err).Msg("Failed to find users")
-		return nil, 0, exception.InternalServerError("Failed to find users")
-	}
-
-	return users, total, nil
+	return result, pagination, nil
 }
 
-func (d *userRepository) Update(ctx context.Context, id string, user *domain.User) error {
+func (d *userRepository) UpdateUser(ctx context.Context, id string, user domain.User) error {
 	query, _ := d.queryLoader.Get("UpdateUser")
 
-	result, err := d.db.ExecContext(
+	result, err := d.sql0.ExecContext(
 		ctx,
 		query,
 		user.Name,
@@ -143,41 +125,40 @@ func (d *userRepository) Update(ctx context.Context, id string, user *domain.Use
 		time.Now(),
 		id,
 	)
-
 	if err != nil {
-		zerolog.Ctx(ctx).Error().Err(err).Str("id", id).Msg("Failed to update user")
-		return exception.InternalServerError("Failed to update user")
+		zerolog.Ctx(ctx).Error().Err(err).Str("id", id).Msg("update_user_err")
+		return x.WrapWithCode(err, x.CodeSQLUpdate, "update_user_err")
 	}
 
 	rows, _ := result.RowsAffected()
 	if rows == 0 {
-		zerolog.Ctx(ctx).Debug().Str("id", id).Msg("User not found for update")
-		return exception.NotFoundError("User not found")
+		zerolog.Ctx(ctx).Debug().Str("id", id).Msg("user_not_found_for_update")
+		return x.WrapWithCode(err, x.CodeSQLEmptyRow, "user_not_found_for_update")
 	}
 
 	cacheKey := fmt.Sprintf("user:%s", id)
-	d.redis.Del(ctx, cacheKey)
+	d.redis0.Del(ctx, cacheKey)
 
 	return nil
 }
 
-func (d *userRepository) Delete(ctx context.Context, id string) error {
+func (d *userRepository) DeleteUser(ctx context.Context, id string) error {
 	query, _ := d.queryLoader.Get("DeleteUser")
 
-	result, err := d.db.ExecContext(ctx, query, id)
+	result, err := d.sql0.ExecContext(ctx, query, id)
 	if err != nil {
-		zerolog.Ctx(ctx).Error().Err(err).Str("id", id).Msg("Failed to delete user")
-		return exception.InternalServerError("Failed to delete user")
+		zerolog.Ctx(ctx).Error().Err(err).Str("id", id).Msg("failed_to_delete_user")
+		return x.WrapWithCode(err, x.CodeSQLDelete, "failed_to_delete_user")
 	}
 
 	rows, _ := result.RowsAffected()
 	if rows == 0 {
-		zerolog.Ctx(ctx).Debug().Str("id", id).Msg("User not found for deletion")
-		return exception.NotFoundError("User not found")
+		zerolog.Ctx(ctx).Debug().Str("id", id).Msg("user_not_found_for_deletion")
+		return x.WrapWithCode(err, x.CodeSQLEmptyRow, "user_not_found_for_deletion")
 	}
 
 	cacheKey := fmt.Sprintf("user:%s", id)
-	d.redis.Del(ctx, cacheKey)
+	d.redis0.Del(ctx, cacheKey)
 
 	return nil
 }

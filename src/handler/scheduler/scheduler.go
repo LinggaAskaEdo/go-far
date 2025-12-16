@@ -34,9 +34,9 @@ func InitSchedulerHandler(log zerolog.Logger, sch *config.Scheduler, svc *servic
 }
 
 func (s *scheduler) Serve() *config.Scheduler {
-	// User
+	// User Generator
 	if s.jobs.UserGeneratorJob.Enabled {
-		userJob := InitUserJobGenerator(s.log, s.svc.User, s.jobs.UserGeneratorJob)
+		userJob := InitUserGeneratorJob(s.log, s.svc.User, s.jobs.UserGeneratorJob)
 		if err := s.sch.AddJob(userJob); err != nil {
 			s.log.Error().Err(err).Msg("Failed to add UserGeneratorJob to scheduler")
 		}

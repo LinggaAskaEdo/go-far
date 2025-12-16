@@ -2,6 +2,7 @@ package config
 
 import (
 	"context"
+	"fmt"
 	"sync"
 
 	"github.com/robfig/cron/v3"
@@ -80,7 +81,7 @@ func (s *Scheduler) Start() {
 	defer s.mu.RUnlock()
 
 	s.cron.Start()
-	s.log.Info().Int("jobs", len(s.jobs)).Msg("Scheduler started")
+	s.log.Debug().Msg("Scheduler started, jobs registered: " + fmt.Sprint(len(s.jobs)))
 }
 
 func (s *Scheduler) Stop() {

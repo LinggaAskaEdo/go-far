@@ -36,13 +36,34 @@ type middleware struct {
 	rdb *redis.Client
 }
 
-type Options struct {
-	// Limiter LimiterOptions
+type MiddlewareOptions struct {
+	RateLimiter RateLimiterOptions `yaml:"rate_limiter"`
 }
 
-type LimiterOptions struct {
-	Command string
-	Limit   int
+type RateLimiterOptions struct {
+	Enabled          bool                    `yaml:"enabled"`
+	GlobalLimiter    GlobalLimiterOptions    `yaml:"global"`
+	EndpointsLimiter EndpointsLimiterOptions `yaml:"endpoints"`
+}
+
+type GlobalLimiterOptions struct {
+	Limit  int           `yaml:"limit"`
+	Window time.Duration `yaml:"window"`
+}
+
+type EndpointsLimiterOptions struct {
+	CreateUser CreateUserOptions `yaml:"create_user"`
+	ListUser   ListUserOptions   `yaml:"list_user"`
+}
+
+type CreateUserOptions struct {
+	Limit  int           `yaml:"limit"`
+	Window time.Duration `yaml:"window"`
+}
+
+type ListUserOptions struct {
+	Limit  int           `yaml:"limit"`
+	Window time.Duration `yaml:"window"`
 }
 
 func InitMiddleware(log zerolog.Logger, auth Auth, rdb *redis.Client) Middleware {

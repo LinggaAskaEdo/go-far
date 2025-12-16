@@ -6,30 +6,31 @@ import (
 
 	"go-far/src/config"
 	"go-far/src/domain"
+	"go-far/src/dto"
 
 	"github.com/jmoiron/sqlx"
 	"github.com/redis/go-redis/v9"
 )
 
 type UserRepositoryItf interface {
-	Create(ctx context.Context, user *domain.User) error
-	FindByID(ctx context.Context, id string) (*domain.User, error)
-	FindAll(ctx context.Context, filter domain.UserFilter) ([]*domain.User, int64, error)
-	Update(ctx context.Context, id string, user *domain.User) error
-	Delete(ctx context.Context, id string) error
+	CreateUser(ctx context.Context, user *domain.User) (*domain.User, error)
+	FindUserByID(ctx context.Context, id string) (domain.User, error)
+	FindAllUser(ctx context.Context, cacheControl dto.CacheControl, filter dto.UserFilter) ([]domain.User, dto.Pagination, error)
+	UpdateUser(ctx context.Context, id string, user domain.User) error
+	DeleteUser(ctx context.Context, id string) error
 }
 
 type userRepository struct {
-	db          *sqlx.DB
-	redis       *redis.Client
+	sql0        *sqlx.DB
+	redis0      *redis.Client
 	queryLoader *config.QueryLoader
 	cacheTTL    time.Duration
 }
 
-func InitUserRepository(db *sqlx.DB, redis *redis.Client, queryLoader *config.QueryLoader, cacheTTL time.Duration) UserRepositoryItf {
+func InitUserRepository(sql0 *sqlx.DB, redis0 *redis.Client, queryLoader *config.QueryLoader, cacheTTL time.Duration) UserRepositoryItf {
 	return &userRepository{
-		db:          db,
-		redis:       redis,
+		sql0:        sql0,
+		redis0:      redis0,
 		queryLoader: queryLoader,
 		cacheTTL:    cacheTTL,
 	}

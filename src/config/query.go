@@ -19,7 +19,7 @@ type QueryLoader struct {
 	filePath string
 }
 
-func InitQueryLoader(log zerolog.Logger, opt QueriesOptions) (*QueryLoader, error) {
+func InitQueryLoader(log zerolog.Logger, opt QueriesOptions) *QueryLoader {
 	queryPath := fmt.Sprintf("%s/user_queries.sql", opt.Path)
 	ql := &QueryLoader{
 		queries:  make(map[string]string),
@@ -27,10 +27,10 @@ func InitQueryLoader(log zerolog.Logger, opt QueriesOptions) (*QueryLoader, erro
 	}
 
 	if err := ql.load(log); err != nil {
-		return nil, err
+		log.Panic().Err(err).Msg("Failed to load queries")
 	}
 
-	return ql, nil
+	return ql
 }
 
 func (ql *QueryLoader) load(log zerolog.Logger) error {
@@ -40,9 +40,9 @@ func (ql *QueryLoader) load(log zerolog.Logger) error {
 	}
 
 	content := string(data)
-	sections := strings.Split(content, "-- name:")
+	sections := strings.SplitSeq(content, "-- name:")
 
-	for _, section := range sections {
+	for section := range sections {
 		if strings.TrimSpace(section) == "" {
 			continue
 		}
@@ -60,7 +60,7 @@ func (ql *QueryLoader) load(log zerolog.Logger) error {
 		ql.queries[name] = query
 	}
 
-	log.Info().Int("count", len(ql.queries)).Msg("Queries loaded successfully")
+	log.Debug().Msg("Queries loaded successfully, total queries: " + fmt.Sprint(len(ql.queries)))
 
 	return nil
 }

@@ -9,7 +9,7 @@ import (
 	"sync"
 	"time"
 
-	exception "go-far/src/errors"
+	x "go-far/src/errors"
 
 	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
@@ -92,7 +92,7 @@ func (a *auth) GenerateToken(c *gin.Context, data any) (*TokenDetails, error) {
 
 	key, err := jwt.ParseRSAPrivateKeyFromPEM(a.privateKey)
 	if err != nil {
-		return nil, exception.InternalServerError("Failed to parse key")
+		return nil, x.WrapWithCode(err, x.CodeHTTPInternalServerError, "Failed to parse key")
 	}
 
 	dataVal := reflect.ValueOf(data)
@@ -115,7 +115,7 @@ func (a *auth) GenerateToken(c *gin.Context, data any) (*TokenDetails, error) {
 
 	td.AccessToken, err = at.SignedString(key)
 	if err != nil {
-		return nil, exception.InternalServerError("Failed to sign access token")
+		return nil, x.WrapWithCode(err, x.CodeHTTPInternalServerError, "Failed to sign access token")
 	}
 
 	rt := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{
@@ -127,7 +127,7 @@ func (a *auth) GenerateToken(c *gin.Context, data any) (*TokenDetails, error) {
 
 	td.RefreshToken, err = rt.SignedString(key)
 	if err != nil {
-		return nil, exception.InternalServerError("Failed to sign refresh token")
+		return nil, x.WrapWithCode(err, x.CodeHTTPInternalServerError, "Failed to sign refresh token")
 	}
 
 	err = a.saveToRedis(ctx, publicID, td)
@@ -141,12 +141,12 @@ func (a *auth) GenerateToken(c *gin.Context, data any) (*TokenDetails, error) {
 func (a *auth) saveToRedis(ctx context.Context, publicID string, td *TokenDetails) error {
 	respAccess := a.redis.Set(ctx, td.AccessUUID, publicID, a.expiredToken)
 	if respAccess.Err() != nil {
-		return exception.InternalServerError("Failed to store access token in Redis")
+		return x.WrapWithCode(respAccess.Err(), x.CodeHTTPInternalServerError, "Failed to store access token in Redis")
 	}
 
 	respRefresh := a.redis.Set(ctx, td.RefreshUUID, publicID, a.expiredRefreshToken)
 	if respRefresh.Err() != nil {
-		return exception.InternalServerError("Failed to store refresh token in Redis")
+		return x.WrapWithCode(respRefresh.Err(), x.CodeHTTPInternalServerError, "Failed to store refresh token in Redis")
 	}
 
 	return nil
@@ -167,7 +167,7 @@ func (a *auth) checkingToken(c *gin.Context) (*AccessDetails, error) {
 
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok || !token.Valid {
-		return nil, exception.UnauthorizedError("Invalid token")
+		return nil, x.NewWithCode(x.CodeHTTPUnauthorized, "Invalid token")
 	}
 
 	userID := claims["user_id"].(string)
@@ -177,16 +177,16 @@ func (a *auth) checkingToken(c *gin.Context) (*AccessDetails, error) {
 
 	accessUUID, ok = claims["access_uuid"].(string)
 	if !ok {
-		return nil, exception.UnauthorizedError("Failed claims accessUUID")
+		return nil, x.NewWithCode(x.CodeHTTPUnauthorized, "Failed claims accessUUID")
 	}
 
 	redisIDUser, err = a.redis.Get(ctx, accessUUID).Result()
 	if err != nil {
-		return nil, exception.UnauthorizedError("Failed to get token from Redis")
+		return nil, x.WrapWithCode(err, x.CodeHTTPInternalServerError, "Failed to get token from Redis")
 	}
 
 	if userID != redisIDUser {
-		return nil, exception.UnauthorizedError("Authentication failure")
+		return nil, x.NewWithCode(x.CodeHTTPUnauthorized, "Authentication failure")
 	}
 
 	return &AccessDetails{
@@ -213,18 +213,18 @@ func (a *auth) extractToken(c *gin.Context) string {
 func (a *auth) verifyToken(tokenStr string) (*jwt.Token, error) {
 	key, err := jwt.ParseRSAPublicKeyFromPEM(a.publicKey)
 	if err != nil {
-		return nil, exception.InternalServerError("Failed to parse key")
+		return nil, x.WrapWithCode(err, x.CodeHTTPInternalServerError, "Failed to parse key")
 	}
 
 	token, err := jwt.Parse(tokenStr, func(jwtToken *jwt.Token) (any, error) {
 		if _, ok := jwtToken.Method.(*jwt.SigningMethodRSA); !ok {
-			return nil, exception.InternalServerError(fmt.Sprintf("unexpected signing method: %v", jwtToken.Header["alg"]))
+			return nil, x.WrapWithCode(err, x.CodeHTTPInternalServerError, fmt.Sprintf("unexpected signing method: %v", jwtToken.Header["alg"]))
 		}
 
 		return key, nil
 	})
 	if err != nil {
-		return nil, exception.InternalServerError("Failed to parse token")
+		return nil, x.WrapWithCode(err, x.CodeHTTPInternalServerError, "Failed to parse token")
 	}
 
 	return token, nil
@@ -240,7 +240,7 @@ func (a *auth) ValidateRefreshToken(c *gin.Context, tokenStr string) (*AccessDet
 
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok || !token.Valid {
-		return nil, exception.UnauthorizedError("Invalid token")
+		return nil, x.NewWithCode(x.CodeHTTPUnauthorized, "Invalid token")
 	}
 
 	userID := claims["user_id"].(string)
@@ -255,11 +255,11 @@ func (a *auth) ValidateRefreshToken(c *gin.Context, tokenStr string) (*AccessDet
 
 	redisIDUser, err = a.redis.Get(ctx, refreshUUID).Result()
 	if err != nil {
-		return nil, exception.InternalServerError("Failed to get token from Redis")
+		return nil, x.WrapWithCode(err, x.CodeHTTPInternalServerError, "Failed to get token from Redis")
 	}
 
 	if userID != redisIDUser {
-		return nil, exception.UnauthorizedError("Authentication failure")
+		return nil, x.NewWithCode(x.CodeHTTPUnauthorized, "Authentication failure")
 	}
 
 	return &AccessDetails{

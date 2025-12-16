@@ -3,6 +3,10 @@ package preference
 type contextKey string
 
 const (
+	// Respnose Status
+	STATUS_SUCCESS string = "success"
+	STATUS_ERROR   string = "error"
+
 	// Database Type
 	MYSQL    string = `mysql`
 	POSTGRES string = `postgres`
@@ -22,4 +26,15 @@ const (
 	STATUS                     string     = "status_code"
 	LATENCY                    string     = "latency"
 	USER_AGENT                 string     = "user_agent"
+
+	// Lang Header
+	LANG_EN string = `en`
+	LANG_ID string = `id`
+
+	// Custom HTTP Header
+	APP_LANG string = `x-app-lang`
+
+	// Cache Control Header
+	CacheControl        string = `cache-control`
+	CacheMustRevalidate string = `must-revalidate`
 )

@@ -1,9 +1,10 @@
 package rest
 
 import (
+	"sync"
+
 	"go-far/src/config"
 	"go-far/src/service"
-	"sync"
 
 	"github.com/gin-gonic/gin"
 )

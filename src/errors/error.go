@@ -1,76 +1,100 @@
-package exception
+package errors
 
 import (
 	"fmt"
 	"net/http"
+	"strings"
+
+	"go-far/src/preference"
 )
 
 type AppError struct {
-	Code    string `json:"code"`
-	Message string `json:"message"`
-	Status  int    `json:"-"`
+	Code       Code    `json:"code"`
+	Message    string  `json:"message"`
+	DebugError *string `json:"debug,omitempty"`
+	sys        error
 }
 
-func (e *AppError) Error() string {
-	return fmt.Sprintf("%s: %s", e.Code, e.Message)
-}
-
-func NewAppError(code, message string, status int) *AppError {
-	return &AppError{
-		Code:    code,
-		Message: message,
-		Status:  status,
+func init() {
+	svcError = map[ServiceType]ErrorMessage{
+		COMMON: ErrorMessages,
 	}
 }
 
-var (
-	ErrNotFound = NewAppError(
-		"NOT_FOUND",
-		"Resource not found",
-		http.StatusNotFound,
-	)
+func Compile(service ServiceType, err error, lang string, debugMode bool) (int, AppError) {
+	var debugErr *string
 
-	ErrBadRequest = NewAppError(
-		"BAD_REQUEST",
-		"Invalid request",
-		http.StatusBadRequest,
-	)
+	if debugMode {
+		errStr := err.Error()
+		if len(errStr) > 0 {
+			debugErr = &errStr
+		}
+	}
 
-	ErrInternalServer = NewAppError(
-		"INTERNAL_SERVER_ERROR",
-		"Internal server error",
-		http.StatusInternalServerError,
-	)
+	code := ErrCode(err)
 
-	ErrUnauthorized = NewAppError(
-		"UNAUTHORIZED",
-		"Unauthorized access",
-		http.StatusUnauthorized,
-	)
+	if errMessage, ok := svcError[COMMON][code]; ok {
+		msg := errMessage.ID
+		if lang == preference.LANG_EN {
+			msg = errMessage.EN
+		}
 
-	ErrConflict = NewAppError(
-		"CONFLICT",
-		"Resource already exists",
-		http.StatusConflict,
-	)
-)
+		return errMessage.StatusCode, AppError{
+			Code:       code,
+			Message:    msg,
+			sys:        err,
+			DebugError: debugErr,
+		}
+	}
 
-func NotFoundError(message string) *AppError {
-	return NewAppError("NOT_FOUND", message, http.StatusNotFound)
-}
+	if errMessages, ok := svcError[service]; ok {
+		if errMessage, ok := errMessages[code]; ok {
+			msg := errMessage.ID
+			if lang == preference.LANG_EN {
+				msg = errMessage.EN
+			}
 
-func BadRequestError(message string) *AppError {
-	return NewAppError("BAD_REQUEST", message, http.StatusBadRequest)
-}
+			if errMessage.HasAnnotation {
+				args := fmt.Sprintf("%q", err.Error())
+				if start, end := strings.LastIndex(args, `{{`), strings.LastIndex(args, `}}`); start > -1 && end > -1 {
+					args = strings.TrimSpace(args[start+2 : end])
+					msg = fmt.Sprintf(msg, args)
+				} else {
+					index := strings.Index(args, `\n`)
+					if index > 0 {
+						args = strings.TrimSpace(args[1:index])
+					}
 
-func InternalServerError(message string) *AppError {
-	return NewAppError("INTERNAL_SERVER_ERROR", message, http.StatusInternalServerError)
-}
+					msg = fmt.Sprintf(msg, args)
+				}
+			}
 
-func ConflictError(message string) *AppError {
-	return NewAppError("CONFLICT", message, http.StatusConflict)
-}
+			if code == CodeHTTPValidatorError {
+				if err.Error() != "" {
+					msg = strings.Split(err.Error(), "\n ---")[0]
+				}
+			}
 
-func UnauthorizedError(message string) *AppError {
-	return NewAppError("UNAUTHORIZED", message, http.StatusUnauthorized)
+			return errMessage.StatusCode, AppError{
+				Code:       code,
+				Message:    msg,
+				sys:        err,
+				DebugError: debugErr,
+			}
+		}
+
+		return http.StatusInternalServerError, AppError{
+			Code:       code,
+			Message:    "error message not defined!",
+			sys:        err,
+			DebugError: debugErr,
+		}
+	}
+
+	return http.StatusInternalServerError, AppError{
+		Code:       code,
+		Message:    "service error not defined!",
+		sys:        err,
+		DebugError: debugErr,
+	}
 }

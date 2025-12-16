@@ -1,13 +1,53 @@
 .PHONY: all help build run clean swagger migrate deps cert-install cert-create fmt vet lint test check install-tools sql-postgres-create sql-postgres-up sql-mysql-create sql-mysql-up
 
-all: clean check swagger build run ## Execute all steps `clean check swagger build run`
-
 help: ## Show this help message
 	@printf "\033[36m%-30s\033[0m %s\n" "Target" "Description"
 	@printf "\033[36m%-30s\033[0m %s\n" "------" "-----------"
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "\033[33m%-30s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-build: ## Build the application
+all: clean update swagger check build run ## Execute all steps `clean check swagger build run`
+
+clean: ## Clean build artifacts
+	@echo "Cleaning..."
+	@rm -rf ./bin/
+	@rm -f coverage.out coverage.html
+	@echo "Clean complete"
+
+fmt: ## Format code
+	@echo "Formatting code..."
+	@go fmt ./...
+	@echo "Format complete"
+
+vet: ## Run go vet
+	@echo "Running go vet..."
+	@go vet ./...
+	@echo "Vet complete"
+
+lint: ## Run linter
+	@echo "Running linter..."
+	@golangci-lint run
+	@echo "Linting complete"
+
+check: fmt vet lint ## Run all checks
+	@echo "All checks passed"
+
+update: ## Update dependencies
+	@echo "Updating dependencies..."
+	@go get -u ./...
+	@go mod tidy
+	@echo "Dependencies updated"
+
+swagger: ## Generate swagger documentation
+	@echo "Generating Swagger docs..."
+	@(swag fmt -d ./src 2>&1 | grep -v "warning: failed to get package name in dir") || true
+	@(swag init -g ./src/cmd/app.go -o ./docs 2>&1 | grep -v "warning: failed to get package name in dir") || true
+	@echo "Fixing generated docs (removing LeftDelim/RightDelim)..."
+	@sed -i.bak '/LeftDelim/d' ./docs/docs.go 2>/dev/null || sed -i '/LeftDelim/d' ./docs/docs.go 2>/dev/null
+	@sed -i.bak '/RightDelim/d' ./docs/docs.go 2>/dev/null || sed -i '/RightDelim/d' ./docs/docs.go 2>/dev/null
+	@rm -f ./docs/docs.go.bak 2>/dev/null || true
+	@echo "Swagger docs generated and fixed successfully"
+
+build: clean check swagger ## Build the application
 	@echo "Building application..."
 	@go mod tidy
 	@go generate ./src/cmd
@@ -17,23 +57,6 @@ build: ## Build the application
 run: ## Run the application
 	@echo "Starting application..."
 	@./bin/app
-
-clean: ## Clean build artifacts
-	@echo "Cleaning..."
-	@rm -rf ./bin/
-	@rm -f coverage.out coverage.html
-	@echo "Clean complete"
-
-swagger: ## Generate swagger documentation
-	@echo "Generating Swagger docs..."
-	@rm -rf ./docs/
-	@(swag fmt -d ./src 2>&1 | grep -v "warning: failed to get package name in dir") || true
-	@(swag init -g ./src/cmd/app.go -o ./docs 2>&1 | grep -v "warning: failed to get package name in dir") || true
-	@echo "Fixing generated docs (removing LeftDelim/RightDelim)..."
-	@sed -i.bak '/LeftDelim/d' ./docs/docs.go 2>/dev/null || sed -i '/LeftDelim/d' ./docs/docs.go 2>/dev/null
-	@sed -i.bak '/RightDelim/d' ./docs/docs.go 2>/dev/null || sed -i '/RightDelim/d' ./docs/docs.go 2>/dev/null
-	@rm -f ./docs/docs.go.bak 2>/dev/null || true
-	@echo "Swagger docs generated and fixed successfully"
 
 migrate: ## Run database migrations
 	@echo "Running migrations..."
@@ -57,29 +80,6 @@ cert-create: ## Generate RSA key pair if not exists
 	else \
 		echo "Directory is not empty !!!"; \
 	fi
-
-fmt: ## Format code
-	@echo "Formatting code..."
-	@go fmt ./...
-	@echo "Format complete"
-
-vet: ## Run go vet
-	@echo "Running go vet..."
-	@go vet ./...
-	@echo "Vet complete"
-
-lint: ## Run linter
-	@echo "Running linter..."
-	@golangci-lint run
-	@echo "Linting complete"
-
-test: ## Run tests
-	@echo "Running tests..."
-	@go test -v -race -coverprofile=coverage.out ./...
-	@go tool cover -html=coverage.out -o coverage.html
-	@echo "Coverage report: coverage.html"
-
-check: fmt vet lint ## Run all checks
 
 install-tools: ## Install development tools
 	@echo "Installing tools..."
