@@ -6,7 +6,7 @@
     "swagger": "2.0",
     "info": {
         "description": "Clean Architecture CRUD API with Go",
-        "title": "Go Far",
+        "title": "Go-Far",
         "termsOfService": "http://swagger.io/terms/",
         "contact": {
             "name": "API Support",

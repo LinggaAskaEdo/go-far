@@ -66,7 +66,7 @@ func init() {
 	auth := config.InitAuth(log, conf.Auth, redis1)
 
 	// Middleware Initialization
-	middleware := config.InitMiddleware(log, auth, redis2)
+	middleware := config.InitMiddleware(log, conf.Middleware, auth, redis2)
 
 	// HTTP Gin Initialization
 	httpGin := config.InitHttpGin(log, middleware)
@@ -85,7 +85,7 @@ func init() {
 	app = config.InitGrace(log, httpServer)
 }
 
-// @title			Go Far
+// @title			Go-Far
 // @version		1.0
 // @description	Clean Architecture CRUD API with Go
 // @termsOfService	http://swagger.io/terms/

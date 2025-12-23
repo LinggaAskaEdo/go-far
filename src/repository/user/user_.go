@@ -5,7 +5,6 @@ import (
 	"database/sql"
 	"encoding/json"
 	"fmt"
-	"time"
 
 	"go-far/src/domain"
 	"go-far/src/dto"
@@ -114,51 +113,19 @@ func (d *userRepository) FindAllUser(ctx context.Context, cacheControl dto.Cache
 }
 
 func (d *userRepository) UpdateUser(ctx context.Context, id string, user domain.User) error {
-	query, _ := d.queryLoader.Get("UpdateUser")
-
-	result, err := d.sql0.ExecContext(
-		ctx,
-		query,
-		user.Name,
-		user.Email,
-		user.Age,
-		time.Now(),
-		id,
-	)
+	err := d.updateSQLUser(ctx, id, user)
 	if err != nil {
-		zerolog.Ctx(ctx).Error().Err(err).Str("id", id).Msg("update_user_err")
-		return x.WrapWithCode(err, x.CodeSQLUpdate, "update_user_err")
+		return err
 	}
-
-	rows, _ := result.RowsAffected()
-	if rows == 0 {
-		zerolog.Ctx(ctx).Debug().Str("id", id).Msg("user_not_found_for_update")
-		return x.WrapWithCode(err, x.CodeSQLEmptyRow, "user_not_found_for_update")
-	}
-
-	cacheKey := fmt.Sprintf("user:%s", id)
-	d.redis0.Del(ctx, cacheKey)
 
 	return nil
 }
 
 func (d *userRepository) DeleteUser(ctx context.Context, id string) error {
-	query, _ := d.queryLoader.Get("DeleteUser")
-
-	result, err := d.sql0.ExecContext(ctx, query, id)
+	err := d.deleteSQLUser(ctx, id)
 	if err != nil {
-		zerolog.Ctx(ctx).Error().Err(err).Str("id", id).Msg("failed_to_delete_user")
-		return x.WrapWithCode(err, x.CodeSQLDelete, "failed_to_delete_user")
+		return err
 	}
-
-	rows, _ := result.RowsAffected()
-	if rows == 0 {
-		zerolog.Ctx(ctx).Debug().Str("id", id).Msg("user_not_found_for_deletion")
-		return x.WrapWithCode(err, x.CodeSQLEmptyRow, "user_not_found_for_deletion")
-	}
-
-	cacheKey := fmt.Sprintf("user:%s", id)
-	d.redis0.Del(ctx, cacheKey)
 
 	return nil
 }

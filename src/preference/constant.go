@@ -37,4 +37,8 @@ const (
 	// Cache Control Header
 	CacheControl        string = `cache-control`
 	CacheMustRevalidate string = `must-revalidate`
+
+	// Limiter Error Message
+	FormatError  string = "Please check the format with your input."
+	CommandError string = "The command of first number should > 0"
 )

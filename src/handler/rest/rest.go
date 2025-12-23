@@ -36,7 +36,7 @@ func InitRestHandler(gin *gin.Engine, auth config.Auth, mw config.Middleware, sv
 func (e *rest) Serve() {
 	// User
 	e.gin.POST("/users", e.CreateUser)
-	e.gin.GET("/users/:id", e.GetUser)
+	e.gin.GET("/users/:id", e.mw.Limiter("1-M", 3), e.GetUser)
 	e.gin.GET("/users", e.ListUsers)
 	e.gin.PUT("/users/:id", e.UpdateUser)
 	e.gin.DELETE("/users/:id", e.DeleteUser)

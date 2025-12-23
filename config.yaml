@@ -84,14 +84,5 @@ scheduler:
 
 middleware:
   rate_limiter:
-    enabled: true
-    global:
-      limit: 100 # 100 requests
-      window: 1m # per minute
-    endpoints:
-      create_user:
-        limit: 10 # 10 requests
-        window: 1m # per minute
-      list_users:
-        limit: 50 # 50 requests
-        window: 1m # per minute
+    command: "1-S" # 1 request per second
+    limit: 500 # max 500 clients
