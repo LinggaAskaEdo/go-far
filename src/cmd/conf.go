@@ -18,6 +18,7 @@ type Config struct {
 	Queries    config.QueriesOptions    `yaml:"queries"`
 	Auth       config.AuthOptions       `yaml:"auth"`
 	Middleware config.MiddlewareOptions `yaml:"middleware"`
+	Gin        config.GinOptions        `yaml:"gin"`
 	Scheduler  config.SchedulerOptions  `yaml:"scheduler"`
 }
 

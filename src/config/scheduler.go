@@ -90,7 +90,7 @@ func (s *Scheduler) Stop() {
 
 	ctx := s.cron.Stop()
 	<-ctx.Done()
-	s.log.Info().Msg("Scheduler stopped")
+	s.log.Debug().Msg("Scheduler stopped...")
 }
 
 func (s *Scheduler) ListJobs() []string {

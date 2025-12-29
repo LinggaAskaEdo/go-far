@@ -1,0 +1,48 @@
+server:
+  http_listen_port: 9080
+  grpc_listen_port: 0
+
+positions:
+  filename: /tmp/positions.yaml
+
+clients:
+  - url: http://loki-docker:3100/loki/api/v1/push
+
+scrape_configs:
+  - job_name: go_far_app_logs
+    static_configs:
+      - targets:
+          - localhost
+        labels:
+          job: go-far-app
+          __path__: /var/log/app/*.log
+    pipeline_stages:
+      - json:
+          expressions:
+            level: level
+            event: event
+            trace_id: trace_id
+            span_id: span_id
+            method: method
+            url: url
+            user_agent: user_agent
+            addr: addr
+            error: error
+            total: total
+            message: message
+            latency: latency
+            status_code: status_code
+            caller: caller
+            timestamp: time
+      - labels:
+          level:
+          event:
+          trace_id:
+          span_id:
+          method:
+          status_code:
+      - timestamp:
+          source: timestamp
+          format: 2006-01-02T15:04:05-07:00
+      - output:
+          source: message

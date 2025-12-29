@@ -19,12 +19,15 @@ import (
 var (
 	minJitter int
 	maxJitter int
+
 	sql0      *sqlx.DB
 	redis0    *redis.Client
 	redis1    *redis.Client
 	redis2    *redis.Client
 	scheduler *config.Scheduler
-	app       config.App
+
+	tracer config.Tracer
+	app    config.App
 )
 
 func init() {
@@ -69,7 +72,7 @@ func init() {
 	middleware := config.InitMiddleware(log, conf.Middleware, auth, redis2)
 
 	// HTTP Gin Initialization
-	httpGin := config.InitHttpGin(log, middleware)
+	httpGin := config.InitHttpGin(log, middleware, conf.Gin)
 
 	// REST Handler Initialization
 	restHandler.InitRestHandler(httpGin, auth, middleware, service)
@@ -81,8 +84,11 @@ func init() {
 	// HTTP Server Initialization
 	httpServer := config.InitHttpServer(log, conf.Server, httpGin)
 
+	// Tracer Initialization
+	tracer = config.InitTracer(log)
+
 	// App Initialization
-	app = config.InitGrace(log, httpServer)
+	app = config.InitGrace(log, httpServer, tracer)
 }
 
 // @title			Go-Far

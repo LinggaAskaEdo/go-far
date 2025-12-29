@@ -86,3 +86,6 @@ middleware:
   rate_limiter:
     command: "1-S" # 1 request per second
     limit: 500 # max 500 clients
+
+gin:
+  app_name: go-far-app

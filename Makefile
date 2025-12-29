@@ -88,6 +88,16 @@ install-tools: ## Install development tools
 	@go install github.com/pressly/goose/v3/cmd/goose@latest
 	@echo "Tools installed"
 
+mon-start: ## Start monitoring stack (Grafana, Prometheus, Loki, Tempo)
+	@echo "Starting monitoring stack..."
+	@./start-monitoring.sh
+	@echo "Monitoring stack started"
+
+mon-stop: ## Stop monitoring stack
+	@echo "Stopping monitoring stack..."
+	@./stop-monitoring.sh
+	@echo "Monitoring stack stopped"
+
 sql-postgres-create: ## Create SQL migration files for postgres
 	@echo "Creating postgres SQL migration files..."
 	@read -p "Enter migration name (use underscores): " name; \

@@ -19,6 +19,8 @@ const (
 	// Logging Context Keys
 	CONTEXT_KEY_REQUEST_ID     contextKey = "requestID"
 	CONTEXT_KEY_LOG_REQUEST_ID contextKey = "req_id"
+	CONTEXT_KEY_LOG_TRACE_ID   contextKey = "trace_id"
+	CONTEXT_KEY_LOG_SPAN_ID    contextKey = "span_id"
 	EVENT                      string     = "event"
 	METHOD                     string     = "method"
 	URL                        string     = "url"

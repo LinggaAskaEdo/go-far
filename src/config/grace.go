@@ -25,15 +25,17 @@ type App interface {
 type app struct {
 	log        zerolog.Logger
 	httpServer *http.Server
+	tracer     Tracer
 }
 
-func InitGrace(log zerolog.Logger, httpServer *http.Server) App {
+func InitGrace(log zerolog.Logger, httpServer *http.Server, tracer Tracer) App {
 	var gs *app
 
 	onceGrace.Do(func() {
 		gs = &app{
 			log:        log,
 			httpServer: httpServer,
+			tracer:     tracer,
 		}
 	})
 
@@ -48,7 +50,7 @@ func (g *app) Serve() {
 	signal.Notify(signalCh, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 
 	wg.Add(1)
-	go startHTTPServer(ctx, &wg, g.log, g.httpServer)
+	go startHTTPServer(ctx, &wg, g.log, g.httpServer, g.tracer)
 
 	// Wait for termination signal
 	<-signalCh
@@ -62,10 +64,10 @@ func (g *app) Serve() {
 	// Wait for the HTTP server to finish
 	wg.Wait()
 
-	g.log.Debug().Msg("Shutdown complete.")
+	g.log.Debug().Msg("Shutdown complete...")
 }
 
-func startHTTPServer(ctx context.Context, wg *sync.WaitGroup, log zerolog.Logger, httpServer *http.Server) {
+func startHTTPServer(ctx context.Context, wg *sync.WaitGroup, log zerolog.Logger, httpServer *http.Server, tracer Tracer) {
 	defer wg.Done()
 
 	// Start the HTTP server in a separate goroutine
@@ -93,5 +95,10 @@ func startHTTPServer(ctx context.Context, wg *sync.WaitGroup, log zerolog.Logger
 		log.Debug().AnErr("HTTP server shutdown error", err)
 	}
 
-	log.Debug().Msg("HTTP server stopped.")
+	err = tracer.Stop(shutdownCtx)
+	if err != nil {
+		log.Debug().AnErr("Tracer shutdown error", err)
+	}
+
+	log.Debug().Msg("HTTP server stopped...")
 }
