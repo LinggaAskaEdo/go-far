@@ -5,7 +5,7 @@ help: ## Show this help message
 	@printf "\033[36m%-30s\033[0m %s\n" "------" "-----------"
 	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "\033[33m%-30s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
 
-all: clean update swagger check build run ## Execute all steps `clean check swagger build run`
+all: build run ## Execute all steps `clean check swagger build run`
 
 clean: ## Clean build artifacts
 	@echo "Cleaning..."
@@ -47,7 +47,7 @@ swagger: ## Generate swagger documentation
 	@rm -f ./docs/docs.go.bak 2>/dev/null || true
 	@echo "Swagger docs generated and fixed successfully"
 
-build: clean check swagger ## Build the application
+build: clean update check swagger ## Build the application
 	@echo "Building application..."
 	@go mod tidy
 	@go generate ./src/cmd
