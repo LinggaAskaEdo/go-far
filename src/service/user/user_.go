@@ -14,7 +14,7 @@ func (s *userService) CreateUser(ctx context.Context, req dto.CreateUserRequest)
 		Age:   req.Age,
 	}
 
-	if _, err := s.userRepository.CreateUser(ctx, user); err != nil {
+	if _, err := s.userRepository.Create(ctx, user); err != nil {
 		return nil, err
 	}
 
@@ -22,15 +22,15 @@ func (s *userService) CreateUser(ctx context.Context, req dto.CreateUserRequest)
 }
 
 func (s *userService) GetUser(ctx context.Context, id string) (domain.User, error) {
-	return s.userRepository.FindUserByID(ctx, id)
+	return s.userRepository.FindByID(ctx, id)
 }
 
 func (s *userService) ListUsers(ctx context.Context, cacheControl dto.CacheControl, filter dto.UserFilter) ([]domain.User, dto.Pagination, error) {
-	return s.userRepository.FindAllUser(ctx, cacheControl, filter)
+	return s.userRepository.FindAll(ctx, cacheControl, filter)
 }
 
 func (s *userService) UpdateUser(ctx context.Context, id string, req dto.UpdateUserRequest) (domain.User, error) {
-	existingUser, err := s.userRepository.FindUserByID(ctx, id)
+	existingUser, err := s.userRepository.FindByID(ctx, id)
 	if err != nil {
 		return existingUser, err
 	}
@@ -47,13 +47,13 @@ func (s *userService) UpdateUser(ctx context.Context, id string, req dto.UpdateU
 		existingUser.Age = req.Age
 	}
 
-	if err := s.userRepository.UpdateUser(ctx, id, existingUser); err != nil {
+	if err := s.userRepository.Update(ctx, id, existingUser); err != nil {
 		return existingUser, err
 	}
 
-	return s.userRepository.FindUserByID(ctx, id)
+	return s.userRepository.FindByID(ctx, id)
 }
 
 func (s *userService) DeleteUser(ctx context.Context, id string) error {
-	return s.userRepository.DeleteUser(ctx, id)
+	return s.userRepository.Delete(ctx, id)
 }

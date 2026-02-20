@@ -14,7 +14,7 @@ import (
 	"github.com/rs/zerolog"
 )
 
-func (d *userRepository) CreateUser(ctx context.Context, user *domain.User) (*domain.User, error) {
+func (d *userRepository) Create(ctx context.Context, user *domain.User) (*domain.User, error) {
 	tx, err := d.sql0.BeginTxx(ctx, &sql.TxOptions{
 		Isolation: sql.LevelDefault,
 	})
@@ -38,7 +38,7 @@ func (d *userRepository) CreateUser(ctx context.Context, user *domain.User) (*do
 	return user, nil
 }
 
-func (d *userRepository) FindUserByID(ctx context.Context, id string) (domain.User, error) {
+func (d *userRepository) FindByID(ctx context.Context, id string) (domain.User, error) {
 	var user domain.User
 
 	cacheKey := fmt.Sprintf("user:%s", id)
@@ -71,7 +71,7 @@ func (d *userRepository) FindUserByID(ctx context.Context, id string) (domain.Us
 	return user, nil
 }
 
-func (d *userRepository) FindAllUser(ctx context.Context, cacheControl dto.CacheControl, filter dto.UserFilter) ([]domain.User, dto.Pagination, error) {
+func (d *userRepository) FindAll(ctx context.Context, cacheControl dto.CacheControl, filter dto.UserFilter) ([]domain.User, dto.Pagination, error) {
 	if cacheControl.MustRevalidate {
 		result, pagination, err := d.findAllSQLUser(ctx, filter)
 		if err != nil {
@@ -112,7 +112,7 @@ func (d *userRepository) FindAllUser(ctx context.Context, cacheControl dto.Cache
 	return result, pagination, nil
 }
 
-func (d *userRepository) UpdateUser(ctx context.Context, id string, user domain.User) error {
+func (d *userRepository) Update(ctx context.Context, id string, user domain.User) error {
 	err := d.updateSQLUser(ctx, id, user)
 	if err != nil {
 		return err
@@ -121,7 +121,7 @@ func (d *userRepository) UpdateUser(ctx context.Context, id string, user domain.
 	return nil
 }
 
-func (d *userRepository) DeleteUser(ctx context.Context, id string) error {
+func (d *userRepository) Delete(ctx context.Context, id string) error {
 	err := d.deleteSQLUser(ctx, id)
 	if err != nil {
 		return err

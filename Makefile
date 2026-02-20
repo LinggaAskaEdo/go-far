@@ -111,7 +111,7 @@ sql-postgres-up: ## Apply up migrations for postgres
 			read -p "Enter postgres password: " pass ; \
 			stty echo ; \
 			echo ; \
-			goose -dir ./etc/migrations/postgres postgres "host=localhost user=postgres password=$$pass dbname=gofar sslmode=disable" up ; \
+			goose -dir ./etc/migrations/postgres postgres "host=localhost user=postgres password=$$pass dbname=go_far sslmode=disable" up ; \
 		}
 
 sql-mysql-create: ## Create SQL migration files for mysql
@@ -127,5 +127,5 @@ sql-mysql-up: ## Apply up migrations for mysql
 			read -p "Enter mysql password: " pass ; \
 			stty echo ; \
 			echo ; \
-			goose -dir ./etc/migrations/mysql mysql "host=localhost user=root password=$$pass dbname=gofar sslmode=disable" up ; \
+			goose -dir ./etc/migrations/mysql mysql "host=localhost user=root password=$$pass dbname=go_far sslmode=disable" up ; \
 		}

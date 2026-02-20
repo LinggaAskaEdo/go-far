@@ -24,7 +24,7 @@ postgres:
   port: 5432
   user: postgres
   password: a5k4CooL
-  dbname: gofar
+  dbname: go_far
   sslmode: false
   max_open_conns: 25
   max_idle_conns: 5
@@ -38,7 +38,7 @@ mysql:
   port: 3306
   user: root
   password: a5k4CooL
-  dbname: gofar
+  dbname: go_far
   sslmode: false
   max_open_conns: 25
   max_idle_conns: 5
@@ -76,7 +76,7 @@ scheduler:
   enabled: true
   jobs:
     user_generator:
-      enabled: false
+      enabled: true
       cron: "*/30 * * * * *" # Every 30 seconds
       batch_size: 5
       min_age: 18

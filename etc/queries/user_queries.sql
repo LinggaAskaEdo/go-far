@@ -4,30 +4,30 @@ VALUES ($1, $2, $3)
 RETURNING id, created_at, updated_at;
 
 -- name: FindUserByID
-SELECT id, name, email, age, created_at, updated_at 
+SELECT id, name, email, age, is_active, created_at, updated_at 
 FROM users 
 WHERE id = $1;
 
 -- name: FindAllUsersBase
-SELECT id, name, email, age, created_at, updated_at 
+SELECT id, name, email, age, is_active, created_at, updated_at 
 FROM users
 WHERE 1=1
 {{if .Name}}
-  AND name ILIKE '%' || $name || '%'
+    AND name ILIKE '%' || $name || '%'
 {{end}}
 {{if .Email}}
-  AND email ILIKE '%' || $email || '%'
+    AND email ILIKE '%' || $email || '%'
 {{end}}
 {{if .MinAge}}
-  AND age >= $min_age
+    AND age >= $min_age
 {{end}}
 {{if .MaxAge}}
-  AND age <= $max_age
+    AND age <= $max_age
 {{end}}
 {{if .SortBy}}
-  ORDER BY {{.SortBy}} {{.SortDir}}
+    ORDER BY {{.SortBy}} {{.SortDir}}
 {{else}}
-  ORDER BY id ASC
+    ORDER BY id ASC
 {{end}}
 LIMIT $limit OFFSET $offset;
 
@@ -36,16 +36,16 @@ SELECT COUNT(*)
 FROM users
 WHERE 1=1
 {{if .Name}}
-  AND name ILIKE '%' || $name || '%'
+    AND name ILIKE '%' || $name || '%'
 {{end}}
 {{if .Email}}
-  AND email ILIKE '%' || $email || '%'
+    AND email ILIKE '%' || $email || '%'
 {{end}}
 {{if .MinAge}}
-  AND age >= $min_age
+    AND age >= $min_age
 {{end}}
 {{if .MaxAge}}
-  AND age <= $max_age
+    AND age <= $max_age
 {{end}};
 
 -- name: UpdateUser

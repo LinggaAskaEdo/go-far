@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"html/template"
 	"os"
+	"path/filepath"
 	"strings"
 
 	"github.com/rs/zerolog"
@@ -20,10 +21,10 @@ type QueryLoader struct {
 }
 
 func InitQueryLoader(log zerolog.Logger, opt QueriesOptions) *QueryLoader {
-	queryPath := fmt.Sprintf("%s/user_queries.sql", opt.Path)
+	// queryPath := fmt.Sprintf("%s/user_queries.sql", opt.Path)
 	ql := &QueryLoader{
 		queries:  make(map[string]string),
-		filePath: queryPath,
+		filePath: opt.Path,
 	}
 
 	if err := ql.load(log); err != nil {
@@ -34,7 +35,30 @@ func InitQueryLoader(log zerolog.Logger, opt QueriesOptions) *QueryLoader {
 }
 
 func (ql *QueryLoader) load(log zerolog.Logger) error {
-	data, err := os.ReadFile(ql.filePath)
+	// Read all .sql files in the directory
+	files, err := filepath.Glob(filepath.Join(ql.filePath, "*.sql"))
+	if err != nil {
+		return err
+	}
+
+	if len(files) == 0 {
+		return fmt.Errorf("no SQL files found in path: %s", ql.filePath)
+	}
+
+	// Load queries from each file
+	for _, file := range files {
+		if err := ql.loadFile(log, file); err != nil {
+			return fmt.Errorf("failed to load file %s: %w", file, err)
+		}
+	}
+
+	log.Debug().Msg("Queries loaded successfully, total queries: " + fmt.Sprint(len(ql.queries)))
+
+	return nil
+}
+
+func (ql *QueryLoader) loadFile(log zerolog.Logger, filePath string) error {
+	data, err := os.ReadFile(filePath)
 	if err != nil {
 		return err
 	}
@@ -60,7 +84,7 @@ func (ql *QueryLoader) load(log zerolog.Logger) error {
 		ql.queries[name] = query
 	}
 
-	log.Debug().Msg("Queries loaded successfully, total queries: " + fmt.Sprint(len(ql.queries)))
+	log.Debug().Str("file", filepath.Base(filePath)).Msg("Loaded queries from file")
 
 	return nil
 }

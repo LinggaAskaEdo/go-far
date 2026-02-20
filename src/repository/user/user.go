@@ -13,11 +13,11 @@ import (
 )
 
 type UserRepositoryItf interface {
-	CreateUser(ctx context.Context, user *domain.User) (*domain.User, error)
-	FindUserByID(ctx context.Context, id string) (domain.User, error)
-	FindAllUser(ctx context.Context, cacheControl dto.CacheControl, filter dto.UserFilter) ([]domain.User, dto.Pagination, error)
-	UpdateUser(ctx context.Context, id string, user domain.User) error
-	DeleteUser(ctx context.Context, id string) error
+	Create(ctx context.Context, user *domain.User) (*domain.User, error)
+	FindByID(ctx context.Context, id string) (domain.User, error)
+	FindAll(ctx context.Context, cacheControl dto.CacheControl, filter dto.UserFilter) ([]domain.User, dto.Pagination, error)
+	Update(ctx context.Context, id string, user domain.User) error
+	Delete(ctx context.Context, id string) error
 }
 
 type userRepository struct {
