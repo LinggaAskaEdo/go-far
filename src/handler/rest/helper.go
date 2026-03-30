@@ -12,6 +12,52 @@ import (
 	"github.com/gin-gonic/gin"
 )
 
+// Health godoc
+//
+//	@Summary		Health check endpoint
+//	@Description	Returns the health status of the service
+//	@Tags			health
+//	@Produce		json
+//	@Success		200	{object}	dto.HttpSuccessResp{data=dto.HealthStatus}
+//	@Router			/health [get]
+func (e *rest) Health(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	status := dto.HealthStatus{
+		Status:    "healthy",
+		Timestamp: time.Now().Format(time.RFC3339),
+		Service:   "go-far-app",
+		Version:   "1.0.0",
+	}
+
+	e.httpRespSuccess(c, http.StatusOK, status, nil)
+	_ = ctx
+}
+
+// Ready godoc
+//
+//	@Summary		Readiness check endpoint
+//	@Description	Returns the readiness status of the service (checks dependencies)
+//	@Tags			health
+//	@Produce		json
+//	@Success		200	{object}	dto.HttpSuccessResp{data=dto.ReadinessStatus}
+//	@Failure		503	{object}	dto.HTTPErrorResp
+//	@Router			/ready [get]
+func (e *rest) Ready(c *gin.Context) {
+	ctx := c.Request.Context()
+
+	// Add dependency checks here (database, redis, etc.)
+	// For now, return a simple ready response
+	status := dto.ReadinessStatus{
+		Status:       "ready",
+		Timestamp:    time.Now().Format(time.RFC3339),
+		Dependencies: map[string]string{"database": "unknown", "redis": "unknown"},
+	}
+
+	e.httpRespSuccess(c, http.StatusOK, status, nil)
+	_ = ctx
+}
+
 func (e *rest) httpRespSuccess(c *gin.Context, statusCode int, resp any, p *dto.Pagination) {
 	meta := dto.Meta{
 		Path:       c.Request.URL.Path,

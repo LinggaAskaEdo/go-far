@@ -40,6 +40,20 @@ const (
 	CacheControl        string = `cache-control`
 	CacheMustRevalidate string = `must-revalidate`
 
+	// API Routes
+	RouteUsers            string = "/users"
+	RouteUsersByID        string = "/users/:id"
+	RouteHealth           string = "/health"
+	RouteReady            string = "/ready"
+	RouteCars             string = "/cars"
+	RouteCarsByID         string = "/cars/:id"
+	RouteCarsBulk         string = "/cars/bulk"
+	RouteCarsOwner        string = "/cars/:id/owner"
+	RouteCarsTransfer     string = "/cars/:id/transfer"
+	RouteCarsAvailability string = "/cars/availability"
+	RouteCarsByUser       string = "/cars/by-user/:user_id"
+	RouteCarsByUserCount  string = "/cars/by-user/:user_id/count"
+
 	// Limiter Error Message
 	FormatError  string = "Please check the format with your input."
 	CommandError string = "The command of first number should > 0"

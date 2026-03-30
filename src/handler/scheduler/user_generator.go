@@ -6,7 +6,7 @@ import (
 	"math/rand"
 	"time"
 
-	"go-far/src/config"
+	cfg "go-far/src/config/scheduler"
 	"go-far/src/domain"
 	"go-far/src/dto"
 	"go-far/src/service/user"
@@ -17,11 +17,11 @@ import (
 type UserGeneratorJob struct {
 	log         zerolog.Logger
 	userService user.UserServiceItf
-	config      config.UserGeneratorJobOptions
+	config      cfg.UserGeneratorJobOptions
 	rng         *rand.Rand
 }
 
-func InitUserGeneratorJob(log zerolog.Logger, userService user.UserServiceItf, cfg config.UserGeneratorJobOptions) *UserGeneratorJob {
+func InitUserGeneratorJob(log zerolog.Logger, userService user.UserServiceItf, cfg cfg.UserGeneratorJobOptions) *UserGeneratorJob {
 	return &UserGeneratorJob{
 		log:         log,
 		userService: userService,

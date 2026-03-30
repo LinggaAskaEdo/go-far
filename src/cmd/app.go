@@ -4,7 +4,16 @@ import (
 	"flag"
 
 	_ "go-far/docs"
-	"go-far/src/config"
+	"go-far/src/config/auth"
+	"go-far/src/config/database"
+	"go-far/src/config/grace"
+	"go-far/src/config/logger"
+	"go-far/src/config/middleware"
+	"go-far/src/config/query"
+	cfgredis "go-far/src/config/redis"
+	cfgscheduler "go-far/src/config/scheduler"
+	"go-far/src/config/server"
+	"go-far/src/config/tracer"
 	restHandler "go-far/src/handler/rest"
 	schedHandler "go-far/src/handler/scheduler"
 	"go-far/src/preference"
@@ -24,10 +33,10 @@ var (
 	redis0    *redis.Client
 	redis1    *redis.Client
 	redis2    *redis.Client
-	scheduler *config.Scheduler
+	scheduler *cfgscheduler.Scheduler
 
-	tracer config.Tracer
-	app    config.App
+	tracerInst tracer.Tracer
+	app        grace.App
 )
 
 func init() {
@@ -45,50 +54,50 @@ func init() {
 	}
 
 	// Logger Initialization
-	log := config.InitLogger(conf.Logger)
+	log := logger.InitLogger(conf.Logger)
 
 	// SQL Initialization
-	sql0 = config.InitDB(log, conf.Postgres)
+	sql0 = database.InitDB(log, conf.Postgres)
 
 	// Redis Initialization
-	redis0 = config.InitRedis(log, conf.Redis, preference.REDIS_APPS)
-	redis1 = config.InitRedis(log, conf.Redis, preference.REDIS_AUTH)
-	redis2 = config.InitRedis(log, conf.Redis, preference.REDIS_LIMITER)
+	redis0 = cfgredis.InitRedis(log, conf.Redis, preference.REDIS_APPS)
+	redis1 = cfgredis.InitRedis(log, conf.Redis, preference.REDIS_AUTH)
+	redis2 = cfgredis.InitRedis(log, conf.Redis, preference.REDIS_LIMITER)
 
 	// Query Loader Initialization
-	queryLoader := config.InitQueryLoader(log, conf.Queries)
+	queryLoader := query.InitQueryLoader(log, conf.Queries)
 
 	// Initialize dependencies
 	repository := repository.InitRepository(sql0, redis0, queryLoader, conf.Redis.CacheTTL)
 	service := service.InitService(repository)
 
 	// Initialize validator
-	config.InitValidator(log)
+	middleware.InitValidator(log)
 
 	// Auth Initialization
-	auth := config.InitAuth(log, conf.Auth, redis1)
+	authInst := auth.InitAuth(log, conf.Auth, redis1)
 
 	// Middleware Initialization
-	middleware := config.InitMiddleware(log, conf.Middleware, auth, redis2)
+	mw := middleware.InitMiddleware(log, conf.Middleware, authInst, redis2)
 
 	// HTTP Gin Initialization
-	httpGin := config.InitHttpGin(log, middleware, conf.Gin)
+	httpGin := server.InitHttpGin(log, mw, conf.Gin)
 
 	// REST Handler Initialization
-	restHandler.InitRestHandler(httpGin, auth, middleware, service)
+	restHandler.InitRestHandler(httpGin, authInst, mw, service)
 
-	//Scheduler Initialization
-	scheduler = config.InitScheduler(log, conf.Scheduler)
+	// Scheduler Initialization
+	scheduler = cfgscheduler.InitScheduler(log, conf.Scheduler)
 	schedHandler.InitSchedulerHandler(log, scheduler, service, conf.Scheduler.SchedulerJobs)
 
 	// HTTP Server Initialization
-	httpServer := config.InitHttpServer(log, conf.Server, httpGin)
+	httpServer := server.InitHttpServer(log, conf.Server, httpGin)
 
 	// Tracer Initialization
-	tracer = config.InitTracer(log)
+	tracerInst = tracer.InitTracer(log, conf.Tracer)
 
 	// App Initialization
-	app = config.InitGrace(log, httpServer, tracer)
+	app = grace.InitGrace(log, httpServer, tracerInst)
 }
 
 // @title			Go-Far

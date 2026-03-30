@@ -1,4 +1,54 @@
 definitions:
+  domain.Car:
+    properties:
+      brand:
+        type: string
+      color:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: string
+      is_available:
+        type: boolean
+      license_plate:
+        type: string
+      model:
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: string
+      year:
+        type: integer
+    type: object
+  domain.CarWithOwner:
+    properties:
+      brand:
+        type: string
+      color:
+        type: string
+      created_at:
+        type: string
+      id:
+        type: string
+      is_available:
+        type: boolean
+      license_plate:
+        type: string
+      model:
+        type: string
+      owner_email:
+        type: string
+      owner_name:
+        type: string
+      updated_at:
+        type: string
+      user_id:
+        type: string
+      year:
+        type: integer
+    type: object
   domain.User:
     properties:
       age:
@@ -15,6 +65,62 @@ definitions:
         type: string
       updated_at:
         type: string
+    type: object
+  dto.BulkCreateCarsRequest:
+    properties:
+      cars:
+        items:
+          $ref: '#/definitions/dto.CreateCarRequest'
+        maxItems: 50
+        minItems: 1
+        type: array
+      user_id:
+        type: string
+    required:
+    - cars
+    - user_id
+    type: object
+  dto.BulkUpdateAvailabilityRequest:
+    properties:
+      car_ids:
+        items:
+          type: string
+        minItems: 1
+        type: array
+      is_available:
+        type: boolean
+    required:
+    - car_ids
+    type: object
+  dto.CreateCarRequest:
+    properties:
+      brand:
+        maxLength: 100
+        minLength: 2
+        type: string
+      color:
+        maxLength: 50
+        type: string
+      license_plate:
+        maxLength: 20
+        minLength: 3
+        type: string
+      model:
+        maxLength: 100
+        minLength: 2
+        type: string
+      user_id:
+        type: string
+      year:
+        maximum: 2100
+        minimum: 1900
+        type: integer
+    required:
+    - brand
+    - license_plate
+    - model
+    - user_id
+    - year
     type: object
   dto.CreateUserRequest:
     properties:
@@ -37,6 +143,17 @@ definitions:
     properties:
       metadata:
         $ref: '#/definitions/dto.Meta'
+    type: object
+  dto.HealthStatus:
+    properties:
+      service:
+        type: string
+      status:
+        type: string
+      timestamp:
+        type: string
+      version:
+        type: string
     type: object
   dto.HttpSuccessResp:
     properties:
@@ -99,6 +216,48 @@ definitions:
         type: integer
         x-order: "2"
     type: object
+  dto.ReadinessStatus:
+    properties:
+      dependencies:
+        additionalProperties:
+          type: string
+        type: object
+      status:
+        type: string
+      timestamp:
+        type: string
+    type: object
+  dto.TransferCarRequest:
+    properties:
+      new_user_id:
+        type: string
+    required:
+    - new_user_id
+    type: object
+  dto.UpdateCarRequest:
+    properties:
+      brand:
+        maxLength: 100
+        minLength: 2
+        type: string
+      color:
+        maxLength: 50
+        type: string
+      is_available:
+        type: boolean
+      license_plate:
+        maxLength: 20
+        minLength: 3
+        type: string
+      model:
+        maxLength: 100
+        minLength: 2
+        type: string
+      year:
+        maximum: 2100
+        minimum: 1900
+        type: integer
+    type: object
   dto.UpdateUserRequest:
     properties:
       age:
@@ -126,6 +285,386 @@ info:
   title: Go-Far
   version: "1.0"
 paths:
+  /cars:
+    post:
+      consumes:
+      - application/json
+      description: Create a new car with the provided information
+      parameters:
+      - description: Car data
+        in: body
+        name: car
+        required: true
+        schema:
+          $ref: '#/definitions/dto.CreateCarRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/dto.HttpSuccessResp'
+            - properties:
+                data:
+                  $ref: '#/definitions/domain.Car'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.HTTPErrorResp'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.HTTPErrorResp'
+      summary: Create a new car
+      tags:
+      - cars
+  /cars/{id}:
+    delete:
+      description: Delete a car by ID
+      parameters:
+      - description: Car ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.HttpSuccessResp'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.HTTPErrorResp'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.HTTPErrorResp'
+      summary: Delete car
+      tags:
+      - cars
+    get:
+      description: Get a car by its ID
+      parameters:
+      - description: Car ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/dto.HttpSuccessResp'
+            - properties:
+                data:
+                  $ref: '#/definitions/domain.Car'
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.HTTPErrorResp'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.HTTPErrorResp'
+      summary: Get car by ID
+      tags:
+      - cars
+    put:
+      consumes:
+      - application/json
+      description: Update an existing car
+      parameters:
+      - description: Car ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: Car data
+        in: body
+        name: car
+        required: true
+        schema:
+          $ref: '#/definitions/dto.UpdateCarRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/dto.HttpSuccessResp'
+            - properties:
+                data:
+                  $ref: '#/definitions/domain.Car'
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.HTTPErrorResp'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.HTTPErrorResp'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.HTTPErrorResp'
+      summary: Update car
+      tags:
+      - cars
+  /cars/{id}/owner:
+    get:
+      description: Get a car by its ID with owner information
+      parameters:
+      - description: Car ID
+        in: path
+        name: id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/dto.HttpSuccessResp'
+            - properties:
+                data:
+                  $ref: '#/definitions/domain.CarWithOwner'
+              type: object
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.HTTPErrorResp'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.HTTPErrorResp'
+      summary: Get car with owner details
+      tags:
+      - cars
+  /cars/{id}/transfer:
+    post:
+      consumes:
+      - application/json
+      description: Transfer a car to a new owner
+      parameters:
+      - description: Car ID
+        in: path
+        name: id
+        required: true
+        type: string
+      - description: New owner ID
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.TransferCarRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.HttpSuccessResp'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.HTTPErrorResp'
+        "404":
+          description: Not Found
+          schema:
+            $ref: '#/definitions/dto.HTTPErrorResp'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.HTTPErrorResp'
+      summary: Transfer car ownership
+      tags:
+      - cars
+  /cars/availability:
+    put:
+      consumes:
+      - application/json
+      description: Update availability status for multiple cars
+      parameters:
+      - description: Car IDs and availability status
+        in: body
+        name: request
+        required: true
+        schema:
+          $ref: '#/definitions/dto.BulkUpdateAvailabilityRequest'
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            $ref: '#/definitions/dto.HttpSuccessResp'
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.HTTPErrorResp'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.HTTPErrorResp'
+      summary: Bulk update car availability
+      tags:
+      - cars
+  /cars/bulk:
+    post:
+      consumes:
+      - application/json
+      description: Create multiple cars for a user in a single request
+      parameters:
+      - description: Cars data
+        in: body
+        name: cars
+        required: true
+        schema:
+          $ref: '#/definitions/dto.BulkCreateCarsRequest'
+      produces:
+      - application/json
+      responses:
+        "201":
+          description: Created
+          schema:
+            allOf:
+            - $ref: '#/definitions/dto.HttpSuccessResp'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/domain.Car'
+                  type: array
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.HTTPErrorResp'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.HTTPErrorResp'
+      summary: Create multiple cars
+      tags:
+      - cars
+  /cars/by-user/{user_id}:
+    get:
+      description: Get all cars owned by a specific user
+      parameters:
+      - description: User ID
+        in: path
+        name: user_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/dto.HttpSuccessResp'
+            - properties:
+                data:
+                  items:
+                    $ref: '#/definitions/domain.Car'
+                  type: array
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.HTTPErrorResp'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.HTTPErrorResp'
+      summary: List cars by user
+      tags:
+      - cars
+  /cars/by-user/{user_id}/count:
+    get:
+      description: Get the total number of cars owned by a specific user
+      parameters:
+      - description: User ID
+        in: path
+        name: user_id
+        required: true
+        type: string
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/dto.HttpSuccessResp'
+            - properties:
+                data:
+                  type: integer
+              type: object
+        "400":
+          description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.HTTPErrorResp'
+        "500":
+          description: Internal Server Error
+          schema:
+            $ref: '#/definitions/dto.HTTPErrorResp'
+      summary: Count cars by user
+      tags:
+      - cars
+  /health:
+    get:
+      description: Returns the health status of the service
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/dto.HttpSuccessResp'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.HealthStatus'
+              type: object
+      summary: Health check endpoint
+      tags:
+      - health
+  /ready:
+    get:
+      description: Returns the readiness status of the service (checks dependencies)
+      produces:
+      - application/json
+      responses:
+        "200":
+          description: OK
+          schema:
+            allOf:
+            - $ref: '#/definitions/dto.HttpSuccessResp'
+            - properties:
+                data:
+                  $ref: '#/definitions/dto.ReadinessStatus'
+              type: object
+        "503":
+          description: Service Unavailable
+          schema:
+            $ref: '#/definitions/dto.HTTPErrorResp'
+      summary: Readiness check endpoint
+      tags:
+      - health
   /users:
     get:
       description: Get a paginated list of users with optional filters

@@ -1,8 +1,9 @@
-package config
+package redis
 
 import (
 	"context"
 	"fmt"
+	"os"
 	"time"
 
 	"go-far/src/preference"
@@ -11,6 +12,7 @@ import (
 	"github.com/rs/zerolog"
 )
 
+// RedisOptions holds Redis configuration
 type RedisOptions struct {
 	Enabled         bool          `yaml:"enabled"`
 	Network         string        `yaml:"network"`
@@ -30,12 +32,21 @@ type RedisOptions struct {
 	PoolTimeout     time.Duration `yaml:"pool_timeout"`
 }
 
+// InitRedis initializes a Redis client
 func InitRedis(log zerolog.Logger, opt RedisOptions, redisType string) *redis.Client {
 	var redisClient *redis.Client
 	var DB int
 
 	if !opt.Enabled {
 		return nil
+	}
+
+	// Allow environment variables to override config file values
+	if envAddr := os.Getenv("REDIS_ADDRESS"); envAddr != "" {
+		opt.Address = envAddr
+	}
+	if envPassword := os.Getenv("REDIS_PASSWORD"); envPassword != "" {
+		opt.Password = envPassword
 	}
 
 	switch redisType {

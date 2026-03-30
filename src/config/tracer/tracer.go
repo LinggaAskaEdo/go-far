@@ -1,4 +1,4 @@
-package config
+package tracer
 
 import (
 	"context"
@@ -12,6 +12,7 @@ import (
 	semconv "go.opentelemetry.io/otel/semconv/v1.17.0"
 )
 
+// Tracer defines the tracer interface
 type Tracer interface {
 	Stop(ctx context.Context) error
 }
@@ -21,6 +22,7 @@ type tracerImpl struct {
 	provider *sdktrace.TracerProvider
 }
 
+// Stop shuts down the tracer
 func (t *tracerImpl) Stop(ctx context.Context) error {
 	if t.provider == nil {
 		t.log.Print("Tracer provider is nil, nothing to shut down...")
@@ -37,7 +39,14 @@ func (t *tracerImpl) Stop(ctx context.Context) error {
 	return nil
 }
 
-func InitTracer(log zerolog.Logger) Tracer {
+// TracerOptions holds tracer configuration
+type TracerOptions struct {
+	Enabled  bool   `yaml:"enabled"`
+	Endpoint string `yaml:"endpoint"`
+}
+
+// InitTracer initializes the OpenTelemetry tracer
+func InitTracer(log zerolog.Logger, opt TracerOptions) Tracer {
 	ctx := context.Background()
 
 	// Create resource with service information
@@ -52,9 +61,15 @@ func InitTracer(log zerolog.Logger) Tracer {
 		return nil
 	}
 
+	// Use endpoint from config or default
+	endpoint := opt.Endpoint
+	if endpoint == "" {
+		endpoint = "localhost:4317"
+	}
+
 	// Create OTLP exporter
 	exporter, err := otlptracegrpc.New(ctx,
-		otlptracegrpc.WithEndpoint("localhost:4317"),
+		otlptracegrpc.WithEndpoint(endpoint),
 		otlptracegrpc.WithInsecure(),
 		otlptracegrpc.WithTimeout(5*time.Second),
 	)

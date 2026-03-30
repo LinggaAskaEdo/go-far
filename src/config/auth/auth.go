@@ -1,4 +1,4 @@
-package config
+package auth
 
 import (
 	"context"
@@ -18,14 +18,19 @@ import (
 	"github.com/segmentio/ksuid"
 )
 
+// Auth defines the authentication interface
 type Auth interface {
 	GenerateToken(c *gin.Context, data any) (*TokenDetails, error)
 	ValidateToken(c *gin.Context) (*AccessDetails, error)
 	ValidateRefreshToken(c *gin.Context, token string) (*AccessDetails, error)
 }
 
-var onceAuth = &sync.Once{}
+var (
+	onceAuth = &sync.Once{}
+	authInst *auth
+)
 
+// AuthOptions holds authentication configuration
 type AuthOptions struct {
 	PrivateKey          string        `yaml:"private_key"`
 	PublicKey           string        `yaml:"public_key"`
@@ -42,6 +47,7 @@ type auth struct {
 	expiredRefreshToken time.Duration
 }
 
+// TokenDetails holds token information
 type TokenDetails struct {
 	AccessToken  string `json:"accessToken"`
 	RefreshToken string `json:"refreshToken"`
@@ -51,6 +57,7 @@ type TokenDetails struct {
 	ExpiresRt    int64  `json:"expiresRt"`
 }
 
+// AccessDetails holds access token details
 type AccessDetails struct {
 	AccessUUID  string
 	RefreshUUID string
@@ -58,9 +65,8 @@ type AccessDetails struct {
 	Username    string
 }
 
+// InitAuth initializes the authentication module
 func InitAuth(log zerolog.Logger, opt AuthOptions, redis *redis.Client) Auth {
-	var a *auth
-
 	onceAuth.Do(func() {
 		privateKey, err := os.ReadFile(opt.PrivateKey)
 		if err != nil {
@@ -72,7 +78,7 @@ func InitAuth(log zerolog.Logger, opt AuthOptions, redis *redis.Client) Auth {
 			log.Panic().Err(err).Send()
 		}
 
-		a = &auth{
+		authInst = &auth{
 			log:                 log,
 			redis:               redis,
 			privateKey:          privateKey,
@@ -82,12 +88,11 @@ func InitAuth(log zerolog.Logger, opt AuthOptions, redis *redis.Client) Auth {
 		}
 	})
 
-	return a
+	return authInst
 }
 
 func (a *auth) GenerateToken(c *gin.Context, data any) (*TokenDetails, error) {
 	ctx := c.Request.Context()
-
 	td := &TokenDetails{}
 
 	key, err := jwt.ParseRSAPrivateKeyFromPEM(a.privateKey)
@@ -96,8 +101,27 @@ func (a *auth) GenerateToken(c *gin.Context, data any) (*TokenDetails, error) {
 	}
 
 	dataVal := reflect.ValueOf(data)
-	publicID := dataVal.FieldByName("PublicID").String()
-	username := dataVal.FieldByName("Username").String()
+	if dataVal.Kind() == reflect.Ptr {
+		dataVal = dataVal.Elem()
+	}
+
+	if !dataVal.IsValid() {
+		return nil, x.NewWithCode(x.CodeHTTPBadRequest, "Invalid data for token generation")
+	}
+
+	publicIDField := dataVal.FieldByName("PublicID")
+	usernameField := dataVal.FieldByName("Username")
+
+	if !publicIDField.IsValid() || !usernameField.IsValid() {
+		return nil, x.NewWithCode(x.CodeHTTPBadRequest, "Data must contain PublicID and Username fields")
+	}
+
+	publicID := publicIDField.String()
+	username := usernameField.String()
+
+	if publicID == "" || username == "" {
+		return nil, x.NewWithCode(x.CodeHTTPBadRequest, "PublicID and Username cannot be empty")
+	}
 
 	td.ExpiresAt = time.Now().Add(a.expiredToken).Unix()
 	td.AccessUUID = ksuid.New().String()
@@ -197,7 +221,12 @@ func (a *auth) checkingToken(c *gin.Context) (*AccessDetails, error) {
 }
 
 func (a *auth) extractToken(c *gin.Context) string {
-	bearToken := c.Request.Header["Authorization"][0]
+	authHeaders := c.Request.Header["Authorization"]
+	if len(authHeaders) == 0 {
+		return ""
+	}
+
+	bearToken := authHeaders[0]
 	if len(bearToken) == 0 {
 		return ""
 	}
@@ -220,7 +249,6 @@ func (a *auth) verifyToken(tokenStr string) (*jwt.Token, error) {
 		if _, ok := jwtToken.Method.(*jwt.SigningMethodRSA); !ok {
 			return nil, x.WrapWithCode(err, x.CodeHTTPInternalServerError, fmt.Sprintf("unexpected signing method: %v", jwtToken.Header["alg"]))
 		}
-
 		return key, nil
 	})
 	if err != nil {
@@ -250,7 +278,7 @@ func (a *auth) ValidateRefreshToken(c *gin.Context, tokenStr string) (*AccessDet
 
 	refreshUUID, ok = claims["refresh_uuid"].(string)
 	if !ok {
-		return nil, err
+		return nil, x.NewWithCode(x.CodeHTTPUnauthorized, "Failed claims refresh_uuid")
 	}
 
 	redisIDUser, err = a.redis.Get(ctx, refreshUUID).Result()

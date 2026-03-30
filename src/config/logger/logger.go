@@ -1,4 +1,4 @@
-package config
+package logger
 
 import (
 	"io"
@@ -12,6 +12,7 @@ import (
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
+// LoggerOptions holds logger configuration
 type LoggerOptions struct {
 	Enabled    bool   `yaml:"enabled"`
 	Level      string `yaml:"level"`
@@ -24,11 +25,13 @@ type LoggerOptions struct {
 	Compress   bool   `yaml:"compress"`
 }
 
-var onceLogger = sync.Once{}
+var (
+	onceLogger = sync.Once{}
+	logInst    zerolog.Logger
+)
 
+// InitLogger initializes the logger
 func InitLogger(opt LoggerOptions) zerolog.Logger {
-	var log zerolog.Logger
-
 	onceLogger.Do(func() {
 		zerolog.ErrorStackMarshaler = pkgerrors.MarshalStack
 		zerolog.TimeFieldFormat = time.RFC3339
@@ -55,7 +58,7 @@ func InitLogger(opt LoggerOptions) zerolog.Logger {
 			output = zerolog.MultiLevelWriter(os.Stderr, fileLogger)
 		}
 
-		log = zerolog.New(output).
+		logInst = zerolog.New(output).
 			Level(zerolog.Level(logLevel)).
 			With().
 			Timestamp().
@@ -63,5 +66,5 @@ func InitLogger(opt LoggerOptions) zerolog.Logger {
 			Logger()
 	})
 
-	return log
+	return logInst
 }

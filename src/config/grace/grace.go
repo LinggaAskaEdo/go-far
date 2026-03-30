@@ -1,14 +1,15 @@
-package config
+package grace
 
 import (
 	"context"
-	"fmt"
 	"net/http"
 	"os"
 	"os/signal"
 	"sync"
 	"syscall"
 	"time"
+
+	"go-far/src/config/tracer"
 
 	"github.com/rs/zerolog"
 )
@@ -18,6 +19,7 @@ var (
 	wg        sync.WaitGroup
 )
 
+// App defines the application interface
 type App interface {
 	Serve()
 }
@@ -25,10 +27,11 @@ type App interface {
 type app struct {
 	log        zerolog.Logger
 	httpServer *http.Server
-	tracer     Tracer
+	tracer     tracer.Tracer
 }
 
-func InitGrace(log zerolog.Logger, httpServer *http.Server, tracer Tracer) App {
+// InitGrace initializes graceful shutdown handling
+func InitGrace(log zerolog.Logger, httpServer *http.Server, tracer tracer.Tracer) App {
 	var gs *app
 
 	onceGrace.Do(func() {
@@ -45,35 +48,26 @@ func InitGrace(log zerolog.Logger, httpServer *http.Server, tracer Tracer) App {
 func (g *app) Serve() {
 	ctx, cancel := context.WithCancel(context.Background())
 
-	// Listen for termination signals
 	signalCh := make(chan os.Signal, 1)
 	signal.Notify(signalCh, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 
 	wg.Add(1)
 	go startHTTPServer(ctx, &wg, g.log, g.httpServer, g.tracer)
 
-	// Wait for termination signal
 	<-signalCh
 
-	// Start the graceful shutdown process
 	g.log.Debug().Msg("Gracefully shutting down HTTP server...")
-
-	// Cancel the context to signal the HTTP server to stop
 	cancel()
-
-	// Wait for the HTTP server to finish
 	wg.Wait()
-
 	g.log.Debug().Msg("Shutdown complete...")
 }
 
-func startHTTPServer(ctx context.Context, wg *sync.WaitGroup, log zerolog.Logger, httpServer *http.Server, tracer Tracer) {
+func startHTTPServer(ctx context.Context, wg *sync.WaitGroup, log zerolog.Logger, httpServer *http.Server, tracer tracer.Tracer) {
 	defer wg.Done()
 
-	// Start the HTTP server in a separate goroutine
 	go func() {
 		log.Debug().Msg("Starting HTTP server...")
-		log.Debug().Msg(fmt.Sprintf("HTTP server start on %s", httpServer.Addr))
+		log.Debug().Msg("HTTP server start on " + httpServer.Addr)
 
 		err := httpServer.ListenAndServe()
 		if err != nil && err != http.ErrServerClosed {
@@ -81,13 +75,11 @@ func startHTTPServer(ctx context.Context, wg *sync.WaitGroup, log zerolog.Logger
 		}
 	}()
 
-	// Wait for the context to be canceled
 	<-ctx.Done()
 	log.Debug().Msg("HTTP server started...")
 
-	// Shutdown the server gracefully
 	log.Debug().Msg("Shutting down HTTP server gracefully...")
-	shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), 5*time.Second)
+	shutdownCtx, cancelShutdown := context.WithTimeout(ctx, 5*time.Second)
 	defer cancelShutdown()
 
 	err := httpServer.Shutdown(shutdownCtx)

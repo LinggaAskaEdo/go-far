@@ -3,26 +3,26 @@ package scheduler
 import (
 	"sync"
 
-	"go-far/src/config"
+	cfg "go-far/src/config/scheduler"
 	"go-far/src/service"
 
 	"github.com/rs/zerolog"
 )
 
-var onceScheduler = &sync.Once{}
+var onceSchedulerHandler = &sync.Once{}
 
-type scheduler struct {
+type schedulerHandler struct {
 	log  zerolog.Logger
-	sch  *config.Scheduler
+	sch  *cfg.Scheduler
 	svc  *service.Service
-	jobs config.SchedulerJobsOptions
+	jobs cfg.SchedulerJobsOptions
 }
 
-func InitSchedulerHandler(log zerolog.Logger, sch *config.Scheduler, svc *service.Service, jobs config.SchedulerJobsOptions) {
-	var s *scheduler
+func InitSchedulerHandler(log zerolog.Logger, sch *cfg.Scheduler, svc *service.Service, jobs cfg.SchedulerJobsOptions) {
+	var s *schedulerHandler
 
-	onceScheduler.Do(func() {
-		s = &scheduler{
+	onceSchedulerHandler.Do(func() {
+		s = &schedulerHandler{
 			log:  log,
 			sch:  sch,
 			svc:  svc,
@@ -33,7 +33,7 @@ func InitSchedulerHandler(log zerolog.Logger, sch *config.Scheduler, svc *servic
 	})
 }
 
-func (s *scheduler) Serve() *config.Scheduler {
+func (s *schedulerHandler) Serve() *cfg.Scheduler {
 	// User Generator
 	if s.jobs.UserGeneratorJob.Enabled {
 		userJob := InitUserGeneratorJob(s.log, s.svc.User, s.jobs.UserGeneratorJob)

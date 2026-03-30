@@ -22,3 +22,18 @@ type HttpSuccessResp struct {
 type HTTPErrorResp struct {
 	Meta Meta `json:"metadata"`
 }
+
+// HealthStatus represents the health check response
+type HealthStatus struct {
+	Status    string `json:"status"`
+	Timestamp string `json:"timestamp"`
+	Service   string `json:"service"`
+	Version   string `json:"version"`
+}
+
+// ReadinessStatus represents the readiness check response
+type ReadinessStatus struct {
+	Status       string            `json:"status"`
+	Timestamp    string            `json:"timestamp"`
+	Dependencies map[string]string `json:"dependencies"`
+}

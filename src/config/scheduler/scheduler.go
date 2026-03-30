@@ -1,4 +1,4 @@
-package config
+package scheduler
 
 import (
 	"context"
@@ -9,6 +9,7 @@ import (
 	"github.com/rs/zerolog"
 )
 
+// Scheduler manages scheduled jobs
 type Scheduler struct {
 	log  zerolog.Logger
 	cron *cron.Cron
@@ -16,21 +17,25 @@ type Scheduler struct {
 	mu   sync.RWMutex
 }
 
+// Job defines the interface for scheduled jobs
 type Job interface {
 	Name() string
 	Schedule() string
 	Run(ctx context.Context) error
 }
 
+// SchedulerOptions holds scheduler configuration
 type SchedulerOptions struct {
 	Enabled       bool                 `yaml:"enabled"`
 	SchedulerJobs SchedulerJobsOptions `yaml:"jobs"`
 }
 
+// SchedulerJobsOptions holds individual job configurations
 type SchedulerJobsOptions struct {
 	UserGeneratorJob UserGeneratorJobOptions `yaml:"user_generator"`
 }
 
+// UserGeneratorJobOptions holds user generator job configuration
 type UserGeneratorJobOptions struct {
 	Enabled   bool   `yaml:"enabled"`
 	Cron      string `yaml:"cron"`
@@ -39,6 +44,7 @@ type UserGeneratorJobOptions struct {
 	MaxAge    int    `yaml:"max_age"`
 }
 
+// InitScheduler initializes the scheduler
 func InitScheduler(log zerolog.Logger, opt SchedulerOptions) *Scheduler {
 	if opt.Enabled {
 		return &Scheduler{
@@ -51,6 +57,7 @@ func InitScheduler(log zerolog.Logger, opt SchedulerOptions) *Scheduler {
 	return nil
 }
 
+// AddJob adds a job to the scheduler
 func (s *Scheduler) AddJob(job Job) error {
 	s.mu.Lock()
 	defer s.mu.Unlock()
@@ -76,6 +83,7 @@ func (s *Scheduler) AddJob(job Job) error {
 	return nil
 }
 
+// Start starts the scheduler
 func (s *Scheduler) Start() {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -84,6 +92,7 @@ func (s *Scheduler) Start() {
 	s.log.Debug().Msg("Scheduler started, jobs registered: " + fmt.Sprint(len(s.jobs)))
 }
 
+// Stop stops the scheduler
 func (s *Scheduler) Stop() {
 	s.mu.RLock()
 	defer s.mu.RUnlock()
@@ -93,6 +102,7 @@ func (s *Scheduler) Stop() {
 	s.log.Debug().Msg("Scheduler stopped...")
 }
 
+// ListJobs returns the list of registered job names
 func (s *Scheduler) ListJobs() []string {
 	s.mu.RLock()
 	defer s.mu.RUnlock()

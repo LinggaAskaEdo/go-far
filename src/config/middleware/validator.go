@@ -1,4 +1,4 @@
-package config
+package middleware
 
 import (
 	"regexp"
@@ -10,6 +10,7 @@ import (
 
 var passwordRegex = regexp.MustCompile(`^[a-zA-Z0-9!@#\$%\^&\*]{8,}$`)
 
+// InitValidator initializes custom validators
 func InitValidator(log zerolog.Logger) {
 	if v, ok := binding.Validator.Engine().(*validator.Validate); ok {
 		err := v.RegisterValidation("password", passwordValidator)

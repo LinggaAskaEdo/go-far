@@ -1,4 +1,4 @@
-package config
+package query
 
 import (
 	"bytes"
@@ -11,17 +11,19 @@ import (
 	"github.com/rs/zerolog"
 )
 
+// QueriesOptions holds query loader configuration
 type QueriesOptions struct {
 	Path string `yaml:"path"`
 }
 
+// QueryLoader loads and manages SQL queries
 type QueryLoader struct {
 	queries  map[string]string
 	filePath string
 }
 
+// InitQueryLoader initializes the query loader
 func InitQueryLoader(log zerolog.Logger, opt QueriesOptions) *QueryLoader {
-	// queryPath := fmt.Sprintf("%s/user_queries.sql", opt.Path)
 	ql := &QueryLoader{
 		queries:  make(map[string]string),
 		filePath: opt.Path,
@@ -35,7 +37,6 @@ func InitQueryLoader(log zerolog.Logger, opt QueriesOptions) *QueryLoader {
 }
 
 func (ql *QueryLoader) load(log zerolog.Logger) error {
-	// Read all .sql files in the directory
 	files, err := filepath.Glob(filepath.Join(ql.filePath, "*.sql"))
 	if err != nil {
 		return err
@@ -45,7 +46,6 @@ func (ql *QueryLoader) load(log zerolog.Logger) error {
 		return fmt.Errorf("no SQL files found in path: %s", ql.filePath)
 	}
 
-	// Load queries from each file
 	for _, file := range files {
 		if err := ql.loadFile(log, file); err != nil {
 			return fmt.Errorf("failed to load file %s: %w", file, err)
@@ -89,12 +89,13 @@ func (ql *QueryLoader) loadFile(log zerolog.Logger, filePath string) error {
 	return nil
 }
 
+// Get retrieves a query by name
 func (ql *QueryLoader) Get(name string) (string, bool) {
 	query, ok := ql.queries[name]
-
 	return query, ok
 }
 
+// ExecuteTemplate executes a query template with the provided data
 func (ql *QueryLoader) ExecuteTemplate(name string, data any) (string, []any, error) {
 	queryTemplate, ok := ql.Get(name)
 	if !ok {
@@ -112,8 +113,6 @@ func (ql *QueryLoader) ExecuteTemplate(name string, data any) (string, []any, er
 	}
 
 	query := buf.String()
-
-	// Convert named parameters to positional
 	return convertNamedToPositional(query, data)
 }
 
@@ -121,12 +120,10 @@ func convertNamedToPositional(query string, data any) (string, []any, error) {
 	args := make([]any, 0)
 	paramMap := make(map[string]any)
 
-	// Extract parameters from data
 	if dataMap, ok := data.(map[string]any); ok {
 		paramMap = dataMap
 	}
 
-	// Replace named parameters with $1, $2, etc.
 	paramIndex := 1
 	result := query
 

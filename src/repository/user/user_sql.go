@@ -3,6 +3,7 @@ package user
 import (
 	"context"
 	"fmt"
+	"strings"
 	"time"
 
 	"go-far/src/domain"
@@ -13,6 +14,37 @@ import (
 	"github.com/jmoiron/sqlx"
 	"github.com/rs/zerolog"
 )
+
+var (
+	allowedSortFields = map[string]string{
+		"id":         "id",
+		"name":       "name",
+		"email":      "email",
+		"age":        "age",
+		"created_at": "created_at",
+		"updated_at": "updated_at",
+	}
+	allowedSortDirs = map[string]string{
+		"asc":  "ASC",
+		"desc": "DESC",
+	}
+)
+
+func sanitizeSortBy(sortBy string) string {
+	normalized := strings.ToLower(strings.TrimSpace(sortBy))
+	if col, ok := allowedSortFields[normalized]; ok {
+		return col
+	}
+	return "id"
+}
+
+func sanitizeSortDir(sortDir string) string {
+	normalized := strings.ToLower(strings.TrimSpace(sortDir))
+	if dir, ok := allowedSortDirs[normalized]; ok {
+		return dir
+	}
+	return "ASC"
+}
 
 func (d *userRepository) createSQLUser(ctx context.Context, tx *sqlx.Tx, user *domain.User) (*sqlx.Tx, *domain.User, error) {
 	query, _ := d.queryLoader.Get("CreateUser")
@@ -32,8 +64,8 @@ func (d *userRepository) findAllSQLUser(ctx context.Context, filter dto.UserFilt
 
 	filter.Page = util.ValidatePage(filter.Page)
 	filter.PageSize = util.ValidatePage(filter.PageSize)
-	filter.SortBy = util.ValidateSortBy(filter.SortBy)
-	filter.SortDir = util.ValidateSortDir(filter.SortDir)
+	filter.SortBy = sanitizeSortBy(filter.SortBy)
+	filter.SortDir = sanitizeSortDir(filter.SortDir)
 
 	pagination := dto.Pagination{
 		CurrentPage:     filter.Page,
@@ -117,10 +149,15 @@ func (d *userRepository) updateSQLUser(ctx context.Context, id string, user doma
 		return x.WrapWithCode(err, x.CodeSQLUpdate, "update_user_err")
 	}
 
-	rows, _ := result.RowsAffected()
+	rows, err := result.RowsAffected()
+	if err != nil {
+		zerolog.Ctx(ctx).Error().Err(err).Str("id", id).Msg("failed_to_get_rows_affected")
+		return x.WrapWithCode(err, x.CodeSQLUpdate, "failed_to_get_rows_affected")
+	}
+
 	if rows == 0 {
 		zerolog.Ctx(ctx).Debug().Str("id", id).Msg("user_not_found_for_update")
-		return x.WrapWithCode(err, x.CodeSQLEmptyRow, "user_not_found_for_update")
+		return x.NewWithCode(x.CodeSQLEmptyRow, "user_not_found_for_update")
 	}
 
 	cacheKey := fmt.Sprintf("user:%s", id)
@@ -138,10 +175,15 @@ func (d *userRepository) deleteSQLUser(ctx context.Context, id string) error {
 		return x.WrapWithCode(err, x.CodeSQLDelete, "failed_to_delete_user")
 	}
 
-	rows, _ := result.RowsAffected()
+	rows, err := result.RowsAffected()
+	if err != nil {
+		zerolog.Ctx(ctx).Error().Err(err).Str("id", id).Msg("failed_to_get_rows_affected")
+		return x.WrapWithCode(err, x.CodeSQLDelete, "failed_to_get_rows_affected")
+	}
+
 	if rows == 0 {
 		zerolog.Ctx(ctx).Debug().Str("id", id).Msg("user_not_found_for_deletion")
-		return x.WrapWithCode(err, x.CodeSQLEmptyRow, "user_not_found_for_deletion")
+		return x.NewWithCode(x.CodeSQLEmptyRow, "user_not_found_for_deletion")
 	}
 
 	cacheKey := fmt.Sprintf("user:%s", id)
