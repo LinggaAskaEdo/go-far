@@ -1,109 +1,209 @@
-.PHONY: all help build run clean swagger migrate deps cert-install cert-create fmt vet lint test check install-tools sql-postgres-create sql-postgres-up sql-mysql-create sql-mysql-up
+# Variables
+BINARY_NAME    := app
+BIN_DIR        := ./bin
+SRC_DIR        := ./src
+CMD_PATH       := $(SRC_DIR)/cmd/app.go
+DOCS_DIR       := ./docs
+COVERAGE_OUT   := coverage.out
+COVERAGE_HTML  := coverage.html
 
-help: ## Show this help message
-	@printf "\033[36m%-30s\033[0m %s\n" "Target" "Description"
-	@printf "\033[36m%-30s\033[0m %s\n" "------" "-----------"
-	@awk 'BEGIN {FS = ":.*?## "} /^[a-zA-Z_-]+:.*?## / {printf "\033[33m%-30s\033[0m %s\n", $$1, $$2}' $(MAKEFILE_LIST)
+# Go flags
+GO             := go
+GOFLAGS        := -v
+LDFLAGS        := -s -w -X main.version=$(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 
-all: build run ## Execute all steps `clean check swagger build run`
+# Tools
+SWAG           := swag
+GOLANGCI_LINT  := golangci-lint
+GOOSE          := goose
 
-clean: ## Clean build artifacts
+# Colors
+BLUE           := \033[36m
+YELLOW         := \033[33m
+GREEN          := \033[32m
+WHITE          := \033[37m
+RESET          := \033[0m
+COMMA          := ,
+
+.PHONY: all help build run clean swagger migrate deps cert-install cert-create fmt vet lint test check install-tools update sql-postgres-create sql-postgres-up sql-mysql-create sql-mysql-up mon-start mon-stop
+
+## Show this help message
+help:
+	@echo ""
+	@printf "$(BLUE)Go-FAR Project - Makefile Commands$(RESET)\n"
+	@echo ""
+	@printf "$(YELLOW)General:$(RESET)\n"
+	@printf "  $(GREEN)make help$(RESET)                  Show this help message\n"
+	@printf "  $(GREEN)make all$(RESET)                   Clean, build, and run app\n"
+	@printf "  $(GREEN)make deps$(RESET)                  Download and install dependencies\n"
+	@printf "  $(GREEN)make update$(RESET)                Update all dependencies to latest\n"
+	@printf "  $(GREEN)make install-tools$(RESET)         Install dev tools (swag, lint, etc)\n"
+	@echo ""
+	@printf "$(YELLOW)Build & Run:$(RESET)\n"
+	@printf "  $(GREEN)make build$(RESET)                 Build application with optimizations\n"
+	@printf "  $(GREEN)make run$(RESET)                   Run the built application\n"
+	@printf "  $(GREEN)make clean$(RESET)                 Remove build artifacts\n"
+	@echo ""
+	@printf "$(YELLOW)Code Quality:$(RESET)\n"
+	@printf "  $(GREEN)make check$(RESET)                 Run all checks (fmt, vet, lint)\n"
+	@printf "  $(GREEN)make fmt$(RESET)                   Format code with go fmt\n"
+	@printf "  $(GREEN)make vet$(RESET)                   Run go vet for common issues\n"
+	@printf "  $(GREEN)make lint$(RESET)                  Run golangci-lint\n"
+	@printf "  $(GREEN)make test$(RESET)                  Run tests with coverage report\n"
+	@echo ""
+	@printf "$(YELLOW)Documentation:$(RESET)\n"
+	@printf "  $(GREEN)make swagger$(RESET)               Generate Swagger API docs\n"
+	@echo ""
+	@printf "$(YELLOW)Database:$(RESET)\n"
+	@printf "  $(GREEN)make migrate$(RESET)               Run database migrations (postgres)\n"
+	@printf "  $(GREEN)make sql-postgres-create$(RESET)   Create new postgres migration\n"
+	@printf "  $(GREEN)make sql-postgres-up$(RESET)       Apply postgres migrations\n"
+	@printf "  $(GREEN)make sql-mysql-create$(RESET)      Create new mysql migration\n"
+	@printf "  $(GREEN)make sql-mysql-up$(RESET)          Apply mysql migrations\n"
+	@echo ""
+	@printf "$(YELLOW)Certificates:$(RESET)\n"
+	@printf "  $(GREEN)make cert-install$(RESET)          Install OpenSSL\n"
+	@printf "  $(GREEN)make cert-create$(RESET)           Generate RSA key pair (4096-bit)\n"
+	@echo ""
+	@printf "$(YELLOW)Monitoring:$(RESET)\n"
+	@printf "  $(GREEN)make mon-start$(RESET)             Start monitoring stack\n"
+	@printf "  $(GREEN)make mon-stop$(RESET)              Stop monitoring stack\n"
+	@echo ""
+
+## Execute build and run
+all: clean deps check swagger build run
+
+## Clean build artifacts and coverage files
+clean:
 	@echo "Cleaning..."
-	@rm -rf ./bin/
-	@rm -f coverage.out coverage.html
-	@echo "Clean complete"
+	@rm -rf $(BIN_DIR)/
+	@rm -rf logs/
+	@rm -f $(COVERAGE_OUT) $(COVERAGE_HTML)
+	@printf "$(BLUE)Clean complete$(RESET)\n"
 
-fmt: ## Format code
+## Format code
+fmt:
 	@echo "Formatting code..."
-	@go fmt ./...
+	@$(GO) fmt ./...
 	@echo "Format complete"
 
-vet: ## Run go vet
+## Run go vet
+vet:
 	@echo "Running go vet..."
-	@go vet ./...
+	@$(GO) vet ./...
 	@echo "Vet complete"
 
-lint: ## Run linter
+## Run linter
+lint:
 	@echo "Running linter..."
-	@golangci-lint run
-	@echo "Linting complete"
-
-check: fmt vet lint ## Run all checks
-	@echo "All checks passed"
-
-update: ## Update dependencies
-	@echo "Updating dependencies..."
-	@go get -u ./...
-	@go mod tidy
-	@echo "Dependencies updated"
-
-swagger: ## Generate swagger documentation
-	@echo "Generating Swagger docs..."
-	@(swag fmt -d ./src 2>&1 | grep -v "warning: failed to get package name in dir") || true
-	@(swag init -g ./src/cmd/app.go -o ./docs 2>&1 | grep -v "warning: failed to get package name in dir") || true
-	@echo "Fixing generated docs (removing LeftDelim/RightDelim)..."
-	@sed -i.bak '/LeftDelim/d' ./docs/docs.go 2>/dev/null || sed -i '/LeftDelim/d' ./docs/docs.go 2>/dev/null
-	@sed -i.bak '/RightDelim/d' ./docs/docs.go 2>/dev/null || sed -i '/RightDelim/d' ./docs/docs.go 2>/dev/null
-	@rm -f ./docs/docs.go.bak 2>/dev/null || true
-	@echo "Swagger docs generated and fixed successfully"
-
-build: clean update check swagger ## Build the application
-	@echo "Building application..."
-	@go mod tidy
-	@go generate ./src/cmd
-	@go build -o ./bin/app ./src/cmd
-	@echo "Build complete: bin/app"
-
-run: ## Run the application
-	@echo "Starting application..."
-	@./bin/app
-
-migrate: ## Run database migrations
-	@echo "Running migrations..."
-	@psql -U postgres -d gofar -f migrations/000001_create_users_table.sql
-	@echo "Migrations complete"
-
-deps: ## Install dependencies
-	@echo "Installing dependencies..."
-	@go mod download
-	@go mod tidy
-	@echo "Dependencies installed"
-
-cert-install: ## Install certificates
-	@echo "Installing OpenSSL..."
-	@sudo apt install openssl
-
-cert-create: ## Generate RSA key pair if not exists
-	@echo "Generating RSA key pair if not exists..."
-	@if ! ls -AU "./etc/cert/" | read _; then \
-		openssl genrsa -out ./etc/cert/id_rsa 4096 && openssl rsa -in ./etc/cert/id_rsa -pubout -out ./etc/cert/id_rsa.pub; \
+	@if command -v $(GOLANGCI_LINT) >/dev/null 2>&1; then \
+		$(GOLANGCI_LINT) run && printf "Linting complete\n"; \
 	else \
-		echo "Directory is not empty !!!"; \
+		printf "$(YELLOW)golangci-lint not installed. Install with: make install-tools$(RESET)\n"; \
+		echo "Skipping lint..."; \
 	fi
 
-install-tools: ## Install development tools
-	@echo "Installing tools..."
-	@go install github.com/swaggo/swag/cmd/swag@latest
-	@go install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
-	@go install github.com/pressly/goose/v3/cmd/goose@latest
-	@echo "Tools installed"
+## Run all checks (fmt, vet, lint)
+check: fmt vet lint
+	@printf "$(BLUE)All checks passed$(RESET)\n"
 
-mon-start: ## Start monitoring stack (Grafana, Prometheus, Loki, Tempo)
+## Update dependencies to latest versions
+update:
+	@echo "Updating dependencies..."
+	@$(GO) get -u ./...
+	@$(GO) mod tidy
+	@echo "Dependencies updated"
+
+## Generate swagger documentation
+swagger:
+	@echo "Generating Swagger docs..."
+	@($(SWAG) fmt -d $(SRC_DIR) 2>&1 | grep -v "warning: failed to get package name in dir") || true
+	@($(SWAG) init -g $(CMD_PATH) -o $(DOCS_DIR) 2>&1 | grep -v "warning: failed to get package name in dir") || true
+	@echo "Fixing generated docs (removing LeftDelim/RightDelim)..."
+	@sed -i.bak '/LeftDelim/d' $(DOCS_DIR)/docs.go 2>/dev/null || sed -i '/LeftDelim/d' $(DOCS_DIR)/docs.go 2>/dev/null
+	@sed -i.bak '/RightDelim/d' $(DOCS_DIR)/docs.go 2>/dev/null || sed -i '/RightDelim/d' $(DOCS_DIR)/docs.go 2>/dev/null
+	@rm -f $(DOCS_DIR)/docs.go.bak 2>/dev/null || true
+	@printf "$(BLUE)Swagger docs generated and fixed successfully$(RESET)\n"
+
+## Run tests with coverage
+test:
+	@echo "Running tests..."
+	@$(GO) test -v -race -coverprofile=$(COVERAGE_OUT) ./...
+	@$(GO) tool cover -html=$(COVERAGE_OUT) -o $(COVERAGE_HTML)
+	@printf "$(BLUE)Tests complete. Coverage report: $(COVERAGE_HTML)$(RESET)\n"
+
+## Build the application with optimizations
+build: clean check swagger
+	@echo "Building application..."
+	@$(GO) mod tidy
+	@$(GO) generate $(SRC_DIR)/cmd
+	@mkdir -p $(BIN_DIR)
+	@$(GO) build $(GOFLAGS) -ldflags="$(LDFLAGS)" -o $(BIN_DIR)/$(BINARY_NAME) $(SRC_DIR)/cmd
+	@printf "$(BLUE)Build complete: $(BIN_DIR)/$(BINARY_NAME)$(RESET)\n"
+
+## Run the application
+run:
+	@echo "Starting application..."
+	@$(BIN_DIR)/$(BINARY_NAME)
+
+## Run database migrations (postgres default)
+migrate:
+	@echo "Running migrations..."
+	@psql -U postgres -d gofar -f etc/migrations/000001_create_users_table.sql
+	@echo "Migrations complete"
+
+## Download and tidy dependencies
+deps:
+	@echo "Installing dependencies..."
+	@$(GO) mod download
+	@$(GO) mod tidy
+	@echo "Dependencies installed"
+
+## Install OpenSSL for certificates
+cert-install:
+	@echo "Installing OpenSSL..."
+	@sudo apt install -y openssl
+
+## Generate RSA key pair if not exists
+cert-create:
+	@echo "Generating RSA key pair if not exists..."
+	@if [ ! -f ./etc/cert/id_rsa ]; then \
+		mkdir -p ./etc/cert && \
+		openssl genrsa -out ./etc/cert/id_rsa 4096 && \
+		openssl rsa -in ./etc/cert/id_rsa -pubout -out ./etc/cert/id_rsa.pub; \
+		echo "$(BLUE)Key pair generated successfully$(RESET)\n"; \
+	else \
+		echo "Key pair already exists"; \
+	fi
+
+## Install development tools
+install-tools:
+	@echo "Installing tools..."
+	@$(GO) install github.com/swaggo/swag/cmd/swag@latest
+	@$(GO) install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+	@$(GO) install github.com/pressly/goose/v3/cmd/goose@latest
+	@printf "$(BLUE)Tools installed$(RESET)\n"
+
+## Start monitoring stack (Grafana, Prometheus, Loki, Tempo)
+mon-start:
 	@echo "Starting monitoring stack..."
 	@./start-monitoring.sh
 	@echo "Monitoring stack started"
 
-mon-stop: ## Stop monitoring stack
+## Stop monitoring stack
+mon-stop:
 	@echo "Stopping monitoring stack..."
 	@./stop-monitoring.sh
 	@echo "Monitoring stack stopped"
 
-sql-postgres-create: ## Create SQL migration files for postgres
+## Create SQL migration files for postgres
+sql-postgres-create:
 	@echo "Creating postgres SQL migration files..."
 	@read -p "Enter migration name (use underscores): " name; \
-		goose -dir ./etc/migrations/postgres create postgres_$${name} sql
+		$(GOOSE) -dir ./etc/migrations/postgres create postgres_$${name} sql
 
-sql-postgres-up: ## Apply up migrations for postgres
+## Apply up migrations for postgres
+sql-postgres-up:
 	@echo "Applying up migrations for postgres..."; \
 		{ \
 			stty -echo ; \
@@ -111,15 +211,17 @@ sql-postgres-up: ## Apply up migrations for postgres
 			read -p "Enter postgres password: " pass ; \
 			stty echo ; \
 			echo ; \
-			goose -dir ./etc/migrations/postgres postgres "host=localhost user=postgres password=$$pass dbname=go_far sslmode=disable" up ; \
+			$(GOOSE) -dir ./etc/migrations/postgres postgres "host=localhost user=postgres password=$$pass dbname=go_far sslmode=disable" up ; \
 		}
 
-sql-mysql-create: ## Create SQL migration files for mysql
+## Create SQL migration files for mysql
+sql-mysql-create:
 	@echo "Creating mysql SQL migration files..."
 	@read -p "Enter migration name (use underscores): " name; \
-		goose -dir ./etc/migrations/mysql create mysql_$${name} sql
+		$(GOOSE) -dir ./etc/migrations/mysql create mysql_$${name} sql
 
-sql-mysql-up: ## Apply up migrations for mysql
+## Apply up migrations for mysql
+sql-mysql-up:
 	@echo "Applying up migrations for mysql..."; \
 		{ \
 			stty -echo ; \
@@ -127,5 +229,5 @@ sql-mysql-up: ## Apply up migrations for mysql
 			read -p "Enter mysql password: " pass ; \
 			stty echo ; \
 			echo ; \
-			goose -dir ./etc/migrations/mysql mysql "host=localhost user=root password=$$pass dbname=go_far sslmode=disable" up ; \
+			$(GOOSE) -dir ./etc/migrations/mysql mysql "host=localhost user=root password=$$pass dbname=go_far sslmode=disable" up ; \
 		}

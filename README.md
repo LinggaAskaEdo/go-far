@@ -179,10 +179,10 @@ export LOG_LEVEL=info
 
 ### Prerequisites
 
-- Go 1.24+
+- Go 1.25+
 - PostgreSQL 14+
 - Redis 7+
-- Make (optional)
+- Make
 
 ### Installation
 
@@ -196,47 +196,79 @@ export LOG_LEVEL=info
 2. **Install dependencies**
 
    ```bash
-   go mod download
+   make deps
    ```
 
-3. **Generate RSA keys for JWT**
+3. **Install development tools**
 
    ```bash
-   mkdir -p etc/cert
-   openssl genrsa -out etc/cert/id_rsa 2048
-   openssl rsa -in etc/cert/id_rsa -pubout -out etc/cert/id_rsa.pub
+   make install-tools
    ```
 
-4. **Setup database**
+4. **Generate RSA keys for JWT**
+
+   ```bash
+   make cert-create
+   ```
+
+5. **Setup database**
 
    ```bash
    createdb go_far
    # Run migrations if any
+   make sql-postgres-up
    ```
 
-5. **Update configuration**
+6. **Update configuration**
 
    ```bash
    cp config.yaml config.yaml.local
    # Edit config.yaml.local with your settings
    ```
 
-6. **Run the application**
+7. **Run the application**
 
    ```bash
-   make run
-   # Or manually
-   go run src/cmd/*.go
+   make all          # Clean, build, and run
+   # Or individually
+   make build        # Build the binary
+   make run          # Run the application
    ```
 
-### Using Make
+### Make Commands
+
+Run `make help` to see all available commands:
 
 ```bash
-make run          # Run the application
-make build        # Build the binary
-make test         # Run tests
-make lint         # Run linters
-make clean        # Clean build artifacts
+make help            # Show all available commands
+make all             # Clean, build, and run app
+make deps            # Download and install dependencies
+make update          # Update all dependencies to latest
+make install-tools   # Install dev tools (swag, lint, etc)
+
+make build           # Build application with optimizations
+make run             # Run the built application
+make clean           # Remove build artifacts and logs
+
+make check           # Run all checks (fmt, vet, lint)
+make fmt             # Format code with go fmt
+make vet             # Run go vet for common issues
+make lint            # Run golangci-lint
+make test            # Run tests with coverage report
+
+make swagger         # Generate Swagger API docs
+
+make migrate         # Run database migrations (postgres)
+make sql-postgres-create   # Create new postgres migration
+make sql-postgres-up       # Apply postgres migrations
+make sql-mysql-create      # Create new mysql migration
+make sql-mysql-up          # Apply mysql migrations
+
+make cert-install    # Install OpenSSL
+make cert-create     # Generate RSA key pair (4096-bit)
+
+make mon-start       # Start monitoring stack
+make mon-stop        # Stop monitoring stack
 ```
 
 ## 📝 Example Requests
