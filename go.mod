@@ -4,6 +4,7 @@ go 1.25.9
 
 require (
 	github.com/VauntDev/tqla v0.0.3
+	github.com/rs/xid v1.6.0
 	github.com/swaggo/swag v1.16.6
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.68.0
 	go.opentelemetry.io/otel v1.43.0
@@ -68,7 +69,6 @@ require (
 	github.com/palantir/stacktrace v0.0.0-20161112013806-78658fd2d177
 	github.com/redis/go-redis/v9 v9.18.0
 	github.com/robfig/cron/v3 v3.0.1
-	github.com/rs/xid v1.6.0
 	github.com/rs/zerolog v1.35.0
 	github.com/segmentio/ksuid v1.0.4
 	golang.org/x/crypto v0.50.0

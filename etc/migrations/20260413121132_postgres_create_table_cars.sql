@@ -1,5 +1,7 @@
 -- +goose Up
--- Create cars table (without user_id - uses junction table)
+-- +goose StatementBegin
+
+-- Create cars table
 CREATE TABLE public.cars (
     id             uuid         DEFAULT uuidv7() NOT NULL,
     brand          varchar(100) NOT NULL,
@@ -25,9 +27,15 @@ CREATE TRIGGER set_cars_updated_at
     BEFORE UPDATE ON public.cars
     FOR EACH ROW EXECUTE FUNCTION trigger_set_updated_at();
 
+-- +goose StatementEnd
+
 -- +goose Down
+-- +goose StatementBegin
+
 DROP TRIGGER IF EXISTS set_cars_updated_at ON public.cars;
 DROP INDEX IF EXISTS idx_cars_license_plate;
 DROP INDEX IF EXISTS idx_cars_is_available;
 DROP INDEX IF EXISTS idx_cars_brand;
 DROP TABLE IF EXISTS public.cars;
+
+-- +goose StatementEnd

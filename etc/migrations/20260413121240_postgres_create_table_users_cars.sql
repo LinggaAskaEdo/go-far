@@ -1,4 +1,6 @@
 -- +goose Up
+-- +goose StatementBegin
+
 -- Create users_cars junction table (many-to-many relationship)
 CREATE TABLE public.users_cars (
     user_id    uuid         NOT NULL,
@@ -11,9 +13,15 @@ CREATE TABLE public.users_cars (
         REFERENCES public.cars(id) ON DELETE CASCADE ON UPDATE CASCADE
 );
 
--- Create index for reverse lookup (find users by car)
+-- Create index for reverse lookup
 CREATE INDEX idx_users_cars_car ON public.users_cars USING btree (car_id);
 
+-- +goose StatementEnd
+
 -- +goose Down
+-- +goose StatementBegin
+
 DROP INDEX IF EXISTS idx_users_cars_car;
 DROP TABLE IF EXISTS public.users_cars;
+
+-- +goose StatementEnd
