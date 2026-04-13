@@ -1,10 +1,10 @@
-# Go-Far - Clean Architecture CRUD API
+# Go-Far - DDD CRUD API
 
-A production-ready RESTful API built with Go following Clean Architecture principles, featuring PostgreSQL, Redis, JWT authentication, role-based rate limiting, and OpenTelemetry tracing.
+A production-ready RESTful API built with Go following Domain-Driven Design principles, featuring PostgreSQL, Redis, JWT authentication, role-based rate limiting, and OpenTelemetry tracing.
 
 ## 🚀 Features
 
-- **Clean Architecture** - Separation of concerns with handlers, services, and repositories
+- **Domain-Driven Design** - Separation of concerns with handlers, services, and repositories
 - **REST API** - Built with Go's native `net/http` (Go 1.22+ pattern matching)
 - **Database** - PostgreSQL with sqlx (MySQL supported)
 - **Caching** - Redis with snappy compression
@@ -25,8 +25,7 @@ go-far/
 │   │   ├── main.go             # Main application bootstrap
 │   │   ├── app.go              # Dependency injection & initialization
 │   │   └── conf.go             # Configuration loading
-│   ├── config/                 # Configuration modules
-│   │   ├── auth/               # JWT authentication (HS-256)
+│   ├── config/                 # Infrastructure & configuration modules
 │   │   ├── database/           # Database connection
 │   │   ├── grace/              # Graceful shutdown
 │   │   ├── logger/             # Zerolog logger
@@ -35,15 +34,16 @@ go-far/
 │   │   ├── redis/              # Redis client
 │   │   ├── scheduler/          # Cron scheduler
 │   │   ├── server/             # HTTP server & native net/http router
+│   │   ├── token/              # JWT token management (HS-256)
 │   │   └── tracer/             # OpenTelemetry tracer
-│   ├── handler/                # HTTP & scheduler handlers
+│   ├── handler/                # HTTP & scheduler handlers (interface layer)
 │   │   ├── rest/               # REST API handlers
 │   │   │   ├── auth.go         # Auth endpoints (register, login, refresh)
 │   │   │   ├── user.go         # User handlers
 │   │   │   └── car.go          # Car handlers
 │   │   └── scheduler/          # Cron job handlers
 │   ├── model/                  # Shared data contracts
-│   │   ├── entity/             # Business entities
+│   │   ├── entity/             # Domain entities
 │   │   │   ├── user.go         # User entity with roles
 │   │   │   └── car.go          # Car entity
 │   │   ├── dto/                # Data Transfer Objects
@@ -51,11 +51,11 @@ go-far/
 │   │   │   ├── response.go     # Response DTOs
 │   │   │   └── pagination.go   # Pagination support
 │   │   └── errors/             # Error handling
-│   ├── preference/             # Constants
-│   ├── repository/             # Data access layer
+│   ├── preference/             # Constants & shared values
+│   ├── repository/             # Data access layer (infrastructure)
 │   │   ├── user/               # User repository
 │   │   └── car/                # Car repository
-│   ├── service/                # Business logic layer
+│   ├── service/                # Business logic layer (domain services)
 │   │   ├── user/               # User service
 │   │   └── car/                # Car service
 │   └── util/                   # Utility functions
@@ -163,14 +163,31 @@ redis:
   address: localhost:6379
   password: ""
 
-auth:
+token:
   expired_token: 5m
   expired_refresh_token: 15m
 
 middleware:
+  public_paths:
+    - /health
+    - /ready
+    - /swagger/
+    - /auth/login
+    - /auth/register
+    - /auth/refresh
   rate_limiter:
     command: "1-S"
     limit: 500
+  role_rate_limit:
+    admin:
+      command: "1-M"
+      limit: 10
+    user:
+      command: "1-M"
+      limit: 5
+    guest:
+      command: "1-M"
+      limit: 1
 ```
 
 ### Environment Variables
