@@ -1,34 +1,36 @@
 package rest
 
 import (
+	"net/http"
 	"sync"
 
 	"go-far/src/config/auth"
 	"go-far/src/config/middleware"
 	"go-far/src/preference"
 	"go-far/src/service"
-
-	"github.com/gin-gonic/gin"
+	"go-far/src/service/user"
 )
 
 var onceRestHandler = &sync.Once{}
 
 type rest struct {
-	gin  *gin.Engine
+	mux  *http.ServeMux
 	auth auth.Auth
 	mw   middleware.Middleware
 	svc  *service.Service
+	usvc user.UserServiceItf
 }
 
-func InitRestHandler(gin *gin.Engine, auth auth.Auth, mw middleware.Middleware, svc *service.Service) {
+func InitRestHandler(mux *http.ServeMux, auth auth.Auth, mw middleware.Middleware, svc *service.Service, usvc user.UserServiceItf) {
 	var e *rest
 
 	onceRestHandler.Do(func() {
 		e = &rest{
-			gin:  gin,
+			mux:  mux,
 			auth: auth,
 			mw:   mw,
 			svc:  svc,
+			usvc: usvc,
 		}
 
 		e.Serve()
@@ -37,27 +39,32 @@ func InitRestHandler(gin *gin.Engine, auth auth.Auth, mw middleware.Middleware, 
 
 func (e *rest) Serve() {
 	// Health check endpoints
-	e.gin.GET(preference.RouteHealth, e.Health)
-	e.gin.GET(preference.RouteReady, e.Ready)
+	e.mux.HandleFunc("GET "+preference.RouteHealth, e.Health)
+	e.mux.HandleFunc("GET "+preference.RouteReady, e.Ready)
+
+	// Auth routes
+	e.mux.HandleFunc("POST "+preference.RouteAuthRegister, e.Register)
+	e.mux.HandleFunc("POST "+preference.RouteAuthLogin, e.Login)
+	e.mux.HandleFunc("POST "+preference.RouteAuthRefresh, e.RefreshToken)
 
 	// Car routes
-	e.gin.POST(preference.RouteCars, e.CreateCar)
-	e.gin.POST(preference.RouteCarsBulk, e.CreateBulkCars)
-	e.gin.GET(preference.RouteCarsByID, e.GetCar)
-	e.gin.GET(preference.RouteCarsOwner, e.GetCarWithOwner)
-	e.gin.PUT(preference.RouteCarsByID, e.UpdateCar)
-	e.gin.DELETE(preference.RouteCarsByID, e.DeleteCar)
-	e.gin.POST(preference.RouteCarsTransfer, e.TransferCarOwnership)
-	e.gin.PUT(preference.RouteCarsAvailability, e.BulkUpdateAvailability)
+	e.mux.HandleFunc("POST "+preference.RouteCars, e.CreateCar)
+	e.mux.HandleFunc("POST "+preference.RouteCarsBulk, e.CreateBulkCars)
+	e.mux.HandleFunc("GET "+preference.RouteCarsByID, e.GetCar)
+	e.mux.HandleFunc("GET "+preference.RouteCarsOwner, e.GetCarWithOwner)
+	e.mux.HandleFunc("PUT "+preference.RouteCarsByID, e.UpdateCar)
+	e.mux.HandleFunc("DELETE "+preference.RouteCarsByID, e.DeleteCar)
+	e.mux.HandleFunc("POST "+preference.RouteCarsTransfer, e.TransferCarOwnership)
+	e.mux.HandleFunc("PUT "+preference.RouteCarsAvailability, e.BulkUpdateAvailability)
 
-	// User car routes (using /cars/by-user/:user_id to avoid wildcard conflicts)
-	e.gin.GET(preference.RouteCarsByUser, e.ListCarsByUser)
-	e.gin.GET(preference.RouteCarsByUserCount, e.CountCarsByUser)
+	// User car routes
+	e.mux.HandleFunc("GET "+preference.RouteCarsByUser, e.ListCarsByUser)
+	e.mux.HandleFunc("GET "+preference.RouteCarsByUserCount, e.CountCarsByUser)
 
 	// User routes
-	e.gin.POST(preference.RouteUsers, e.CreateUser)
-	e.gin.GET(preference.RouteUsersByID, e.mw.Limiter("1-M", 3), e.GetUser)
-	e.gin.GET(preference.RouteUsers, e.ListUsers)
-	e.gin.PUT(preference.RouteUsersByID, e.UpdateUser)
-	e.gin.DELETE(preference.RouteUsersByID, e.DeleteUser)
+	e.mux.HandleFunc("POST "+preference.RouteUsers, e.CreateUser)
+	e.mux.HandleFunc("GET "+preference.RouteUsersByID, e.mw.Limiter("1-M", 3)(http.HandlerFunc(e.GetUser)).ServeHTTP)
+	e.mux.HandleFunc("GET "+preference.RouteUsers, e.ListUsers)
+	e.mux.HandleFunc("PUT "+preference.RouteUsersByID, e.UpdateUser)
+	e.mux.HandleFunc("DELETE "+preference.RouteUsersByID, e.DeleteUser)
 }

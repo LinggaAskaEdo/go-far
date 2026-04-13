@@ -1,12 +1,12 @@
 package rest
 
 import (
+	"encoding/json"
 	"net/http"
 
-	"go-far/src/dto"
-	x "go-far/src/errors"
+	"go-far/src/model/dto"
+	x "go-far/src/model/errors"
 
-	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 )
@@ -19,27 +19,27 @@ import (
 //	@Accept			json
 //	@Produce		json
 //	@Param			car	body		dto.CreateCarRequest	true	"Car data"
-//	@Success		201	{object}	dto.HttpSuccessResp{data=domain.Car}
+//	@Success		201	{object}	dto.HttpSuccessResp{data=entity.Car}
 //	@Failure		400	{object}	dto.HTTPErrorResp
 //	@Failure		500	{object}	dto.HTTPErrorResp
 //	@Router			/cars [post]
-func (e *rest) CreateCar(c *gin.Context) {
-	ctx := c.Request.Context()
+func (e *rest) CreateCar(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 
 	var req dto.CreateCarRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("invalid_request_body")
-		e.httpRespError(c, x.WrapWithCode(err, x.CodeHTTPUnmarshal, "invalid_request_body"))
+		e.httpRespError(w, r, x.WrapWithCode(err, x.CodeHTTPUnmarshal, "invalid_request_body"))
 		return
 	}
 
 	car, err := e.svc.Car.CreateCar(ctx, req)
 	if err != nil {
-		e.httpRespError(c, err)
+		e.httpRespError(w, r, err)
 		return
 	}
 
-	e.httpRespSuccess(c, http.StatusCreated, car, nil)
+	e.httpRespSuccess(w, r, http.StatusCreated, car, nil)
 }
 
 // CreateBulkCars godoc
@@ -50,27 +50,27 @@ func (e *rest) CreateCar(c *gin.Context) {
 //	@Accept			json
 //	@Produce		json
 //	@Param			cars	body		dto.BulkCreateCarsRequest	true	"Cars data"
-//	@Success		201		{object}	dto.HttpSuccessResp{data=[]domain.Car}
+//	@Success		201		{object}	dto.HttpSuccessResp{data=[]entity.Car}
 //	@Failure		400		{object}	dto.HTTPErrorResp
 //	@Failure		500		{object}	dto.HTTPErrorResp
 //	@Router			/cars/bulk [post]
-func (e *rest) CreateBulkCars(c *gin.Context) {
-	ctx := c.Request.Context()
+func (e *rest) CreateBulkCars(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 
 	var req dto.BulkCreateCarsRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("invalid_request_body")
-		e.httpRespError(c, x.WrapWithCode(err, x.CodeHTTPUnmarshal, "invalid_request_body"))
+		e.httpRespError(w, r, x.WrapWithCode(err, x.CodeHTTPUnmarshal, "invalid_request_body"))
 		return
 	}
 
 	cars, err := e.svc.Car.CreateBulkCars(ctx, req)
 	if err != nil {
-		e.httpRespError(c, err)
+		e.httpRespError(w, r, err)
 		return
 	}
 
-	e.httpRespSuccess(c, http.StatusCreated, cars, nil)
+	e.httpRespSuccess(w, r, http.StatusCreated, cars, nil)
 }
 
 // GetCar godoc
@@ -80,27 +80,27 @@ func (e *rest) CreateBulkCars(c *gin.Context) {
 //	@Tags			cars
 //	@Produce		json
 //	@Param			id	path		string	true	"Car ID"
-//	@Success		200	{object}	dto.HttpSuccessResp{data=domain.Car}
+//	@Success		200	{object}	dto.HttpSuccessResp{data=entity.Car}
 //	@Failure		404	{object}	dto.HTTPErrorResp
 //	@Failure		500	{object}	dto.HTTPErrorResp
 //	@Router			/cars/{id} [get]
-func (e *rest) GetCar(c *gin.Context) {
-	ctx := c.Request.Context()
+func (e *rest) GetCar(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 
-	id, err := uuid.Parse(c.Param("id"))
+	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("invalid_car_id")
-		e.httpRespError(c, x.WrapWithCode(err, x.CodeHTTPBadRequest, "invalid_car_id"))
+		e.httpRespError(w, r, x.WrapWithCode(err, x.CodeHTTPBadRequest, "invalid_car_id"))
 		return
 	}
 
 	car, err := e.svc.Car.GetCar(ctx, id)
 	if err != nil {
-		e.httpRespError(c, err)
+		e.httpRespError(w, r, err)
 		return
 	}
 
-	e.httpRespSuccess(c, http.StatusOK, car, nil)
+	e.httpRespSuccess(w, r, http.StatusOK, car, nil)
 }
 
 // GetCarWithOwner godoc
@@ -110,27 +110,27 @@ func (e *rest) GetCar(c *gin.Context) {
 //	@Tags			cars
 //	@Produce		json
 //	@Param			id	path		string	true	"Car ID"
-//	@Success		200	{object}	dto.HttpSuccessResp{data=domain.CarWithOwner}
+//	@Success		200	{object}	dto.HttpSuccessResp{data=entity.CarWithOwner}
 //	@Failure		404	{object}	dto.HTTPErrorResp
 //	@Failure		500	{object}	dto.HTTPErrorResp
 //	@Router			/cars/{id}/owner [get]
-func (e *rest) GetCarWithOwner(c *gin.Context) {
-	ctx := c.Request.Context()
+func (e *rest) GetCarWithOwner(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 
-	id, err := uuid.Parse(c.Param("id"))
+	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("invalid_car_id")
-		e.httpRespError(c, x.WrapWithCode(err, x.CodeHTTPBadRequest, "invalid_car_id"))
+		e.httpRespError(w, r, x.WrapWithCode(err, x.CodeHTTPBadRequest, "invalid_car_id"))
 		return
 	}
 
 	car, err := e.svc.Car.GetCarWithOwner(ctx, id)
 	if err != nil {
-		e.httpRespError(c, err)
+		e.httpRespError(w, r, err)
 		return
 	}
 
-	e.httpRespSuccess(c, http.StatusOK, car, nil)
+	e.httpRespSuccess(w, r, http.StatusOK, car, nil)
 }
 
 // ListCarsByUser godoc
@@ -140,27 +140,27 @@ func (e *rest) GetCarWithOwner(c *gin.Context) {
 //	@Tags			cars
 //	@Produce		json
 //	@Param			user_id	path		string	true	"User ID"
-//	@Success		200		{object}	dto.HttpSuccessResp{data=[]domain.Car}
+//	@Success		200		{object}	dto.HttpSuccessResp{data=[]entity.Car}
 //	@Failure		400		{object}	dto.HTTPErrorResp
 //	@Failure		500		{object}	dto.HTTPErrorResp
-//	@Router			/cars/by-user/{user_id} [get]
-func (e *rest) ListCarsByUser(c *gin.Context) {
-	ctx := c.Request.Context()
+//	@Router			/users/{user_id}/cars [get]
+func (e *rest) ListCarsByUser(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 
-	userID, err := uuid.Parse(c.Param("user_id"))
+	userID, err := uuid.Parse(r.PathValue("user_id"))
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("invalid_user_id")
-		e.httpRespError(c, x.WrapWithCode(err, x.CodeHTTPBadRequest, "invalid_user_id"))
+		e.httpRespError(w, r, x.WrapWithCode(err, x.CodeHTTPBadRequest, "invalid_user_id"))
 		return
 	}
 
 	cars, err := e.svc.Car.ListCarsByUser(ctx, userID)
 	if err != nil {
-		e.httpRespError(c, err)
+		e.httpRespError(w, r, err)
 		return
 	}
 
-	e.httpRespSuccess(c, http.StatusOK, cars, nil)
+	e.httpRespSuccess(w, r, http.StatusOK, cars, nil)
 }
 
 // CountCarsByUser godoc
@@ -173,24 +173,24 @@ func (e *rest) ListCarsByUser(c *gin.Context) {
 //	@Success		200		{object}	dto.HttpSuccessResp{data=int}
 //	@Failure		400		{object}	dto.HTTPErrorResp
 //	@Failure		500		{object}	dto.HTTPErrorResp
-//	@Router			/cars/by-user/{user_id}/count [get]
-func (e *rest) CountCarsByUser(c *gin.Context) {
-	ctx := c.Request.Context()
+//	@Router			/users/{user_id}/cars/count [get]
+func (e *rest) CountCarsByUser(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 
-	userID, err := uuid.Parse(c.Param("user_id"))
+	userID, err := uuid.Parse(r.PathValue("user_id"))
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("invalid_user_id")
-		e.httpRespError(c, x.WrapWithCode(err, x.CodeHTTPBadRequest, "invalid_user_id"))
+		e.httpRespError(w, r, x.WrapWithCode(err, x.CodeHTTPBadRequest, "invalid_user_id"))
 		return
 	}
 
 	count, err := e.svc.Car.CountCarsByUser(ctx, userID)
 	if err != nil {
-		e.httpRespError(c, err)
+		e.httpRespError(w, r, err)
 		return
 	}
 
-	e.httpRespSuccess(c, http.StatusOK, count, nil)
+	e.httpRespSuccess(w, r, http.StatusOK, count, nil)
 }
 
 // UpdateCar godoc
@@ -202,35 +202,35 @@ func (e *rest) CountCarsByUser(c *gin.Context) {
 //	@Produce		json
 //	@Param			id	path		string					true	"Car ID"
 //	@Param			car	body		dto.UpdateCarRequest	true	"Car data"
-//	@Success		200	{object}	dto.HttpSuccessResp{data=domain.Car}
+//	@Success		200	{object}	dto.HttpSuccessResp{data=entity.Car}
 //	@Failure		400	{object}	dto.HTTPErrorResp
 //	@Failure		404	{object}	dto.HTTPErrorResp
 //	@Failure		500	{object}	dto.HTTPErrorResp
 //	@Router			/cars/{id} [put]
-func (e *rest) UpdateCar(c *gin.Context) {
-	ctx := c.Request.Context()
+func (e *rest) UpdateCar(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 
-	id, err := uuid.Parse(c.Param("id"))
+	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("invalid_car_id")
-		e.httpRespError(c, x.WrapWithCode(err, x.CodeHTTPBadRequest, "invalid_car_id"))
+		e.httpRespError(w, r, x.WrapWithCode(err, x.CodeHTTPBadRequest, "invalid_car_id"))
 		return
 	}
 
 	var req dto.UpdateCarRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("invalid_request_body")
-		e.httpRespError(c, x.WrapWithCode(err, x.CodeHTTPUnmarshal, "invalid_request_body"))
+		e.httpRespError(w, r, x.WrapWithCode(err, x.CodeHTTPUnmarshal, "invalid_request_body"))
 		return
 	}
 
 	car, err := e.svc.Car.UpdateCar(ctx, id, req)
 	if err != nil {
-		e.httpRespError(c, err)
+		e.httpRespError(w, r, err)
 		return
 	}
 
-	e.httpRespSuccess(c, http.StatusOK, car, nil)
+	e.httpRespSuccess(w, r, http.StatusOK, car, nil)
 }
 
 // DeleteCar godoc
@@ -244,22 +244,22 @@ func (e *rest) UpdateCar(c *gin.Context) {
 //	@Failure		404	{object}	dto.HTTPErrorResp
 //	@Failure		500	{object}	dto.HTTPErrorResp
 //	@Router			/cars/{id} [delete]
-func (e *rest) DeleteCar(c *gin.Context) {
-	ctx := c.Request.Context()
+func (e *rest) DeleteCar(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 
-	id, err := uuid.Parse(c.Param("id"))
+	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("invalid_car_id")
-		e.httpRespError(c, x.WrapWithCode(err, x.CodeHTTPBadRequest, "invalid_car_id"))
+		e.httpRespError(w, r, x.WrapWithCode(err, x.CodeHTTPBadRequest, "invalid_car_id"))
 		return
 	}
 
 	if err := e.svc.Car.DeleteCar(ctx, id); err != nil {
-		e.httpRespError(c, err)
+		e.httpRespError(w, r, err)
 		return
 	}
 
-	e.httpRespSuccess(c, http.StatusOK, nil, nil)
+	e.httpRespSuccess(w, r, http.StatusOK, nil, nil)
 }
 
 // TransferCarOwnership godoc
@@ -276,29 +276,29 @@ func (e *rest) DeleteCar(c *gin.Context) {
 //	@Failure		404		{object}	dto.HTTPErrorResp
 //	@Failure		500		{object}	dto.HTTPErrorResp
 //	@Router			/cars/{id}/transfer [post]
-func (e *rest) TransferCarOwnership(c *gin.Context) {
-	ctx := c.Request.Context()
+func (e *rest) TransferCarOwnership(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 
-	carID, err := uuid.Parse(c.Param("id"))
+	carID, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("invalid_car_id")
-		e.httpRespError(c, x.WrapWithCode(err, x.CodeHTTPBadRequest, "invalid_car_id"))
+		e.httpRespError(w, r, x.WrapWithCode(err, x.CodeHTTPBadRequest, "invalid_car_id"))
 		return
 	}
 
 	var req dto.TransferCarRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("invalid_request_body")
-		e.httpRespError(c, x.WrapWithCode(err, x.CodeHTTPUnmarshal, "invalid_request_body"))
+		e.httpRespError(w, r, x.WrapWithCode(err, x.CodeHTTPUnmarshal, "invalid_request_body"))
 		return
 	}
 
 	if err := e.svc.Car.TransferCarOwnership(ctx, carID, req.NewUserID); err != nil {
-		e.httpRespError(c, err)
+		e.httpRespError(w, r, err)
 		return
 	}
 
-	e.httpRespSuccess(c, http.StatusOK, nil, nil)
+	e.httpRespSuccess(w, r, http.StatusOK, nil, nil)
 }
 
 // BulkUpdateAvailability godoc
@@ -313,20 +313,20 @@ func (e *rest) TransferCarOwnership(c *gin.Context) {
 //	@Failure		400		{object}	dto.HTTPErrorResp
 //	@Failure		500		{object}	dto.HTTPErrorResp
 //	@Router			/cars/availability [put]
-func (e *rest) BulkUpdateAvailability(c *gin.Context) {
-	ctx := c.Request.Context()
+func (e *rest) BulkUpdateAvailability(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 
 	var req dto.BulkUpdateAvailabilityRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("invalid_request_body")
-		e.httpRespError(c, x.WrapWithCode(err, x.CodeHTTPUnmarshal, "invalid_request_body"))
+		e.httpRespError(w, r, x.WrapWithCode(err, x.CodeHTTPUnmarshal, "invalid_request_body"))
 		return
 	}
 
 	if err := e.svc.Car.BulkUpdateAvailability(ctx, req); err != nil {
-		e.httpRespError(c, err)
+		e.httpRespError(w, r, err)
 		return
 	}
 
-	e.httpRespSuccess(c, http.StatusOK, nil, nil)
+	e.httpRespSuccess(w, r, http.StatusOK, nil, nil)
 }

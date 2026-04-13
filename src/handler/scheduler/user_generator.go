@@ -7,8 +7,8 @@ import (
 	"time"
 
 	cfg "go-far/src/config/scheduler"
-	"go-far/src/domain"
-	"go-far/src/dto"
+	"go-far/src/model/dto"
+	"go-far/src/model/entity"
 	"go-far/src/service/user"
 
 	"github.com/rs/zerolog"
@@ -83,7 +83,7 @@ func (j *UserGeneratorJob) Run(ctx context.Context) error {
 	return nil
 }
 
-func (j *UserGeneratorJob) generateRandomUser() *domain.User {
+func (j *UserGeneratorJob) generateRandomUser() *entity.User {
 	firstName := j.randomFirstName()
 	lastName := j.randomLastName()
 	name := fmt.Sprintf("%s %s", firstName, lastName)
@@ -96,7 +96,7 @@ func (j *UserGeneratorJob) generateRandomUser() *domain.User {
 
 	age := j.config.MinAge + j.rng.Intn(j.config.MaxAge-j.config.MinAge+1)
 
-	return &domain.User{
+	return &entity.User{
 		Name:  name,
 		Email: email,
 		Age:   age,

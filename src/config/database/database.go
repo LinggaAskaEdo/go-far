@@ -47,8 +47,15 @@ func InitDB(log zerolog.Logger, opt DatabaseOptions) *sqlx.DB {
 	if envUser := os.Getenv("DB_USER"); envUser != "" {
 		opt.User = envUser
 	}
-	if envPassword := os.Getenv("DB_PASSWORD"); envPassword != "" {
-		opt.Password = envPassword
+	// Driver-specific password overrides
+	if opt.Driver == preference.POSTGRES {
+		if envPassword := os.Getenv("POSTGRES_DOCKER_PASSWORD"); envPassword != "" {
+			opt.Password = envPassword
+		}
+	} else if opt.Driver == preference.MYSQL {
+		if envPassword := os.Getenv("MYSQL_DOCKER_PASSWORD"); envPassword != "" {
+			opt.Password = envPassword
+		}
 	}
 	if envDBName := os.Getenv("DB_NAME"); envDBName != "" {
 		opt.DBName = envDBName

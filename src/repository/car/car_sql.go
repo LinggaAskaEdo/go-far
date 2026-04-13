@@ -6,62 +6,42 @@ import (
 	"fmt"
 	"time"
 
-	"go-far/src/domain"
-	x "go-far/src/errors"
+	"go-far/src/model/entity"
+	x "go-far/src/model/errors"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
 	"github.com/rs/zerolog"
 )
 
-func (r *carRepository) createSQLCar(ctx context.Context, tx *sqlx.Tx, car *domain.Car) error {
-	query, _ := r.queryLoader.Get("CreateCar")
-
-	err := tx.QueryRowContext(
-		ctx,
-		query,
-		car.UserID,
-		car.Brand,
-		car.Model,
-		car.Year,
-		car.Color,
-		car.LicensePlate,
-		car.IsAvailable,
-	).Scan(&car.ID, &car.CreatedAt, &car.UpdatedAt)
-
+func (r *carRepository) createSQLCar(ctx context.Context, tx *sqlx.Tx, car *entity.Car) error {
+	query, args, err := r.queryLoader.Compile("CreateCar", car)
 	if err != nil {
-		zerolog.Ctx(ctx).Error().Err(err).Str("user_id", car.UserID).Msg("create_car_err")
+		zerolog.Ctx(ctx).Error().Err(err).Msg("build_create_car_query_err")
+		return x.WrapWithCode(err, x.CodeSQLQueryBuild, "build_create_car_query_err")
+	}
+
+	err = tx.QueryRowContext(ctx, query, args...).Scan(&car.ID, &car.CreatedAt, &car.UpdatedAt)
+	if err != nil {
+		zerolog.Ctx(ctx).Error().Err(err).Msg("create_car_err")
 		return x.Wrap(err, "create_car_err")
 	}
 
 	return nil
 }
 
-func (r *carRepository) createBulkSQLCars(ctx context.Context, tx *sqlx.Tx, cars []*domain.Car) error {
+func (r *carRepository) createBulkSQLCars(ctx context.Context, tx *sqlx.Tx, cars []*entity.Car) error {
 	if len(cars) == 0 {
 		return x.NewWithCode(x.CodeHTTPBadRequest, "no cars to create")
 	}
 
 	now := time.Now()
-	templateData := make([]map[string]any, len(cars))
-
-	for i, car := range cars {
+	for _, car := range cars {
 		car.CreatedAt = now
 		car.UpdatedAt = now
-		templateData[i] = map[string]any{
-			"user_id":       car.UserID,
-			"brand":         car.Brand,
-			"model":         car.Model,
-			"year":          car.Year,
-			"color":         car.Color,
-			"license_plate": car.LicensePlate,
-			"is_available":  car.IsAvailable,
-			"created_at":    car.CreatedAt,
-			"updated_at":    car.UpdatedAt,
-		}
 	}
 
-	query, args, err := r.queryLoader.ExecuteTemplate("CreateCarBulk", templateData)
+	query, args, err := r.queryLoader.Compile("CreateCarBulk", cars)
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("build_create_bulk_cars_query_err")
 		return x.WrapWithCode(err, x.CodeSQLQueryBuild, "build_create_bulk_cars_query_err")
@@ -76,23 +56,26 @@ func (r *carRepository) createBulkSQLCars(ctx context.Context, tx *sqlx.Tx, cars
 	return nil
 }
 
-func (r *carRepository) updateSQLCar(ctx context.Context, id uuid.UUID, car *domain.Car) error {
-	query, _ := r.queryLoader.Get("UpdateCar")
+func (r *carRepository) updateSQLCar(ctx context.Context, id uuid.UUID, car *entity.Car) error {
+	data := map[string]any{
+		"ID":           id,
+		"Brand":        car.Brand,
+		"Model":        car.Model,
+		"Year":         car.Year,
+		"Color":        car.Color,
+		"LicensePlate": car.LicensePlate,
+		"IsAvailable":  car.IsAvailable,
+		"UpdatedAt":    time.Now(),
+	}
+
+	query, args, err := r.queryLoader.Compile("UpdateCar", data)
+	if err != nil {
+		zerolog.Ctx(ctx).Error().Err(err).Msg("build_update_car_query_err")
+		return x.WrapWithCode(err, x.CodeSQLQueryBuild, "build_update_car_query_err")
+	}
 
 	var updatedAt time.Time
-	err := r.sql0.QueryRowContext(
-		ctx,
-		query,
-		car.Brand,
-		car.Model,
-		car.Year,
-		car.Color,
-		car.LicensePlate,
-		car.IsAvailable,
-		time.Now(),
-		id.String(),
-	).Scan(&updatedAt)
-
+	err = r.sql0.QueryRowContext(ctx, query, args...).Scan(&updatedAt)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			zerolog.Ctx(ctx).Debug().Str("id", id.String()).Msg("car_not_found_for_update")
@@ -109,9 +92,13 @@ func (r *carRepository) updateSQLCar(ctx context.Context, id uuid.UUID, car *dom
 }
 
 func (r *carRepository) deleteSQLCar(ctx context.Context, id uuid.UUID) error {
-	query, _ := r.queryLoader.Get("DeleteCar")
+	query, args, err := r.queryLoader.Compile("DeleteCar", map[string]any{"ID": id})
+	if err != nil {
+		zerolog.Ctx(ctx).Error().Err(err).Msg("build_delete_car_query_err")
+		return x.WrapWithCode(err, x.CodeSQLQueryBuild, "build_delete_car_query_err")
+	}
 
-	result, err := r.sql0.ExecContext(ctx, query, id.String())
+	result, err := r.sql0.ExecContext(ctx, query, args...)
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Str("id", id.String()).Msg("delete_car_err")
 		return x.WrapWithCode(err, x.CodeSQLDelete, "delete_car_err")

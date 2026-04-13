@@ -3,15 +3,14 @@ package car
 import (
 	"context"
 
-	"go-far/src/domain"
-	"go-far/src/dto"
+	"go-far/src/model/dto"
+	"go-far/src/model/entity"
 
 	"github.com/google/uuid"
 )
 
-func (s *carService) CreateCar(ctx context.Context, req dto.CreateCarRequest) (*domain.Car, error) {
-	car := &domain.Car{
-		UserID:       req.UserID.String(),
+func (s *carService) CreateCar(ctx context.Context, req dto.CreateCarRequest) (*entity.Car, error) {
+	car := &entity.Car{
 		Brand:        req.Brand,
 		Model:        req.Model,
 		Year:         req.Year,
@@ -24,15 +23,21 @@ func (s *carService) CreateCar(ctx context.Context, req dto.CreateCarRequest) (*
 		return nil, err
 	}
 
+	// Assign car to user via junction table
+	carUUID, _ := uuid.Parse(car.ID)
+	if err := s.carRepository.AssignCarToUser(ctx, req.UserID, carUUID); err != nil {
+		return nil, err
+	}
+
 	return car, nil
 }
 
-func (s *carService) CreateBulkCars(ctx context.Context, req dto.BulkCreateCarsRequest) ([]*domain.Car, error) {
-	cars := make([]*domain.Car, 0, len(req.Cars))
+func (s *carService) CreateBulkCars(ctx context.Context, req dto.BulkCreateCarsRequest) ([]*entity.Car, error) {
+	cars := make([]*entity.Car, 0, len(req.Cars))
+	carIDs := make([]uuid.UUID, 0, len(req.Cars))
 
 	for _, carReq := range req.Cars {
-		car := &domain.Car{
-			UserID:       req.UserID.String(),
+		car := &entity.Car{
 			Brand:        carReq.Brand,
 			Model:        carReq.Model,
 			Year:         carReq.Year,
@@ -47,18 +52,28 @@ func (s *carService) CreateBulkCars(ctx context.Context, req dto.BulkCreateCarsR
 		return nil, err
 	}
 
+	for _, car := range cars {
+		carID, _ := uuid.Parse(car.ID)
+		carIDs = append(carIDs, carID)
+	}
+
+	// Assign all cars to user via junction table
+	if err := s.carRepository.AssignCarsToUserBulk(ctx, req.UserID, carIDs); err != nil {
+		return nil, err
+	}
+
 	return cars, nil
 }
 
-func (s *carService) GetCar(ctx context.Context, id uuid.UUID) (*domain.Car, error) {
+func (s *carService) GetCar(ctx context.Context, id uuid.UUID) (*entity.Car, error) {
 	return s.carRepository.FindByID(ctx, id)
 }
 
-func (s *carService) GetCarWithOwner(ctx context.Context, id uuid.UUID) (*domain.CarWithOwner, error) {
+func (s *carService) GetCarWithOwner(ctx context.Context, id uuid.UUID) (*entity.CarWithOwner, error) {
 	return s.carRepository.FindByIDWithOwner(ctx, id)
 }
 
-func (s *carService) ListCarsByUser(ctx context.Context, userID uuid.UUID) ([]*domain.Car, error) {
+func (s *carService) ListCarsByUser(ctx context.Context, userID uuid.UUID) ([]*entity.Car, error) {
 	return s.carRepository.FindByUserID(ctx, userID)
 }
 
@@ -66,7 +81,7 @@ func (s *carService) CountCarsByUser(ctx context.Context, userID uuid.UUID) (int
 	return s.carRepository.CountByUserID(ctx, userID)
 }
 
-func (s *carService) UpdateCar(ctx context.Context, id uuid.UUID, req dto.UpdateCarRequest) (*domain.Car, error) {
+func (s *carService) UpdateCar(ctx context.Context, id uuid.UUID, req dto.UpdateCarRequest) (*entity.Car, error) {
 	existingCar, err := s.carRepository.FindByID(ctx, id)
 	if err != nil {
 		return nil, err

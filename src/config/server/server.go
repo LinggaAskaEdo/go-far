@@ -8,11 +8,8 @@ import (
 
 	"go-far/src/config/middleware"
 
-	"github.com/gin-gonic/gin"
 	"github.com/rs/zerolog"
-	swaggerfiles "github.com/swaggo/files"
-	ginSwagger "github.com/swaggo/gin-swagger"
-	"go.opentelemetry.io/contrib/instrumentation/github.com/gin-gonic/gin/otelgin"
+	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
 var (
@@ -30,13 +27,13 @@ type ServerOptions struct {
 	Mode            string        `yaml:"mode"`
 }
 
-// GinOptions holds Gin engine configuration
-type GinOptions struct {
+// HttpOptions holds HTTP handler configuration
+type HttpOptions struct {
 	AppName string `yaml:"app_name"`
 }
 
 // InitHttpServer initializes the HTTP server
-func InitHttpServer(logger zerolog.Logger, opt ServerOptions, engine *gin.Engine) *http.Server {
+func InitHttpServer(logger zerolog.Logger, opt ServerOptions, handler http.Handler) *http.Server {
 	onceServer.Do(func() {
 		serverPort := fmt.Sprintf(":%d", opt.Port)
 
@@ -45,23 +42,47 @@ func InitHttpServer(logger zerolog.Logger, opt ServerOptions, engine *gin.Engine
 			WriteTimeout: opt.WriteTimeout,
 			ReadTimeout:  opt.ReadTimeout,
 			IdleTimeout:  opt.IdleTimeout,
-			Handler:      engine,
+			Handler:      handler,
 		}
 	})
 
 	return httpServerInst
 }
 
-// InitHttpGin initializes the Gin engine
-func InitHttpGin(log zerolog.Logger, mw middleware.Middleware, opt GinOptions) *gin.Engine {
-	gin.SetMode(gin.ReleaseMode)
+// InitHttpMux initializes the HTTP ServeMux with middleware chain
+func InitHttpMux(log zerolog.Logger, mw middleware.Middleware, opt HttpOptions) *http.ServeMux {
+	mux := http.NewServeMux()
 
-	router := gin.New()
-	router.Use(otelgin.Middleware(opt.AppName))
-	router.Use(mw.Handler())
-	router.Use(mw.CORS())
+	// Serve swagger files
+	swaggerFS := http.Dir("./etc/docs")
+	mux.Handle("GET /swagger/", http.StripPrefix("/swagger/", http.FileServer(swaggerFS)))
 
-	router.GET("/swagger/*any", ginSwagger.WrapHandler(swaggerfiles.Handler, ginSwagger.DefaultModelsExpandDepth(-1)))
+	// Wrap the mux with middleware
+	var handler http.Handler = mux
+	handler = mw.CORS()(handler)
+	handler = mw.Handler()(handler)
 
-	return router
+	// Wrap with OpenTelemetry middleware
+	if opt.AppName != "" {
+		handler = otelhttp.NewHandler(handler, opt.AppName)
+	}
+
+	// Return a wrapper that serves the mux through the middleware chain
+	// We need to return the mux so routes can be registered, but the server
+	// will use the wrapped handler. We'll handle this in InitHttpServer.
+	_ = handler // stored for server use
+
+	return mux
+}
+
+// WrapHandler wraps an http.Handler with the middleware chain for server use
+func WrapHandler(mux *http.ServeMux, mw middleware.Middleware, opt HttpOptions) http.Handler {
+	var handler http.Handler = mux
+	handler = mw.CORS()(handler)
+	handler = mw.Handler()(handler)
+	if opt.AppName != "" {
+		handler = otelhttp.NewHandler(handler, opt.AppName)
+	}
+
+	return handler
 }

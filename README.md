@@ -1,19 +1,20 @@
 # Go-Far - Clean Architecture CRUD API
 
-A production-ready RESTful API built with Go following Clean Architecture principles, featuring PostgreSQL, Redis, JWT authentication, rate limiting, and OpenTelemetry tracing.
+A production-ready RESTful API built with Go following Clean Architecture principles, featuring PostgreSQL, Redis, JWT authentication, role-based rate limiting, and OpenTelemetry tracing.
 
 ## 🚀 Features
 
 - **Clean Architecture** - Separation of concerns with handlers, services, and repositories
-- **REST API** - Built with Gin framework
+- **REST API** - Built with Go's native `net/http` (Go 1.22+ pattern matching)
 - **Database** - PostgreSQL with sqlx (MySQL supported)
 - **Caching** - Redis with snappy compression
-- **Authentication** - JWT with RSA-256 signing and refresh tokens
-- **Rate Limiting** - Dual-layer (route + global) using Lua scripts
+- **Authentication** - JWT with HS-256 signing, refresh tokens, and role-based access
+- **Role-Based Rate Limiting** - Dual-layer (route + global) with per-role limits
 - **Observability** - OpenTelemetry tracing with OTLP exporter
 - **Scheduled Jobs** - Cron-based job scheduler
 - **API Documentation** - Swagger/OpenAPI 2.0
 - **Graceful Shutdown** - Proper cleanup of resources
+- **Many-to-Many Relationships** - Users and cars via junction table
 
 ## 📁 Project Structure
 
@@ -25,29 +26,31 @@ go-far/
 │   │   ├── app.go              # Dependency injection & initialization
 │   │   └── conf.go             # Configuration loading
 │   ├── config/                 # Configuration modules
-│   │   ├── auth/               # JWT authentication
+│   │   ├── auth/               # JWT authentication (HS-256)
 │   │   ├── database/           # Database connection
 │   │   ├── grace/              # Graceful shutdown
 │   │   ├── logger/             # Zerolog logger
 │   │   ├── middleware/         # Request middleware (CORS, rate limiting)
-│   │   ├── query/              # SQL query loader
+│   │   ├── query/              # SQL query loader (tqla templates)
 │   │   ├── redis/              # Redis client
 │   │   ├── scheduler/          # Cron scheduler
-│   │   ├── server/             # HTTP server & Gin engine
+│   │   ├── server/             # HTTP server & native net/http router
 │   │   └── tracer/             # OpenTelemetry tracer
-│   ├── domain/                 # Business entities
-│   │   ├── user.go             # User entity
-│   │   └── car.go              # Car entity
-│   ├── dto/                    # Data Transfer Objects
-│   │   ├── request.go          # Request DTOs
-│   │   ├── response.go         # Response DTOs
-│   │   └── pagination.go       # Pagination support
-│   ├── errors/                 # Error handling
 │   ├── handler/                # HTTP & scheduler handlers
 │   │   ├── rest/               # REST API handlers
+│   │   │   ├── auth.go         # Auth endpoints (register, login, refresh)
 │   │   │   ├── user.go         # User handlers
 │   │   │   └── car.go          # Car handlers
 │   │   └── scheduler/          # Cron job handlers
+│   ├── model/                  # Shared data contracts
+│   │   ├── entity/             # Business entities
+│   │   │   ├── user.go         # User entity with roles
+│   │   │   └── car.go          # Car entity
+│   │   ├── dto/                # Data Transfer Objects
+│   │   │   ├── request.go      # Request DTOs
+│   │   │   ├── response.go     # Response DTOs
+│   │   │   └── pagination.go   # Pagination support
+│   │   └── errors/             # Error handling
 │   ├── preference/             # Constants
 │   ├── repository/             # Data access layer
 │   │   ├── user/               # User repository
@@ -57,10 +60,10 @@ go-far/
 │   │   └── car/                # Car service
 │   └── util/                   # Utility functions
 ├── etc/
-│   ├── cert/                   # RSA keys for JWT
+│   ├── docs/                   # Swagger documentation (generated)
 │   ├── migrations/             # Database migrations
-│   └── queries/                # SQL queries with templates
-├── docs/                       # Swagger documentation
+│   ├── queries/                # SQL queries with tqla templates
+│   └── postman/                # Postman collection
 ├── logs/                       # Application logs
 ├── config.yaml                 # Application configuration
 ├── Makefile                    # Build & run commands
@@ -69,20 +72,29 @@ go-far/
 
 ## 🛠️ Tech Stack
 
-| Component  | Technology                   |
-| ---------- | ---------------------------- |
-| Framework  | Gin                          |
-| Database   | PostgreSQL (MySQL supported) |
-| ORM        | sqlx                         |
-| Cache      | Redis                        |
-| Auth       | JWT (RSA-256)                |
-| Logging    | Zerolog                      |
-| Tracing    | OpenTelemetry                |
-| Scheduler  | robfig/cron/v3               |
-| Validation | go-playground/validator      |
-| Docs       | Swagger (swaggo)             |
+| Component       | Technology                   |
+| --------------- | ---------------------------- |
+| Framework       | Go 1.22+ `net/http`          |
+| Database        | PostgreSQL (MySQL supported) |
+| ORM             | sqlx                         |
+| Cache           | Redis                        |
+| Auth            | JWT (HS-256) + bcrypt        |
+| Logging         | Zerolog                      |
+| Tracing         | OpenTelemetry                |
+| Scheduler       | robfig/cron/v3               |
+| Validation      | go-playground/validator      |
+| Docs            | Swagger (swaggo)             |
+| SQL Templating  | tqla                         |
 
 ## 📋 API Endpoints
+
+### Auth
+
+| Method    | Endpoint           | Description                          |
+| --------  | ------------------ | ------------------------------------ |
+| POST      | `/auth/register`   | Register a new user                  |
+| POST      | `/auth/login`      | Login and get tokens                 |
+| POST      | `/auth/refresh`    | Refresh access token                 |
 
 ### Health Check
 
@@ -93,32 +105,42 @@ go-far/
 
 ### Users
 
-| Method | Endpoint     | Description            |
-|--------|--------------|------------------------|
-| POST   | `/users`     | Create user            |
-| GET    | `/users/:id` | Get user by ID         |
-| GET    | `/users`     | List users (paginated) |
-| PUT    | `/users/:id` | Update user            |
-| DELETE | `/users/:id` | Delete user            |
+| Method | Endpoint          | Description            |
+|--------|-------------------|------------------------|
+| POST   | `/users`          | Create user            |
+| GET    | `/users/{id}`     | Get user by ID         |
+| GET    | `/users`          | List users (paginated) |
+| PUT    | `/users/{id}`     | Update user            |
+| DELETE | `/users/{id}`     | Delete user            |
 
 ### Cars
 
-| Method | Endpoint                       | Description                   |
-|--------|--------------------------------|-------------------------------|
-| POST   | `/cars`                        | Create car                    |
-| POST   | `/cars/bulk`                   | Create multiple cars          |
-| GET    | `/cars/:id`                    | Get car by ID                 |
-| GET    | `/cars/:id/owner`              | Get car with owner details    |
-| PUT    | `/cars/:id`                    | Update car                    |
-| DELETE | `/cars/:id`                    | Delete car                    |
-| POST   | `/cars/:id/transfer`           | Transfer ownership            |
-| PUT    | `/cars/availability`           | Bulk update availability      |
-| GET    | `/cars/by-user/:user_id`       | List cars by user             |
-| GET    | `/cars/by-user/:user_id/count` | Count cars by user            |
+| Method | Endpoint                        | Description                   |
+|--------|---------------------------------|-------------------------------|
+| POST   | `/cars`                         | Create car                    |
+| POST   | `/cars/bulk`                    | Create multiple cars          |
+| GET    | `/cars/{id}`                    | Get car by ID                 |
+| GET    | `/cars/{id}/owner`              | Get car with owner details    |
+| PUT    | `/cars/{id}`                    | Update car                    |
+| DELETE | `/cars/{id}`                    | Delete car                    |
+| POST   | `/cars/{id}/transfer`           | Transfer ownership            |
+| PUT    | `/cars/availability`            | Bulk update availability      |
+| GET    | `/users/{user_id}/cars`         | List cars by user             |
+| GET    | `/users/{user_id}/cars/count`   | Count cars by user            |
 
 ### Swagger Documentation
 
 Access Swagger UI at: `http://localhost:8181/swagger/index.html`
+
+## 🔐 User Roles
+
+| Role    | Description                 |
+|---------|---------------------------- |
+| `admin` | Full access to all features |
+| `user`  | Standard user access        |
+| `guest` | Limited read-only access    |
+
+Roles are assigned during registration and stored as a PostgreSQL enum type.
 
 ## ⚙️ Configuration
 
@@ -134,7 +156,7 @@ postgres:
   host: localhost
   port: 5432
   user: postgres
-  password: your_password
+  password: ${POSTGRES_DOCKER_PASSWORD}
   dbname: go_far
 
 redis:
@@ -142,10 +164,13 @@ redis:
   password: ""
 
 auth:
-  private_key: ./etc/cert/id_rsa
-  public_key: ./etc/cert/id_rsa.pub
   expired_token: 5m
   expired_refresh_token: 15m
+
+middleware:
+  rate_limiter:
+    command: "1-S"
+    limit: 500
 ```
 
 ### Environment Variables
@@ -155,11 +180,21 @@ auth:
 export SERVER_PORT=8181
 
 # Database
+export POSTGRES_DOCKER_PASSWORD=your_password
 export DB_HOST=localhost
 export DB_PORT=5432
 export DB_USER=postgres
-export DB_PASSWORD=your_password
 export DB_NAME=go_far
+
+# MySQL (if used)
+export MYSQL_DOCKER_PASSWORD=your_mysql_password
+export MYSQL_HOST=localhost
+export MYSQL_PORT=3306
+export MYSQL_USER=root
+export MYSQL_DB_NAME=go_far
+
+# JWT Secret (loaded from /etc/environment)
+export JWT_SECRET_GO_FAR=your-64-byte-hex-secret
 
 # Redis
 export REDIS_ADDRESS=localhost:6379
@@ -173,6 +208,15 @@ export TRACER_ENDPOINT=localhost:4317
 
 # Logging
 export LOG_LEVEL=info
+```
+
+### /etc/environment
+
+The app automatically loads `/etc/environment` at startup. Add your secrets there:
+
+```bash
+JWT_SECRET_GO_FAR=cc085ae29c8ada6eedba8e7f04fb669e...
+POSTGRES_DOCKER_PASSWORD=a5k4CooL
 ```
 
 ## 🚦 Getting Started
@@ -205,17 +249,17 @@ export LOG_LEVEL=info
    make install-tools
    ```
 
-4. **Generate RSA keys for JWT**
+4. **Setup JWT secret**
 
    ```bash
-   make cert-create
+   # Add to /etc/environment (app loads automatically at startup)
+   echo "JWT_SECRET_GO_FAR=$(openssl rand -hex 64)" | sudo tee -a /etc/environment
    ```
 
 5. **Setup database**
 
    ```bash
    createdb go_far
-   # Run migrations if any
    make sql-postgres-up
    ```
 
@@ -264,7 +308,7 @@ make sql-postgres-up       # Apply postgres migrations
 make sql-mysql-create      # Create new mysql migration
 make sql-mysql-up          # Apply mysql migrations
 
-make cert-install    # Install OpenSSL
+make cert-install    # Install OpenSSL (auto-detects package manager)
 make cert-create     # Generate RSA key pair (4096-bit)
 
 make mon-start       # Start monitoring stack
@@ -273,15 +317,42 @@ make mon-stop        # Stop monitoring stack
 
 ## 📝 Example Requests
 
+### Register User
+
+```bash
+curl -X POST http://localhost:8181/auth/register \
+  -H "Content-Type: application/json" \
+  -d '{
+    "name": "John Doe",
+    "email": "john@example.com",
+    "password": "securePass123!",
+    "age": 30,
+    "role": "user"
+  }'
+```
+
+### Login
+
+```bash
+curl -X POST http://localhost:8181/auth/login \
+  -H "Content-Type: application/json" \
+  -d '{
+    "email": "john@example.com",
+    "password": "securePass123!"
+  }'
+```
+
 ### Create User
 
 ```bash
 curl -X POST http://localhost:8181/users \
   -H "Content-Type: application/json" \
   -d '{
-    "name": "John Doe",
-    "email": "john@example.com",
-    "age": 30
+    "name": "Jane Doe",
+    "email": "jane@example.com",
+    "password": "securePass456!",
+    "age": 25,
+    "role": "user"
   }'
 ```
 
@@ -290,7 +361,6 @@ curl -X POST http://localhost:8181/users \
 ```bash
 curl -X POST http://localhost:8181/cars \
   -H "Content-Type: application/json" \
-  -H "Authorization: Bearer <your_token>" \
   -d '{
     "user_id": "user-uuid",
     "brand": "Toyota",
@@ -309,11 +379,13 @@ curl -X GET "http://localhost:8181/users?page=1&page_size=10&sort_by=name&sort_d
 
 ## 🔒 Authentication
 
-The API uses JWT with RSA-256 signing. Include the token in the Authorization header:
+The API uses JWT with HS-256 signing. Include the token in the Authorization header:
 
 ```text
 Authorization: Bearer <your_jwt_token>
 ```
+
+Tokens are generated on `/auth/login` and can be refreshed using `/auth/refresh`.
 
 ## 📊 Observability
 

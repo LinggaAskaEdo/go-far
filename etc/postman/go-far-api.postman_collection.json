@@ -1,0 +1,646 @@
+{
+  "info": {
+    "name": "Go-Far API",
+    "description": "Clean Architecture CRUD API with Go",
+    "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
+    "version": "1.1.0"
+  },
+  "variable": [
+    {
+      "key": "base_url",
+      "value": "http://localhost:8181",
+      "type": "string"
+    },
+    {
+      "key": "user_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "car_id",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "access_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "refresh_token",
+      "value": "",
+      "type": "string"
+    }
+  ],
+  "item": [
+    {
+      "name": "Auth",
+      "item": [
+        {
+          "name": "Register",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.data && jsonData.data.id) {",
+                  "        pm.collectionVariables.set('user_id', jsonData.data.id);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-app-lang",
+                "value": "en"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"John Doe\",\n  \"email\": \"john.doe@example.com\",\n  \"password\": \"securePass123!\",\n  \"age\": 30,\n  \"role\": \"user\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "register"]
+            },
+            "description": "Register a new user and receive access/refresh tokens"
+          }
+        },
+        {
+          "name": "Login",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.data) {",
+                  "        pm.collectionVariables.set('access_token', jsonData.data.accessToken);",
+                  "        pm.collectionVariables.set('refresh_token', jsonData.data.refreshToken);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-app-lang",
+                "value": "en"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"john.doe@example.com\",\n  \"password\": \"securePass123!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Login with email/password to get access/refresh tokens"
+          }
+        },
+        {
+          "name": "Refresh Token",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.data) {",
+                  "        pm.collectionVariables.set('access_token', jsonData.data.accessToken);",
+                  "        pm.collectionVariables.set('refresh_token', jsonData.data.refreshToken);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-app-lang",
+                "value": "en"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"refreshToken\": \"{{refresh_token}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/refresh",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "refresh"]
+            },
+            "description": "Refresh an expired access token using a valid refresh token"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Health",
+      "item": [
+        {
+          "name": "Health Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/health",
+              "host": ["{{base_url}}"],
+              "path": ["health"]
+            },
+            "description": "Returns the health status of the service"
+          }
+        },
+        {
+          "name": "Readiness Check",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/ready",
+              "host": ["{{base_url}}"],
+              "path": ["ready"]
+            },
+            "description": "Returns the readiness status of the service (checks dependencies)"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Users",
+      "item": [
+        {
+          "name": "Create User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.data && jsonData.data.id) {",
+                  "        pm.collectionVariables.set('user_id', jsonData.data.id);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-app-lang",
+                "value": "en"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"John Doe\",\n  \"email\": \"john.doe@example.com\",\n  \"password\": \"securePass123!\",\n  \"age\": 30,\n  \"role\": \"user\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/users",
+              "host": ["{{base_url}}"],
+              "path": ["users"]
+            },
+            "description": "Create a new user with password"
+          }
+        },
+        {
+          "name": "Get User by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-app-lang",
+                "value": "en"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/{{user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["users", "{{user_id}}"]
+            },
+            "description": "Get a user by their ID"
+          }
+        },
+        {
+          "name": "List Users",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "cache-control",
+                "value": "must-revalidate"
+              },
+              {
+                "key": "x-app-lang",
+                "value": "en"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users?name=&email=&min_age=&max_age=&page=1&page_size=10&sort_by=created_at&sort_dir=desc",
+              "host": ["{{base_url}}"],
+              "path": ["users"],
+              "query": [
+                {
+                  "key": "name",
+                  "value": "",
+                  "description": "Filter by name"
+                },
+                {
+                  "key": "email",
+                  "value": "",
+                  "description": "Filter by email"
+                },
+                {
+                  "key": "min_age",
+                  "value": "",
+                  "description": "Minimum age"
+                },
+                {
+                  "key": "max_age",
+                  "value": "",
+                  "description": "Maximum age"
+                },
+                {
+                  "key": "page",
+                  "value": "1",
+                  "description": "Page number"
+                },
+                {
+                  "key": "page_size",
+                  "value": "10",
+                  "description": "Page size"
+                },
+                {
+                  "key": "sort_by",
+                  "value": "created_at",
+                  "description": "Sort by field"
+                },
+                {
+                  "key": "sort_dir",
+                  "value": "desc",
+                  "description": "Sort direction (asc/desc)"
+                }
+              ]
+            },
+            "description": "Get a paginated list of users with optional filters"
+          }
+        },
+        {
+          "name": "Update User",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-app-lang",
+                "value": "en"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Jane Doe\",\n  \"email\": \"jane.doe@example.com\",\n  \"age\": 31,\n  \"role\": \"admin\",\n  \"is_active\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/users/{{user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["users", "{{user_id}}"]
+            },
+            "description": "Update an existing user"
+          }
+        },
+        {
+          "name": "Delete User",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "x-app-lang",
+                "value": "en"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/{{user_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["users", "{{user_id}}"]
+            },
+            "description": "Delete a user by ID"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Cars",
+      "item": [
+        {
+          "name": "Create Car",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.data && jsonData.data.id) {",
+                  "        pm.collectionVariables.set('car_id', jsonData.data.id);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-app-lang",
+                "value": "en"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": \"{{user_id}}\",\n  \"brand\": \"Toyota\",\n  \"model\": \"Camry\",\n  \"year\": 2024,\n  \"color\": \"Silver\",\n  \"license_plate\": \"ABC1234\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/cars",
+              "host": ["{{base_url}}"],
+              "path": ["cars"]
+            },
+            "description": "Create a new car with the provided information"
+          }
+        },
+        {
+          "name": "Create Bulk Cars",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-app-lang",
+                "value": "en"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"user_id\": \"{{user_id}}\",\n  \"cars\": [\n    {\n      \"brand\": \"Honda\",\n      \"model\": \"Civic\",\n      \"year\": 2023,\n      \"color\": \"Blue\",\n      \"license_plate\": \"DEF5678\"\n    },\n    {\n      \"brand\": \"Mazda\",\n      \"model\": \"CX-5\",\n      \"year\": 2024,\n      \"color\": \"Red\",\n      \"license_plate\": \"GHI9012\"\n    }\n  ]\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/cars/bulk",
+              "host": ["{{base_url}}"],
+              "path": ["cars", "bulk"]
+            },
+            "description": "Create multiple cars for a user in a single request"
+          }
+        },
+        {
+          "name": "Get Car by ID",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-app-lang",
+                "value": "en"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cars/{{car_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["cars", "{{car_id}}"]
+            },
+            "description": "Get a car by its ID"
+          }
+        },
+        {
+          "name": "Get Car with Owner",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-app-lang",
+                "value": "en"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cars/{{car_id}}/owner",
+              "host": ["{{base_url}}"],
+              "path": ["cars", "{{car_id}}", "owner"]
+            },
+            "description": "Get a car by its ID with owner information"
+          }
+        },
+        {
+          "name": "List Cars by User",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-app-lang",
+                "value": "en"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/{{user_id}}/cars",
+              "host": ["{{base_url}}"],
+              "path": ["users", "{{user_id}}", "cars"]
+            },
+            "description": "Get all cars owned by a specific user"
+          }
+        },
+        {
+          "name": "Count Cars by User",
+          "request": {
+            "method": "GET",
+            "header": [
+              {
+                "key": "x-app-lang",
+                "value": "en"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/users/{{user_id}}/cars/count",
+              "host": ["{{base_url}}"],
+              "path": ["users", "{{user_id}}", "cars", "count"]
+            },
+            "description": "Get the total number of cars owned by a specific user"
+          }
+        },
+        {
+          "name": "Update Car",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-app-lang",
+                "value": "en"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"brand\": \"Toyota\",\n  \"model\": \"Camry SE\",\n  \"year\": 2024,\n  \"color\": \"Midnight Black\",\n  \"license_plate\": \"ABC1234\",\n  \"is_available\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/cars/{{car_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["cars", "{{car_id}}"]
+            },
+            "description": "Update an existing car"
+          }
+        },
+        {
+          "name": "Delete Car",
+          "request": {
+            "method": "DELETE",
+            "header": [
+              {
+                "key": "x-app-lang",
+                "value": "en"
+              }
+            ],
+            "url": {
+              "raw": "{{base_url}}/cars/{{car_id}}",
+              "host": ["{{base_url}}"],
+              "path": ["cars", "{{car_id}}"]
+            },
+            "description": "Delete a car by ID"
+          }
+        },
+        {
+          "name": "Transfer Car Ownership",
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-app-lang",
+                "value": "en"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"new_user_id\": \"{{user_id}}\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/cars/{{car_id}}/transfer",
+              "host": ["{{base_url}}"],
+              "path": ["cars", "{{car_id}}", "transfer"]
+            },
+            "description": "Transfer a car to a new owner"
+          }
+        },
+        {
+          "name": "Bulk Update Car Availability",
+          "request": {
+            "method": "PUT",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-app-lang",
+                "value": "en"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"car_ids\": [\"{{car_id}}\"],\n  \"is_available\": true\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/cars/availability",
+              "host": ["{{base_url}}"],
+              "path": ["cars", "availability"]
+            },
+            "description": "Update availability status for multiple cars"
+          }
+        }
+      ]
+    },
+    {
+      "name": "Swagger",
+      "item": [
+        {
+          "name": "Swagger UI",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/swagger/index.html",
+              "host": ["{{base_url}}"],
+              "path": ["swagger", "index.html"]
+            },
+            "description": "Open Swagger UI in browser"
+          }
+        },
+        {
+          "name": "Swagger JSON",
+          "request": {
+            "method": "GET",
+            "header": [],
+            "url": {
+              "raw": "{{base_url}}/swagger/doc.json",
+              "host": ["{{base_url}}"],
+              "path": ["swagger", "doc.json"]
+            },
+            "description": "Get Swagger specification as JSON"
+          }
+        }
+      ]
+    }
+  ]
+}

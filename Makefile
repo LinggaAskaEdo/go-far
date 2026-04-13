@@ -3,7 +3,7 @@ BINARY_NAME    := app
 BIN_DIR        := ./bin
 SRC_DIR        := ./src
 CMD_PATH       := $(SRC_DIR)/cmd/app.go
-DOCS_DIR       := ./docs
+DOCS_DIR       := ./etc/docs
 COVERAGE_OUT   := coverage.out
 COVERAGE_HTML  := coverage.html
 
@@ -25,7 +25,7 @@ WHITE          := \033[37m
 RESET          := \033[0m
 COMMA          := ,
 
-.PHONY: all help build run clean swagger migrate deps cert-install cert-create fmt vet lint test check install-tools update sql-postgres-create sql-postgres-up sql-mysql-create sql-mysql-up mon-start mon-stop
+.PHONY: all help build run clean swagger migrate deps fmt vet lint test check install-tools update sql-postgres-create sql-postgres-up sql-mysql-create sql-mysql-up monitoring-start monitoring-stop
 
 ## Show this help message
 help:
@@ -55,29 +55,23 @@ help:
 	@printf "  $(GREEN)make swagger$(RESET)               Generate Swagger API docs\n"
 	@echo ""
 	@printf "$(YELLOW)Database:$(RESET)\n"
-	@printf "  $(GREEN)make migrate$(RESET)               Run database migrations (postgres)\n"
 	@printf "  $(GREEN)make sql-postgres-create$(RESET)   Create new postgres migration\n"
 	@printf "  $(GREEN)make sql-postgres-up$(RESET)       Apply postgres migrations\n"
-	@printf "  $(GREEN)make sql-mysql-create$(RESET)      Create new mysql migration\n"
-	@printf "  $(GREEN)make sql-mysql-up$(RESET)          Apply mysql migrations\n"
-	@echo ""
-	@printf "$(YELLOW)Certificates:$(RESET)\n"
-	@printf "  $(GREEN)make cert-install$(RESET)          Install OpenSSL\n"
-	@printf "  $(GREEN)make cert-create$(RESET)           Generate RSA key pair (4096-bit)\n"
 	@echo ""
 	@printf "$(YELLOW)Monitoring:$(RESET)\n"
-	@printf "  $(GREEN)make mon-start$(RESET)             Start monitoring stack\n"
-	@printf "  $(GREEN)make mon-stop$(RESET)              Stop monitoring stack\n"
+	@printf "  $(GREEN)make monitoring-start$(RESET)             Start monitoring stack\n"
+	@printf "  $(GREEN)make monitoring-stop$(RESET)              Stop monitoring stack\n"
 	@echo ""
 
 ## Execute build and run
-all: clean deps check swagger build run
+all: clean deps swagger check build run
 
 ## Clean build artifacts and coverage files
 clean:
 	@echo "Cleaning..."
 	@rm -rf $(BIN_DIR)/
 	@rm -rf logs/
+	@rm -rf etc/cert/
 	@rm -f $(COVERAGE_OUT) $(COVERAGE_HTML)
 	@printf "$(BLUE)Clean complete$(RESET)\n"
 
@@ -146,35 +140,12 @@ run:
 	@echo "Starting application..."
 	@$(BIN_DIR)/$(BINARY_NAME)
 
-## Run database migrations (postgres default)
-migrate:
-	@echo "Running migrations..."
-	@psql -U postgres -d gofar -f etc/migrations/000001_create_users_table.sql
-	@echo "Migrations complete"
-
 ## Download and tidy dependencies
 deps:
 	@echo "Installing dependencies..."
 	@$(GO) mod download
 	@$(GO) mod tidy
 	@echo "Dependencies installed"
-
-## Install OpenSSL for certificates
-cert-install:
-	@echo "Installing OpenSSL..."
-	@sudo apt install -y openssl
-
-## Generate RSA key pair if not exists
-cert-create:
-	@echo "Generating RSA key pair if not exists..."
-	@if [ ! -f ./etc/cert/id_rsa ]; then \
-		mkdir -p ./etc/cert && \
-		openssl genrsa -out ./etc/cert/id_rsa 4096 && \
-		openssl rsa -in ./etc/cert/id_rsa -pubout -out ./etc/cert/id_rsa.pub; \
-		echo "$(BLUE)Key pair generated successfully$(RESET)\n"; \
-	else \
-		echo "Key pair already exists"; \
-	fi
 
 ## Install development tools
 install-tools:
@@ -185,13 +156,13 @@ install-tools:
 	@printf "$(BLUE)Tools installed$(RESET)\n"
 
 ## Start monitoring stack (Grafana, Prometheus, Loki, Tempo)
-mon-start:
+monitoring-start:
 	@echo "Starting monitoring stack..."
 	@./start-monitoring.sh
 	@echo "Monitoring stack started"
 
 ## Stop monitoring stack
-mon-stop:
+monitoring-stop:
 	@echo "Stopping monitoring stack..."
 	@./stop-monitoring.sh
 	@echo "Monitoring stack stopped"
@@ -200,7 +171,7 @@ mon-stop:
 sql-postgres-create:
 	@echo "Creating postgres SQL migration files..."
 	@read -p "Enter migration name (use underscores): " name; \
-		$(GOOSE) -dir ./etc/migrations/postgres create postgres_$${name} sql
+		$(GOOSE) -dir ./etc/migrations create postgres_$${name} sql
 
 ## Apply up migrations for postgres
 sql-postgres-up:
@@ -211,23 +182,5 @@ sql-postgres-up:
 			read -p "Enter postgres password: " pass ; \
 			stty echo ; \
 			echo ; \
-			$(GOOSE) -dir ./etc/migrations/postgres postgres "host=localhost user=postgres password=$$pass dbname=go_far sslmode=disable" up ; \
-		}
-
-## Create SQL migration files for mysql
-sql-mysql-create:
-	@echo "Creating mysql SQL migration files..."
-	@read -p "Enter migration name (use underscores): " name; \
-		$(GOOSE) -dir ./etc/migrations/mysql create mysql_$${name} sql
-
-## Apply up migrations for mysql
-sql-mysql-up:
-	@echo "Applying up migrations for mysql..."; \
-		{ \
-			stty -echo ; \
-			trap 'stty echo' EXIT ; \
-			read -p "Enter mysql password: " pass ; \
-			stty echo ; \
-			echo ; \
-			$(GOOSE) -dir ./etc/migrations/mysql mysql "host=localhost user=root password=$$pass dbname=go_far sslmode=disable" up ; \
+			$(GOOSE) -dir ./etc/migrations postgres "host=localhost user=postgres password=$$pass dbname=go-far sslmode=disable" up ; \
 		}

@@ -1,4 +1,4 @@
-package domain
+package entity
 
 import (
 	"time"
@@ -6,7 +6,6 @@ import (
 
 type Car struct {
 	ID           string    `db:"id" json:"id"`
-	UserID       string    `db:"user_id" json:"user_id"`
 	Brand        string    `db:"brand" json:"brand"`
 	Model        string    `db:"model" json:"model"`
 	Year         int       `db:"year" json:"year"`

@@ -3,7 +3,7 @@ package main
 import (
 	"flag"
 
-	_ "go-far/docs"
+	_ "go-far/etc/docs"
 	"go-far/src/config/auth"
 	"go-far/src/config/database"
 	"go-far/src/config/grace"
@@ -80,18 +80,21 @@ func init() {
 	// Middleware Initialization
 	mw := middleware.InitMiddleware(log, conf.Middleware, authInst, redis2)
 
-	// HTTP Gin Initialization
-	httpGin := server.InitHttpGin(log, mw, conf.Gin)
+	// HTTP Mux Initialization
+	mux := server.InitHttpMux(log, mw, conf.HTTP)
 
-	// REST Handler Initialization
-	restHandler.InitRestHandler(httpGin, authInst, mw, service)
+	// REST Handler Initialization (registers routes on mux)
+	restHandler.InitRestHandler(mux, authInst, mw, service, service.User)
+
+	// Build the full handler with middleware chain
+	handler := server.WrapHandler(mux, mw, conf.HTTP)
 
 	// Scheduler Initialization
 	scheduler = cfgscheduler.InitScheduler(log, conf.Scheduler)
 	schedHandler.InitSchedulerHandler(log, scheduler, service, conf.Scheduler.SchedulerJobs)
 
 	// HTTP Server Initialization
-	httpServer := server.InitHttpServer(log, conf.Server, httpGin)
+	httpServer := server.InitHttpServer(log, conf.Server, handler)
 
 	// Tracer Initialization
 	tracerInst = tracer.InitTracer(log, conf.Tracer)

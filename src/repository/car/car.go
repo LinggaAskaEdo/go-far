@@ -5,7 +5,7 @@ import (
 	"time"
 
 	"go-far/src/config/query"
-	"go-far/src/domain"
+	"go-far/src/model/entity"
 
 	"github.com/google/uuid"
 	"github.com/jmoiron/sqlx"
@@ -13,13 +13,15 @@ import (
 )
 
 type CarRepositoryItf interface {
-	Create(ctx context.Context, car *domain.Car) error
-	CreateBulk(ctx context.Context, cars []*domain.Car) error
-	FindByID(ctx context.Context, id uuid.UUID) (*domain.Car, error)
-	FindByIDWithOwner(ctx context.Context, id uuid.UUID) (*domain.CarWithOwner, error)
-	FindByUserID(ctx context.Context, userID uuid.UUID) ([]*domain.Car, error)
+	Create(ctx context.Context, car *entity.Car) error
+	CreateBulk(ctx context.Context, cars []*entity.Car) error
+	AssignCarToUser(ctx context.Context, userID uuid.UUID, carID uuid.UUID) error
+	AssignCarsToUserBulk(ctx context.Context, userID uuid.UUID, carIDs []uuid.UUID) error
+	FindByID(ctx context.Context, id uuid.UUID) (*entity.Car, error)
+	FindByIDWithOwner(ctx context.Context, id uuid.UUID) (*entity.CarWithOwner, error)
+	FindByUserID(ctx context.Context, userID uuid.UUID) ([]*entity.Car, error)
 	CountByUserID(ctx context.Context, userID uuid.UUID) (int, error)
-	Update(ctx context.Context, id uuid.UUID, car *domain.Car) error
+	Update(ctx context.Context, id uuid.UUID, car *entity.Car) error
 	Delete(ctx context.Context, id uuid.UUID) error
 	TransferOwnership(ctx context.Context, carID, newUserID uuid.UUID) error
 	BulkUpdateAvailability(ctx context.Context, carIDs []uuid.UUID, isAvailable bool) error

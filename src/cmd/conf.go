@@ -1,8 +1,10 @@
 package main
 
 import (
-	"fmt"
 	"os"
+	"regexp"
+	"strconv"
+	"strings"
 
 	"go-far/src/config/auth"
 	"go-far/src/config/database"
@@ -26,76 +28,111 @@ type Config struct {
 	Queries    query.QueriesOptions          `yaml:"queries"`
 	Auth       auth.AuthOptions              `yaml:"auth"`
 	Middleware middleware.MiddlewareOptions  `yaml:"middleware"`
-	Gin        server.GinOptions             `yaml:"gin"`
+	HTTP       server.HttpOptions            `yaml:"http"`
 	Scheduler  cfgscheduler.SchedulerOptions `yaml:"scheduler"`
 	Tracer     tracer.TracerOptions          `yaml:"tracer"`
 }
 
-func InitConfig() (*Config, error) {
-	configPath := "config.yaml"
+var envVarRegex = regexp.MustCompile(`\$\{(\w+)\}`)
 
-	data, err := os.ReadFile(configPath)
+// loadEnvFile reads a key=value file and sets each as an environment variable
+func loadEnvFile(path string) {
+	data, err := os.ReadFile(path)
+	if err != nil {
+		return
+	}
+	for _, line := range strings.Split(string(data), "\n") {
+		line = strings.TrimSpace(line)
+		if line == "" || strings.HasPrefix(line, "#") {
+			continue
+		}
+		if key, val, ok := strings.Cut(line, "="); ok {
+			os.Setenv(strings.TrimSpace(key), strings.TrimSpace(val))
+		}
+	}
+}
+
+func InitConfig() (*Config, error) {
+	loadEnvFile("/etc/environment")
+	data, err := os.ReadFile("config.yaml")
 	if err != nil {
 		return nil, err
 	}
 
 	var cfg Config
-	if err := yaml.Unmarshal(data, &cfg); err != nil {
+	if err := yaml.Unmarshal(resolveEnvVars(data), &cfg); err != nil {
 		return nil, err
 	}
 
-	// Override with environment variables if present
 	overrideWithEnv(&cfg)
 
 	return &cfg, nil
 }
 
+func resolveEnvVars(content []byte) []byte {
+	return envVarRegex.ReplaceAllFunc(content, func(match []byte) []byte {
+		varName := string(match[2 : len(match)-1])
+		if val := os.Getenv(varName); val != "" {
+			return []byte(val)
+		}
+
+		return match
+	})
+}
+
 func overrideWithEnv(cfg *Config) {
-	if val := os.Getenv("SERVER_PORT"); val != "" {
-		cfg.Server.Port = parseInt(val, cfg.Server.Port)
+	if v := os.Getenv("SERVER_PORT"); v != "" {
+		cfg.Server.Port = parseInt(v, cfg.Server.Port)
+	}
+	if v := os.Getenv("LOG_LEVEL"); v != "" {
+		cfg.Logger.Level = v
 	}
 
-	if val := os.Getenv("LOG_LEVEL"); val != "" {
-		cfg.Logger.Level = val
+	// Postgres
+	if v := os.Getenv("DB_HOST"); v != "" {
+		cfg.Postgres.Host = v
+	}
+	if v := os.Getenv("DB_PORT"); v != "" {
+		cfg.Postgres.Port = parseInt(v, cfg.Postgres.Port)
+	}
+	if v := os.Getenv("DB_USER"); v != "" {
+		cfg.Postgres.User = v
+	}
+	if v := os.Getenv("DB_NAME"); v != "" {
+		cfg.Postgres.DBName = v
 	}
 
-	if val := os.Getenv("DB_HOST"); val != "" {
-		cfg.Postgres.Host = val
+	// MySQL
+	if v := os.Getenv("MYSQL_HOST"); v != "" {
+		cfg.MySQL.Host = v
+	}
+	if v := os.Getenv("MYSQL_PORT"); v != "" {
+		cfg.MySQL.Port = parseInt(v, cfg.MySQL.Port)
+	}
+	if v := os.Getenv("MYSQL_USER"); v != "" {
+		cfg.MySQL.User = v
+	}
+	if v := os.Getenv("MYSQL_DB_NAME"); v != "" {
+		cfg.MySQL.DBName = v
 	}
 
-	if val := os.Getenv("DB_PORT"); val != "" {
-		cfg.Postgres.Port = parseInt(val, cfg.Postgres.Port)
+	// Redis
+	if v := os.Getenv("REDIS_ADDRESS"); v != "" {
+		cfg.Redis.Address = v
+	}
+	if v := os.Getenv("REDIS_PASSWORD"); v != "" {
+		cfg.Redis.Password = v
 	}
 
-	if val := os.Getenv("DB_USER"); val != "" {
-		cfg.Postgres.User = val
-	}
-
-	if val := os.Getenv("DB_PASSWORD"); val != "" {
-		cfg.Postgres.Password = val
-	}
-
-	if val := os.Getenv("DB_NAME"); val != "" {
-		cfg.Postgres.DBName = val
-	}
-
-	if val := os.Getenv("REDIS_ADDRESS"); val != "" {
-		cfg.Redis.Address = val
-	}
-
-	if val := os.Getenv("REDIS_PASSWORD"); val != "" {
-		cfg.Redis.Password = val
-	}
-
-	if val := os.Getenv("TRACER_ENDPOINT"); val != "" {
-		cfg.Tracer.Endpoint = val
+	// Tracer
+	if v := os.Getenv("TRACER_ENDPOINT"); v != "" {
+		cfg.Tracer.Endpoint = v
 	}
 }
 
 func parseInt(s string, defaultVal int) int {
-	var val int
-	if _, err := fmt.Sscanf(s, "%d", &val); err == nil {
-		return val
+	if v, err := strconv.Atoi(strings.TrimSpace(s)); err == nil {
+		return v
 	}
 
 	return defaultVal

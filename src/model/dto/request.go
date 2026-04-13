@@ -1,18 +1,44 @@
 package dto
 
-import "github.com/google/uuid"
+import (
+	"go-far/src/model/entity"
 
-// user related DTOs
+	"github.com/google/uuid"
+)
+
+// Auth related DTOs
+type RegisterRequest struct {
+	Name     string      `json:"name" binding:"required,min=2,max=100"`
+	Email    string      `json:"email" binding:"required,email"`
+	Password string      `json:"password" binding:"required,min=8,max=100"`
+	Age      int         `json:"age" binding:"required,min=1,max=150"`
+	Role     entity.Role `json:"role" binding:"required,oneof=admin user guest"`
+}
+
+type LoginRequest struct {
+	Email    string `json:"email" binding:"required,email"`
+	Password string `json:"password" binding:"required"`
+}
+
+type RefreshTokenRequest struct {
+	RefreshToken string `json:"refreshToken" binding:"required"`
+}
+
+// User related DTOs
 type CreateUserRequest struct {
-	Name  string `json:"name" binding:"required,min=2,max=100"`
-	Email string `json:"email" binding:"required,email"`
-	Age   int    `json:"age" binding:"required,min=1,max=150"`
+	Name     string      `json:"name" binding:"required,min=2,max=100"`
+	Email    string      `json:"email" binding:"required,email"`
+	Password string      `json:"password" binding:"required,min=8,max=100"`
+	Age      int         `json:"age" binding:"required,min=1,max=150"`
+	Role     entity.Role `json:"role" binding:"required,oneof=admin user guest"`
 }
 
 type UpdateUserRequest struct {
-	Name  string `json:"name" binding:"omitempty,min=2,max=100"`
-	Email string `json:"email" binding:"omitempty,email"`
-	Age   int    `json:"age" binding:"omitempty,min=1,max=150"`
+	Name     string      `json:"name" binding:"omitempty,min=2,max=100"`
+	Email    string      `json:"email" binding:"omitempty,email"`
+	Age      int         `json:"age" binding:"omitempty,min=1,max=150"`
+	Role     entity.Role `json:"role" binding:"omitempty,oneof=admin user guest"`
+	IsActive *bool       `json:"is_active" binding:"omitempty"`
 }
 
 type UserFilter struct {

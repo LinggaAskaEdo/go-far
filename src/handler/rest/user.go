@@ -1,13 +1,15 @@
 package rest
 
 import (
+	"encoding/json"
 	"net/http"
+	"net/url"
+	"strconv"
 
-	"go-far/src/dto"
-	x "go-far/src/errors"
+	"go-far/src/model/dto"
+	x "go-far/src/model/errors"
 	"go-far/src/preference"
 
-	"github.com/gin-gonic/gin"
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
 )
@@ -20,27 +22,27 @@ import (
 //	@Accept			json
 //	@Produce		json
 //	@Param			user	body		dto.CreateUserRequest	true	"User data"
-//	@Success		201		{object}	dto.HttpSuccessResp{data=domain.User}
+//	@Success		201		{object}	dto.HttpSuccessResp{data=entity.User}
 //	@Failure		400		{object}	dto.HTTPErrorResp
 //	@Failure		500		{object}	dto.HTTPErrorResp
 //	@Router			/users [post]
-func (e *rest) CreateUser(c *gin.Context) {
-	ctx := c.Request.Context()
+func (e *rest) CreateUser(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 
 	var req dto.CreateUserRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("invalid_request_body")
-		e.httpRespError(c, x.WrapWithCode(err, x.CodeHTTPUnmarshal, "invalid_request_body"))
+		e.httpRespError(w, r, x.WrapWithCode(err, x.CodeHTTPUnmarshal, "invalid_request_body"))
 		return
 	}
 
 	user, err := e.svc.User.CreateUser(ctx, req)
 	if err != nil {
-		e.httpRespError(c, err)
+		e.httpRespError(w, r, err)
 		return
 	}
 
-	e.httpRespSuccess(c, http.StatusCreated, user, nil)
+	e.httpRespSuccess(w, r, http.StatusCreated, user, nil)
 }
 
 // GetUser godoc
@@ -50,27 +52,27 @@ func (e *rest) CreateUser(c *gin.Context) {
 //	@Tags			users
 //	@Produce		json
 //	@Param			id	path		string	true	"User ID"
-//	@Success		200	{object}	dto.HttpSuccessResp{data=domain.User}
+//	@Success		200	{object}	dto.HttpSuccessResp{data=entity.User}
 //	@Failure		404	{object}	dto.HTTPErrorResp
 //	@Failure		500	{object}	dto.HTTPErrorResp
 //	@Router			/users/{id} [get]
-func (e *rest) GetUser(c *gin.Context) {
-	ctx := c.Request.Context()
+func (e *rest) GetUser(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 
-	id, err := uuid.Parse(c.Param("id"))
+	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("invalid_user_id")
-		e.httpRespError(c, x.WrapWithCode(err, x.CodeHTTPBadRequest, "invalid_user_id"))
+		e.httpRespError(w, r, x.WrapWithCode(err, x.CodeHTTPBadRequest, "invalid_user_id"))
 		return
 	}
 
 	user, err := e.svc.User.GetUser(ctx, id.String())
 	if err != nil {
-		e.httpRespError(c, err)
+		e.httpRespError(w, r, err)
 		return
 	}
 
-	e.httpRespSuccess(c, http.StatusOK, user, nil)
+	e.httpRespSuccess(w, r, http.StatusOK, user, nil)
 }
 
 // ListUsers godoc
@@ -88,35 +90,51 @@ func (e *rest) GetUser(c *gin.Context) {
 //	@Param			page_size		query		int		false	"Page size"		default(10)
 //	@Param			sort_by			query		string	false	"Sort by field"
 //	@Param			sort_dir		query		string	false	"Sort direction (asc/desc)"	default(asc)
-//	@Success		200				{object}	dto.HttpSuccessResp{data=[]domain.User}
+//	@Success		200				{object}	dto.HttpSuccessResp{data=[]entity.User}
 //	@Failure		400				{object}	dto.HTTPErrorResp
 //	@Failure		500				{object}	dto.HTTPErrorResp
 //	@Router			/users [get]
-func (e *rest) ListUsers(c *gin.Context) {
-	ctx := c.Request.Context()
+func (e *rest) ListUsers(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 
-	var (
-		filter       dto.UserFilter
-		cacheControl dto.CacheControl
-	)
+	filter := decodeUserFilter(r.URL.Query())
+	cacheControl := dto.CacheControl{}
 
-	if err := c.ShouldBindQuery(&filter); err != nil {
-		zerolog.Ctx(ctx).Error().Err(err).Msg("invalid_query_parameters")
-		e.httpRespError(c, x.WrapWithCode(err, x.CodeHTTPUnmarshal, "invalid_query_parameters"))
-		return
-	}
-
-	if c.Request.Header[http.CanonicalHeaderKey(preference.CacheControl)] != nil && c.Request.Header[http.CanonicalHeaderKey(preference.CacheControl)][0] == preference.CacheMustRevalidate {
+	if r.Header.Get(preference.CacheControl) == preference.CacheMustRevalidate {
 		cacheControl.MustRevalidate = true
 	}
 
 	users, pagination, err := e.svc.User.ListUsers(ctx, cacheControl, filter)
 	if err != nil {
-		e.httpRespError(c, err)
+		e.httpRespError(w, r, err)
 		return
 	}
 
-	e.httpRespSuccess(c, http.StatusOK, users, &pagination)
+	e.httpRespSuccess(w, r, http.StatusOK, users, &pagination)
+}
+
+func decodeUserFilter(q url.Values) dto.UserFilter {
+	filter := dto.UserFilter{
+		Name:    q.Get("name"),
+		Email:   q.Get("email"),
+		SortBy:  q.Get("sort_by"),
+		SortDir: q.Get("sort_dir"),
+	}
+
+	if v := q.Get("min_age"); v != "" {
+		filter.MinAge, _ = strconv.Atoi(v)
+	}
+	if v := q.Get("max_age"); v != "" {
+		filter.MaxAge, _ = strconv.Atoi(v)
+	}
+	if v := q.Get("page"); v != "" {
+		filter.Page, _ = strconv.ParseInt(v, 10, 64)
+	}
+	if v := q.Get("page_size"); v != "" {
+		filter.PageSize, _ = strconv.ParseInt(v, 10, 64)
+	}
+
+	return filter
 }
 
 // UpdateUser godoc
@@ -128,35 +146,35 @@ func (e *rest) ListUsers(c *gin.Context) {
 //	@Produce		json
 //	@Param			id		path		string					true	"User ID"
 //	@Param			user	body		dto.UpdateUserRequest	true	"User data"
-//	@Success		200		{object}	dto.HttpSuccessResp{data=domain.User}
+//	@Success		200		{object}	dto.HttpSuccessResp{data=entity.User}
 //	@Failure		400		{object}	dto.HTTPErrorResp
 //	@Failure		404		{object}	dto.HTTPErrorResp
 //	@Failure		500		{object}	dto.HTTPErrorResp
 //	@Router			/users/{id} [put]
-func (e *rest) UpdateUser(c *gin.Context) {
-	ctx := c.Request.Context()
+func (e *rest) UpdateUser(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 
-	id, err := uuid.Parse(c.Param("id"))
+	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("invalid_user_id")
-		e.httpRespError(c, x.WrapWithCode(err, x.CodeHTTPBadRequest, "invalid_user_id"))
+		e.httpRespError(w, r, x.WrapWithCode(err, x.CodeHTTPBadRequest, "invalid_user_id"))
 		return
 	}
 
 	var req dto.UpdateUserRequest
-	if err := c.ShouldBindJSON(&req); err != nil {
+	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("invalid_request_body")
-		e.httpRespError(c, x.WrapWithCode(err, x.CodeHTTPUnmarshal, "invalid_request_body"))
+		e.httpRespError(w, r, x.WrapWithCode(err, x.CodeHTTPUnmarshal, "invalid_request_body"))
 		return
 	}
 
 	user, err := e.svc.User.UpdateUser(ctx, id.String(), req)
 	if err != nil {
-		e.httpRespError(c, err)
+		e.httpRespError(w, r, err)
 		return
 	}
 
-	e.httpRespSuccess(c, http.StatusOK, user, nil)
+	e.httpRespSuccess(w, r, http.StatusOK, user, nil)
 }
 
 // DeleteUser godoc
@@ -170,20 +188,20 @@ func (e *rest) UpdateUser(c *gin.Context) {
 //	@Failure		404	{object}	dto.HTTPErrorResp
 //	@Failure		500	{object}	dto.HTTPErrorResp
 //	@Router			/users/{id} [delete]
-func (e *rest) DeleteUser(c *gin.Context) {
-	ctx := c.Request.Context()
+func (e *rest) DeleteUser(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
 
-	id, err := uuid.Parse(c.Param("id"))
+	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("invalid_user_id")
-		e.httpRespError(c, x.WrapWithCode(err, x.CodeHTTPBadRequest, "invalid_user_id"))
+		e.httpRespError(w, r, x.WrapWithCode(err, x.CodeHTTPBadRequest, "invalid_user_id"))
 		return
 	}
 
 	if err := e.svc.User.DeleteUser(ctx, id.String()); err != nil {
-		e.httpRespError(c, err)
+		e.httpRespError(w, r, err)
 		return
 	}
 
-	e.httpRespSuccess(c, http.StatusOK, nil, nil)
+	e.httpRespSuccess(w, r, http.StatusOK, nil, nil)
 }

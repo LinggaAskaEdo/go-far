@@ -1,15 +1,14 @@
 package rest
 
 import (
+	"encoding/json"
 	"fmt"
 	"net/http"
 	"time"
 
-	"go-far/src/dto"
-	x "go-far/src/errors"
+	"go-far/src/model/dto"
+	x "go-far/src/model/errors"
 	"go-far/src/preference"
-
-	"github.com/gin-gonic/gin"
 )
 
 // Health godoc
@@ -20,9 +19,7 @@ import (
 //	@Produce		json
 //	@Success		200	{object}	dto.HttpSuccessResp{data=dto.HealthStatus}
 //	@Router			/health [get]
-func (e *rest) Health(c *gin.Context) {
-	ctx := c.Request.Context()
-
+func (e *rest) Health(w http.ResponseWriter, r *http.Request) {
 	status := dto.HealthStatus{
 		Status:    "healthy",
 		Timestamp: time.Now().Format(time.RFC3339),
@@ -30,8 +27,7 @@ func (e *rest) Health(c *gin.Context) {
 		Version:   "1.0.0",
 	}
 
-	e.httpRespSuccess(c, http.StatusOK, status, nil)
-	_ = ctx
+	e.httpRespSuccess(w, r, http.StatusOK, status, nil)
 }
 
 // Ready godoc
@@ -43,9 +39,7 @@ func (e *rest) Health(c *gin.Context) {
 //	@Success		200	{object}	dto.HttpSuccessResp{data=dto.ReadinessStatus}
 //	@Failure		503	{object}	dto.HTTPErrorResp
 //	@Router			/ready [get]
-func (e *rest) Ready(c *gin.Context) {
-	ctx := c.Request.Context()
-
+func (e *rest) Ready(w http.ResponseWriter, r *http.Request) {
 	// Add dependency checks here (database, redis, etc.)
 	// For now, return a simple ready response
 	status := dto.ReadinessStatus{
@@ -54,16 +48,15 @@ func (e *rest) Ready(c *gin.Context) {
 		Dependencies: map[string]string{"database": "unknown", "redis": "unknown"},
 	}
 
-	e.httpRespSuccess(c, http.StatusOK, status, nil)
-	_ = ctx
+	e.httpRespSuccess(w, r, http.StatusOK, status, nil)
 }
 
-func (e *rest) httpRespSuccess(c *gin.Context, statusCode int, resp any, p *dto.Pagination) {
+func (e *rest) httpRespSuccess(w http.ResponseWriter, r *http.Request, statusCode int, resp any, p *dto.Pagination) {
 	meta := dto.Meta{
-		Path:       c.Request.URL.Path,
+		Path:       r.URL.Path,
 		StatusCode: statusCode,
 		Status:     http.StatusText(statusCode),
-		Message:    fmt.Sprintf("%s %s [%d] %s", c.Request.Method, c.Request.RequestURI, statusCode, http.StatusText(statusCode)),
+		Message:    fmt.Sprintf("%s %s [%d] %s", r.Method, r.RequestURI, statusCode, http.StatusText(statusCode)),
 		Error:      nil,
 		Timestamp:  time.Now().Format(time.RFC3339),
 	}
@@ -74,14 +67,14 @@ func (e *rest) httpRespSuccess(c *gin.Context, statusCode int, resp any, p *dto.
 		Pagination: p,
 	}
 
-	c.JSON(statusCode, httpResp)
+	writeJSON(w, statusCode, httpResp)
 }
 
-func (e *rest) httpRespError(c *gin.Context, err error) {
+func (e *rest) httpRespError(w http.ResponseWriter, r *http.Request, err error) {
 	lang := preference.LANG_ID
 
 	appLangHeader := http.CanonicalHeaderKey(preference.APP_LANG)
-	if c.Request.Header[appLangHeader] != nil && c.Request.Header[appLangHeader][0] == preference.LANG_EN {
+	if r.Header[appLangHeader] != nil && r.Header[appLangHeader][0] == preference.LANG_EN {
 		lang = preference.LANG_EN
 	}
 
@@ -90,14 +83,20 @@ func (e *rest) httpRespError(c *gin.Context, err error) {
 
 	jsonErrResp := &dto.HTTPErrorResp{
 		Meta: dto.Meta{
-			Path:       c.Request.URL.Path,
+			Path:       r.URL.Path,
 			StatusCode: statusCode,
 			Status:     statusStr,
-			Message:    fmt.Sprintf("%s %s [%d] %s", c.Request.Method, c.Request.RequestURI, statusCode, http.StatusText(statusCode)),
+			Message:    fmt.Sprintf("%s %s [%d] %s", r.Method, r.RequestURI, statusCode, http.StatusText(statusCode)),
 			Error:      &displayError,
 			Timestamp:  time.Now().Format(time.RFC3339),
 		},
 	}
 
-	c.JSON(statusCode, jsonErrResp)
+	writeJSON(w, statusCode, jsonErrResp)
+}
+
+func writeJSON(w http.ResponseWriter, statusCode int, v any) {
+	w.Header().Set("Content-Type", "application/json")
+	w.WriteHeader(statusCode)
+	_ = json.NewEncoder(w).Encode(v)
 }

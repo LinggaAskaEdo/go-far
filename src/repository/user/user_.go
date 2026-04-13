@@ -6,15 +6,15 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"go-far/src/domain"
-	"go-far/src/dto"
-	x "go-far/src/errors"
+	"go-far/src/model/dto"
+	"go-far/src/model/entity"
+	x "go-far/src/model/errors"
 
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog"
 )
 
-func (d *userRepository) Create(ctx context.Context, user *domain.User) (*domain.User, error) {
+func (d *userRepository) Create(ctx context.Context, user *entity.User) (*entity.User, error) {
 	tx, err := d.sql0.BeginTxx(ctx, &sql.TxOptions{
 		Isolation: sql.LevelDefault,
 	})
@@ -43,8 +43,8 @@ func (d *userRepository) Create(ctx context.Context, user *domain.User) (*domain
 	return user, nil
 }
 
-func (d *userRepository) FindByID(ctx context.Context, id string) (domain.User, error) {
-	var user domain.User
+func (d *userRepository) FindByID(ctx context.Context, id string) (entity.User, error) {
+	var user entity.User
 
 	cacheKey := fmt.Sprintf("user:%s", id)
 
@@ -57,9 +57,13 @@ func (d *userRepository) FindByID(ctx context.Context, id string) (domain.User, 
 		}
 	}
 
-	query, _ := d.queryLoader.Get("FindUserByID")
+	query, args, err := d.queryLoader.Compile("FindUserByID", map[string]any{"ID": id})
+	if err != nil {
+		zerolog.Ctx(ctx).Error().Err(err).Msg("build_find_user_query_err")
+		return user, x.WrapWithCode(err, x.CodeSQLQueryBuild, "build_find_user_query_err")
+	}
 
-	err = d.sql0.GetContext(ctx, &user, query, id)
+	err = d.sql0.GetContext(ctx, &user, query, args...)
 	if err != nil {
 		if err == sql.ErrNoRows {
 			zerolog.Ctx(ctx).Debug().Str("id", id).Msg("user_not_found")
@@ -76,7 +80,28 @@ func (d *userRepository) FindByID(ctx context.Context, id string) (domain.User, 
 	return user, nil
 }
 
-func (d *userRepository) FindAll(ctx context.Context, cacheControl dto.CacheControl, filter dto.UserFilter) ([]domain.User, dto.Pagination, error) {
+func (d *userRepository) FindByEmail(ctx context.Context, email string) (entity.User, error) {
+	var user entity.User
+
+	query, args, err := d.queryLoader.Compile("FindUserByEmail", map[string]any{"Email": email})
+	if err != nil {
+		zerolog.Ctx(ctx).Error().Err(err).Msg("build_find_user_by_email_query_err")
+		return user, x.WrapWithCode(err, x.CodeSQLQueryBuild, "build_find_user_by_email_query_err")
+	}
+
+	err = d.sql0.GetContext(ctx, &user, query, args...)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return user, x.NewWithCode(x.CodeHTTPUnauthorized, "Invalid credentials")
+		}
+		zerolog.Ctx(ctx).Error().Err(err).Str("email", email).Msg("find_user_by_email_err")
+		return user, x.WrapWithCode(err, x.CodeSQLRowScan, "find_user_by_email_err")
+	}
+
+	return user, nil
+}
+
+func (d *userRepository) FindAll(ctx context.Context, cacheControl dto.CacheControl, filter dto.UserFilter) ([]entity.User, dto.Pagination, error) {
 	if cacheControl.MustRevalidate {
 		result, pagination, err := d.findAllSQLUser(ctx, filter)
 		if err != nil {
@@ -107,17 +132,13 @@ func (d *userRepository) FindAll(ctx context.Context, cacheControl dto.CacheCont
 	} else if err != nil {
 		zerolog.Ctx(ctx).Warn().Err(err).Send()
 
-		// fallback if there is redis error e.g. bad conn, etc.
-		// this is quite critical during high load traffic since it could be
-		// thundering our db. (thundering herd).
-		// we leave as it is to reduce code complexity [TODO LATER]
 		return d.findAllSQLUser(ctx, filter)
 	}
 
 	return result, pagination, nil
 }
 
-func (d *userRepository) Update(ctx context.Context, id string, user domain.User) error {
+func (d *userRepository) Update(ctx context.Context, id string, user entity.User) error {
 	err := d.updateSQLUser(ctx, id, user)
 	if err != nil {
 		return err

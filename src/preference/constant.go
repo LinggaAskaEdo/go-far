@@ -41,18 +41,21 @@ const (
 	CacheMustRevalidate string = `must-revalidate`
 
 	// API Routes
+	RouteAuthRegister     string = "/auth/register"
+	RouteAuthLogin        string = "/auth/login"
+	RouteAuthRefresh      string = "/auth/refresh"
 	RouteUsers            string = "/users"
-	RouteUsersByID        string = "/users/:id"
+	RouteUsersByID        string = "/users/{id}"
 	RouteHealth           string = "/health"
 	RouteReady            string = "/ready"
 	RouteCars             string = "/cars"
-	RouteCarsByID         string = "/cars/:id"
+	RouteCarsByID         string = "/cars/{id}"
 	RouteCarsBulk         string = "/cars/bulk"
-	RouteCarsOwner        string = "/cars/:id/owner"
-	RouteCarsTransfer     string = "/cars/:id/transfer"
+	RouteCarsOwner        string = "/cars/{id}/owner"
+	RouteCarsTransfer     string = "/cars/{id}/transfer"
 	RouteCarsAvailability string = "/cars/availability"
-	RouteCarsByUser       string = "/cars/by-user/:user_id"
-	RouteCarsByUserCount  string = "/cars/by-user/:user_id/count"
+	RouteCarsByUser       string = "/users/{user_id}/cars"
+	RouteCarsByUserCount  string = "/users/{user_id}/cars/count"
 
 	// Limiter Error Message
 	FormatError  string = "Please check the format with your input."

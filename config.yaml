@@ -23,22 +23,8 @@ postgres:
   host: localhost
   port: 5432
   user: postgres
-  password: a5k4CooL
-  dbname: go_far
-  sslmode: false
-  max_open_conns: 25
-  max_idle_conns: 5
-  conn_max_lifetime: 1h
-  conn_max_idle_time: 30m
-
-mysql:
-  enabled: false
-  driver: mysql
-  host: localhost
-  port: 3306
-  user: root
-  password: a5k4CooL
-  dbname: go_far
+  password: ${POSTGRES_DOCKER_PASSWORD}
+  dbname: go-far
   sslmode: false
   max_open_conns: 25
   max_idle_conns: 5
@@ -67,13 +53,11 @@ queries:
   path: ./etc/queries/
 
 auth:
-  private_key: ./etc/cert/id_rsa
-  public_key: ./etc/cert/id_rsa.pub
   expired_token: 5m
   expired_refresh_token: 15m
 
 scheduler:
-  enabled: true
+  enabled: false
   jobs:
     user_generator:
       enabled: true
@@ -87,5 +71,5 @@ middleware:
     command: "1-S" # 1 request per second
     limit: 500 # max 500 clients
 
-gin:
+http:
   app_name: go-far-app

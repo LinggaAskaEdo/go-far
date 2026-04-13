@@ -6,9 +6,9 @@ import (
 	"strings"
 	"time"
 
-	"go-far/src/domain"
-	"go-far/src/dto"
-	x "go-far/src/errors"
+	"go-far/src/model/dto"
+	"go-far/src/model/entity"
+	x "go-far/src/model/errors"
 	"go-far/src/util"
 
 	"github.com/jmoiron/sqlx"
@@ -24,6 +24,7 @@ var (
 		"created_at": "created_at",
 		"updated_at": "updated_at",
 	}
+
 	allowedSortDirs = map[string]string{
 		"asc":  "ASC",
 		"desc": "DESC",
@@ -31,24 +32,36 @@ var (
 )
 
 func sanitizeSortBy(sortBy string) string {
-	normalized := strings.ToLower(strings.TrimSpace(sortBy))
+	normalized := normalizeString(sortBy)
 	if col, ok := allowedSortFields[normalized]; ok {
 		return col
 	}
+
 	return "id"
 }
 
 func sanitizeSortDir(sortDir string) string {
-	normalized := strings.ToLower(strings.TrimSpace(sortDir))
+	normalized := normalizeString(sortDir)
 	if dir, ok := allowedSortDirs[normalized]; ok {
 		return dir
 	}
+
 	return "ASC"
 }
 
-func (d *userRepository) createSQLUser(ctx context.Context, tx *sqlx.Tx, user *domain.User) (*sqlx.Tx, *domain.User, error) {
-	query, _ := d.queryLoader.Get("CreateUser")
-	row := tx.QueryRowContext(ctx, query, user.Name, user.Email, user.Age).Scan(&user.ID, &user.CreatedAt, &user.UpdatedAt)
+func normalizeString(s string) string {
+	s = strings.ToLower(strings.TrimSpace(s))
+	return s
+}
+
+func (d *userRepository) createSQLUser(ctx context.Context, tx *sqlx.Tx, user *entity.User) (*sqlx.Tx, *entity.User, error) {
+	query, args, err := d.queryLoader.Compile("CreateUser", user)
+	if err != nil {
+		zerolog.Ctx(ctx).Error().Err(err).Msg("build_create_user_query_err")
+		return tx, user, x.WrapWithCode(err, x.CodeSQLQueryBuild, "build_create_user_query_err")
+	}
+
+	row := tx.QueryRowContext(ctx, query, args...).Scan(&user.ID, &user.CreatedAt, &user.UpdatedAt)
 	if err := row; err != nil {
 		return tx, user, x.Wrap(err, "create_sql_user")
 	}
@@ -56,9 +69,9 @@ func (d *userRepository) createSQLUser(ctx context.Context, tx *sqlx.Tx, user *d
 	return tx, user, nil
 }
 
-func (d *userRepository) findAllSQLUser(ctx context.Context, filter dto.UserFilter) ([]domain.User, dto.Pagination, error) {
+func (d *userRepository) findAllSQLUser(ctx context.Context, filter dto.UserFilter) ([]entity.User, dto.Pagination, error) {
 	var (
-		results      []domain.User
+		results      []entity.User
 		totalRecords int64
 	)
 
@@ -75,28 +88,24 @@ func (d *userRepository) findAllSQLUser(ctx context.Context, filter dto.UserFilt
 		SortBy:          filter.SortBy,
 	}
 
-	// Prepare template data
 	templateData := map[string]any{
-		"Name":    filter.Name,
-		"Email":   filter.Email,
-		"MinAge":  filter.MinAge,
-		"MaxAge":  filter.MaxAge,
-		"SortBy":  filter.SortBy,
-		"SortDir": filter.SortDir,
-		"name":    filter.Name,
-		"email":   filter.Email,
-		"min_age": filter.MinAge,
-		"max_age": filter.MaxAge,
-		"limit":   filter.PageSize,
-		"offset":  (filter.Page - 1) * filter.PageSize,
+		"Name":         filter.Name,
+		"Email":        filter.Email,
+		"NamePattern":  "%" + filter.Name + "%",
+		"EmailPattern": "%" + filter.Email + "%",
+		"MinAge":       filter.MinAge,
+		"MaxAge":       filter.MaxAge,
+		"Limit":        filter.PageSize,
+		"Offset":       (filter.Page - 1) * filter.PageSize,
 	}
 
-	// Get users
-	query, args, err := d.queryLoader.ExecuteTemplate("FindAllUsersBase", templateData)
+	query, args, err := d.queryLoader.Compile("FindAllUsersBase", templateData)
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("build_find_users_query_err")
 		return nil, pagination, x.WrapWithCode(err, x.CodeSQLQueryBuild, "build_find_users_query_err")
 	}
+
+	query = d.injectSortClauses(query, filter.SortBy, filter.SortDir)
 
 	err = d.sql0.SelectContext(ctx, &results, query, args...)
 	if err != nil {
@@ -104,8 +113,7 @@ func (d *userRepository) findAllSQLUser(ctx context.Context, filter dto.UserFilt
 		return nil, pagination, x.WrapWithCode(err, x.CodeSQLRowScan, "find_users_err")
 	}
 
-	// Count users
-	countQuery, countArgs, err := d.queryLoader.ExecuteTemplate("CountUsersBase", templateData)
+	countQuery, countArgs, err := d.queryLoader.Compile("CountUsersBase", templateData)
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("count_users_query_err")
 		return nil, pagination, x.WrapWithCode(err, x.CodeSQLQueryBuild, "count_users_query_err")
@@ -119,7 +127,6 @@ func (d *userRepository) findAllSQLUser(ctx context.Context, filter dto.UserFilt
 
 	zerolog.Ctx(ctx).Debug().Int64("total", totalRecords).Msg("total_users_found")
 
-	// Update Pagination
 	totalPage := totalRecords / filter.PageSize
 	if totalRecords%filter.PageSize > 0 || totalRecords == 0 {
 		totalPage++
@@ -132,18 +139,31 @@ func (d *userRepository) findAllSQLUser(ctx context.Context, filter dto.UserFilt
 	return results, pagination, nil
 }
 
-func (d *userRepository) updateSQLUser(ctx context.Context, id string, user domain.User) error {
-	query, _ := d.queryLoader.Get("UpdateUser")
+func (d *userRepository) injectSortClauses(query, sortBy, sortDir string) string {
+	query = strings.ReplaceAll(query, "__SORT_BY__", sortBy)
+	query = strings.ReplaceAll(query, "__SORT_DIR__", sortDir)
 
-	result, err := d.sql0.ExecContext(
-		ctx,
-		query,
-		user.Name,
-		user.Email,
-		user.Age,
-		time.Now(),
-		id,
-	)
+	return query
+}
+
+func (d *userRepository) updateSQLUser(ctx context.Context, id string, user entity.User) error {
+	data := map[string]any{
+		"ID":        id,
+		"Name":      user.Name,
+		"Email":     user.Email,
+		"Age":       user.Age,
+		"Role":      user.Role,
+		"IsActive":  user.IsActive,
+		"UpdatedAt": time.Now(),
+	}
+
+	query, args, err := d.queryLoader.Compile("UpdateUser", data)
+	if err != nil {
+		zerolog.Ctx(ctx).Error().Err(err).Msg("build_update_user_query_err")
+		return x.WrapWithCode(err, x.CodeSQLQueryBuild, "build_update_user_query_err")
+	}
+
+	result, err := d.sql0.ExecContext(ctx, query, args...)
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Str("id", id).Msg("update_user_err")
 		return x.WrapWithCode(err, x.CodeSQLUpdate, "update_user_err")
@@ -167,9 +187,13 @@ func (d *userRepository) updateSQLUser(ctx context.Context, id string, user doma
 }
 
 func (d *userRepository) deleteSQLUser(ctx context.Context, id string) error {
-	query, _ := d.queryLoader.Get("DeleteUser")
+	query, args, err := d.queryLoader.Compile("DeleteUser", map[string]any{"ID": id})
+	if err != nil {
+		zerolog.Ctx(ctx).Error().Err(err).Msg("build_delete_user_query_err")
+		return x.WrapWithCode(err, x.CodeSQLQueryBuild, "build_delete_user_query_err")
+	}
 
-	result, err := d.sql0.ExecContext(ctx, query, id)
+	result, err := d.sql0.ExecContext(ctx, query, args...)
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Str("id", id).Msg("failed_to_delete_user")
 		return x.WrapWithCode(err, x.CodeSQLDelete, "failed_to_delete_user")

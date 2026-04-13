@@ -3,26 +3,28 @@ package auth
 import (
 	"context"
 	"fmt"
+	"net/http"
 	"os"
 	"reflect"
 	"strings"
 	"sync"
 	"time"
 
-	x "go-far/src/errors"
+	x "go-far/src/model/errors"
 
-	"github.com/gin-gonic/gin"
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog"
 	"github.com/segmentio/ksuid"
 )
 
+const jwtSecretEnv = "JWT_SECRET_GO_FAR"
+
 // Auth defines the authentication interface
 type Auth interface {
-	GenerateToken(c *gin.Context, data any) (*TokenDetails, error)
-	ValidateToken(c *gin.Context) (*AccessDetails, error)
-	ValidateRefreshToken(c *gin.Context, token string) (*AccessDetails, error)
+	GenerateToken(r *http.Request, data any) (*TokenDetails, error)
+	ValidateToken(r *http.Request) (*AccessDetails, error)
+	ValidateRefreshToken(r *http.Request, token string) (*AccessDetails, error)
 }
 
 var (
@@ -32,8 +34,6 @@ var (
 
 // AuthOptions holds authentication configuration
 type AuthOptions struct {
-	PrivateKey          string        `yaml:"private_key"`
-	PublicKey           string        `yaml:"public_key"`
 	ExpiredToken        time.Duration `yaml:"expired_token"`
 	ExpiredRefreshToken time.Duration `yaml:"expired_refresh_token"`
 }
@@ -41,8 +41,7 @@ type AuthOptions struct {
 type auth struct {
 	log                 zerolog.Logger
 	redis               *redis.Client
-	privateKey          []byte
-	publicKey           []byte
+	secret              []byte
 	expiredToken        time.Duration
 	expiredRefreshToken time.Duration
 }
@@ -63,26 +62,21 @@ type AccessDetails struct {
 	RefreshUUID string
 	UserID      string
 	Username    string
+	Role        string
 }
 
 // InitAuth initializes the authentication module
 func InitAuth(log zerolog.Logger, opt AuthOptions, redis *redis.Client) Auth {
 	onceAuth.Do(func() {
-		privateKey, err := os.ReadFile(opt.PrivateKey)
-		if err != nil {
-			log.Panic().Err(err).Send()
-		}
-
-		publicKey, err := os.ReadFile(opt.PublicKey)
-		if err != nil {
-			log.Panic().Err(err).Send()
+		secret := os.Getenv(jwtSecretEnv)
+		if secret == "" {
+			log.Panic().Msgf("Environment variable %s is not set", jwtSecretEnv)
 		}
 
 		authInst = &auth{
 			log:                 log,
 			redis:               redis,
-			privateKey:          privateKey,
-			publicKey:           publicKey,
+			secret:              []byte(secret),
 			expiredToken:        opt.ExpiredToken,
 			expiredRefreshToken: opt.ExpiredRefreshToken,
 		}
@@ -91,14 +85,10 @@ func InitAuth(log zerolog.Logger, opt AuthOptions, redis *redis.Client) Auth {
 	return authInst
 }
 
-func (a *auth) GenerateToken(c *gin.Context, data any) (*TokenDetails, error) {
-	ctx := c.Request.Context()
+func (a *auth) GenerateToken(r *http.Request, data any) (*TokenDetails, error) {
+	ctx := r.Context()
 	td := &TokenDetails{}
-
-	key, err := jwt.ParseRSAPrivateKeyFromPEM(a.privateKey)
-	if err != nil {
-		return nil, x.WrapWithCode(err, x.CodeHTTPInternalServerError, "Failed to parse key")
-	}
+	var err error
 
 	dataVal := reflect.ValueOf(data)
 	if dataVal.Kind() == reflect.Ptr {
@@ -111,16 +101,18 @@ func (a *auth) GenerateToken(c *gin.Context, data any) (*TokenDetails, error) {
 
 	publicIDField := dataVal.FieldByName("PublicID")
 	usernameField := dataVal.FieldByName("Username")
+	roleField := dataVal.FieldByName("Role")
 
-	if !publicIDField.IsValid() || !usernameField.IsValid() {
-		return nil, x.NewWithCode(x.CodeHTTPBadRequest, "Data must contain PublicID and Username fields")
+	if !publicIDField.IsValid() || !usernameField.IsValid() || !roleField.IsValid() {
+		return nil, x.NewWithCode(x.CodeHTTPBadRequest, "Data must contain PublicID, Username and Role fields")
 	}
 
 	publicID := publicIDField.String()
 	username := usernameField.String()
+	role := roleField.String()
 
-	if publicID == "" || username == "" {
-		return nil, x.NewWithCode(x.CodeHTTPBadRequest, "PublicID and Username cannot be empty")
+	if publicID == "" || username == "" || role == "" {
+		return nil, x.NewWithCode(x.CodeHTTPBadRequest, "PublicID, Username and Role cannot be empty")
 	}
 
 	td.ExpiresAt = time.Now().Add(a.expiredToken).Unix()
@@ -129,27 +121,29 @@ func (a *auth) GenerateToken(c *gin.Context, data any) (*TokenDetails, error) {
 	td.ExpiresRt = time.Now().Add(a.expiredRefreshToken).Unix()
 	td.RefreshUUID = td.AccessUUID + "++" + publicID
 
-	at := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{
+	at := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"exp":         td.ExpiresAt,
 		"access_uuid": td.AccessUUID,
 		"user_id":     publicID,
 		"name":        username,
+		"role":        role,
 		"authorized":  true,
 	})
 
-	td.AccessToken, err = at.SignedString(key)
+	td.AccessToken, err = at.SignedString(a.secret)
 	if err != nil {
 		return nil, x.WrapWithCode(err, x.CodeHTTPInternalServerError, "Failed to sign access token")
 	}
 
-	rt := jwt.NewWithClaims(jwt.SigningMethodRS256, jwt.MapClaims{
+	rt := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"exp":          td.ExpiresRt,
 		"refresh_uuid": td.RefreshUUID,
 		"user_id":      publicID,
 		"name":         username,
+		"role":         role,
 	})
 
-	td.RefreshToken, err = rt.SignedString(key)
+	td.RefreshToken, err = rt.SignedString(a.secret)
 	if err != nil {
 		return nil, x.WrapWithCode(err, x.CodeHTTPInternalServerError, "Failed to sign refresh token")
 	}
@@ -176,14 +170,14 @@ func (a *auth) saveToRedis(ctx context.Context, publicID string, td *TokenDetail
 	return nil
 }
 
-func (a *auth) ValidateToken(c *gin.Context) (*AccessDetails, error) {
-	return a.checkingToken(c)
+func (a *auth) ValidateToken(r *http.Request) (*AccessDetails, error) {
+	return a.checkingToken(r)
 }
 
-func (a *auth) checkingToken(c *gin.Context) (*AccessDetails, error) {
-	ctx := c.Request.Context()
+func (a *auth) checkingToken(r *http.Request) (*AccessDetails, error) {
+	ctx := r.Context()
 
-	tokenStr := a.extractToken(c)
+	tokenStr := a.extractToken(r)
 	token, err := a.verifyToken(tokenStr)
 	if err != nil {
 		return nil, err
@@ -196,6 +190,7 @@ func (a *auth) checkingToken(c *gin.Context) (*AccessDetails, error) {
 
 	userID := claims["user_id"].(string)
 	username := claims["name"].(string)
+	role := claims["role"].(string)
 
 	var accessUUID, redisIDUser string
 
@@ -217,11 +212,12 @@ func (a *auth) checkingToken(c *gin.Context) (*AccessDetails, error) {
 		AccessUUID: accessUUID,
 		UserID:     redisIDUser,
 		Username:   username,
+		Role:       role,
 	}, nil
 }
 
-func (a *auth) extractToken(c *gin.Context) string {
-	authHeaders := c.Request.Header["Authorization"]
+func (a *auth) extractToken(r *http.Request) string {
+	authHeaders := r.Header["Authorization"]
 	if len(authHeaders) == 0 {
 		return ""
 	}
@@ -240,26 +236,21 @@ func (a *auth) extractToken(c *gin.Context) string {
 }
 
 func (a *auth) verifyToken(tokenStr string) (*jwt.Token, error) {
-	key, err := jwt.ParseRSAPublicKeyFromPEM(a.publicKey)
-	if err != nil {
-		return nil, x.WrapWithCode(err, x.CodeHTTPInternalServerError, "Failed to parse key")
-	}
-
 	token, err := jwt.Parse(tokenStr, func(jwtToken *jwt.Token) (any, error) {
-		if _, ok := jwtToken.Method.(*jwt.SigningMethodRSA); !ok {
-			return nil, x.WrapWithCode(err, x.CodeHTTPInternalServerError, fmt.Sprintf("unexpected signing method: %v", jwtToken.Header["alg"]))
+		if _, ok := jwtToken.Method.(*jwt.SigningMethodHMAC); !ok {
+			return nil, x.WrapWithCode(fmt.Errorf("unexpected signing method: %v", jwtToken.Header["alg"]), x.CodeHTTPUnauthorized, "Invalid token")
 		}
-		return key, nil
+		return a.secret, nil
 	})
 	if err != nil {
-		return nil, x.WrapWithCode(err, x.CodeHTTPInternalServerError, "Failed to parse token")
+		return nil, x.WrapWithCode(err, x.CodeHTTPUnauthorized, "Invalid token")
 	}
 
 	return token, nil
 }
 
-func (a *auth) ValidateRefreshToken(c *gin.Context, tokenStr string) (*AccessDetails, error) {
-	ctx := c.Request.Context()
+func (a *auth) ValidateRefreshToken(r *http.Request, tokenStr string) (*AccessDetails, error) {
+	ctx := r.Context()
 
 	token, err := a.verifyToken(tokenStr)
 	if err != nil {
@@ -273,6 +264,7 @@ func (a *auth) ValidateRefreshToken(c *gin.Context, tokenStr string) (*AccessDet
 
 	userID := claims["user_id"].(string)
 	username := claims["name"].(string)
+	role := claims["role"].(string)
 
 	var accessUUID, refreshUUID, redisIDUser string
 
@@ -295,5 +287,6 @@ func (a *auth) ValidateRefreshToken(c *gin.Context, tokenStr string) (*AccessDet
 		RefreshUUID: refreshUUID,
 		UserID:      redisIDUser,
 		Username:    username,
+		Role:        role,
 	}, nil
 }

@@ -1,13 +1,14 @@
 package query
 
 import (
-	"bytes"
 	"fmt"
-	"html/template"
 	"os"
 	"path/filepath"
+	"reflect"
 	"strings"
+	"text/template"
 
+	"github.com/VauntDev/tqla"
 	"github.com/rs/zerolog"
 )
 
@@ -18,32 +19,61 @@ type QueriesOptions struct {
 
 // QueryLoader loads and manages SQL queries
 type QueryLoader struct {
-	queries  map[string]string
-	filePath string
+	compileFn func(template string, data any) (string, []any, error)
+	queries   map[string]string
 }
 
 // InitQueryLoader initializes the query loader
 func InitQueryLoader(log zerolog.Logger, opt QueriesOptions) *QueryLoader {
-	ql := &QueryLoader{
-		queries:  make(map[string]string),
-		filePath: opt.Path,
+	t, err := tqla.New(
+		tqla.WithPlaceHolder(tqla.Dollar),
+		tqla.WithFuncMap(template.FuncMap{
+			"add": func(a, b int) int { return a + b },
+		}),
+	)
+	if err != nil {
+		log.Panic().Err(err).Msg("Failed to initialize tqla")
 	}
 
-	if err := ql.load(log); err != nil {
+	// tqla.Tqla has a Compile method; extract it via reflection since the type is unexported
+	v := reflect.ValueOf(t)
+	compileMethod := v.MethodByName("Compile")
+
+	ql := &QueryLoader{
+		compileFn: func(templateStr string, data any) (string, []any, error) {
+			results := compileMethod.Call([]reflect.Value{
+				reflect.ValueOf(templateStr),
+				reflect.ValueOf(data),
+			})
+
+			sql := results[0].Interface().(string)
+			args := results[1].Interface().([]any)
+
+			var err error
+			if !results[2].IsNil() {
+				err = results[2].Interface().(error)
+			}
+
+			return sql, args, err
+		},
+		queries: make(map[string]string),
+	}
+
+	if err := ql.load(log, opt.Path); err != nil {
 		log.Panic().Err(err).Msg("Failed to load queries")
 	}
 
 	return ql
 }
 
-func (ql *QueryLoader) load(log zerolog.Logger) error {
-	files, err := filepath.Glob(filepath.Join(ql.filePath, "*.sql"))
+func (ql *QueryLoader) load(log zerolog.Logger, path string) error {
+	files, err := filepath.Glob(filepath.Join(path, "*.sql"))
 	if err != nil {
 		return err
 	}
 
 	if len(files) == 0 {
-		return fmt.Errorf("no SQL files found in path: %s", ql.filePath)
+		return fmt.Errorf("no SQL files found in path: %s", path)
 	}
 
 	for _, file := range files {
@@ -89,53 +119,18 @@ func (ql *QueryLoader) loadFile(log zerolog.Logger, filePath string) error {
 	return nil
 }
 
-// Get retrieves a query by name
+// Get retrieves a raw query template by name
 func (ql *QueryLoader) Get(name string) (string, bool) {
 	query, ok := ql.queries[name]
 	return query, ok
 }
 
-// ExecuteTemplate executes a query template with the provided data
-func (ql *QueryLoader) ExecuteTemplate(name string, data any) (string, []any, error) {
+// Compile compiles a query template with the provided data, returning the SQL string and arguments
+func (ql *QueryLoader) Compile(name string, data any) (string, []any, error) {
 	queryTemplate, ok := ql.Get(name)
 	if !ok {
 		return "", nil, fmt.Errorf("query %s not found", name)
 	}
 
-	tmpl, err := template.New(name).Parse(queryTemplate)
-	if err != nil {
-		return "", nil, err
-	}
-
-	var buf bytes.Buffer
-	if err := tmpl.Execute(&buf, data); err != nil {
-		return "", nil, err
-	}
-
-	query := buf.String()
-	return convertNamedToPositional(query, data)
-}
-
-func convertNamedToPositional(query string, data any) (string, []any, error) {
-	args := make([]any, 0)
-	paramMap := make(map[string]any)
-
-	if dataMap, ok := data.(map[string]any); ok {
-		paramMap = dataMap
-	}
-
-	paramIndex := 1
-	result := query
-
-	for key, value := range paramMap {
-		placeholder := "$" + key
-		if strings.Contains(result, placeholder) {
-			positional := fmt.Sprintf("$%d", paramIndex)
-			result = strings.ReplaceAll(result, placeholder, positional)
-			args = append(args, value)
-			paramIndex++
-		}
-	}
-
-	return result, args, nil
+	return ql.compileFn(queryTemplate, data)
 }

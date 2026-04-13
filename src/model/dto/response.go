@@ -1,8 +1,32 @@
 package dto
 
 import (
-	x "go-far/src/errors"
+	"go-far/src/config/auth"
+	"go-far/src/model/entity"
+	x "go-far/src/model/errors"
 )
+
+type TokenResponse struct {
+	AccessToken  string `json:"accessToken"`
+	RefreshToken string `json:"refreshToken"`
+	ExpiresAt    int64  `json:"expiresAt"`
+}
+
+// UserTokenData is a helper struct for JWT token generation
+type UserTokenData struct {
+	PublicID string
+	Username string
+	Role     entity.Role
+}
+
+// ToTokenResponse converts auth.TokenDetails to a DTO for API responses
+func ToTokenResponse(td *auth.TokenDetails) TokenResponse {
+	return TokenResponse{
+		AccessToken:  td.AccessToken,
+		RefreshToken: td.RefreshToken,
+		ExpiresAt:    td.ExpiresAt,
+	}
+}
 
 type Meta struct {
 	Path       string      `json:"path" extensions:"x-order=0"`

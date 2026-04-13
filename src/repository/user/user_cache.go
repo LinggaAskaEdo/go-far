@@ -5,9 +5,9 @@ import (
 	"encoding/json"
 	"time"
 
-	"go-far/src/domain"
-	"go-far/src/dto"
-	x "go-far/src/errors"
+	"go-far/src/model/dto"
+	"go-far/src/model/entity"
+	x "go-far/src/model/errors"
 
 	"github.com/golang/snappy"
 	"github.com/redis/go-redis/v9"
@@ -19,7 +19,7 @@ const (
 	durationUserExpiration              = 5 * time.Minute
 )
 
-func (d *userRepository) setCacheFindAllUser(ctx context.Context, filter dto.UserFilter, result []domain.User, pagination dto.Pagination) error {
+func (d *userRepository) setCacheFindAllUser(ctx context.Context, filter dto.UserFilter, result []entity.User, pagination dto.Pagination) error {
 	var encJSON []byte
 
 	rawKey, err := json.Marshal(filter)
@@ -63,9 +63,9 @@ func (d *userRepository) setCacheFindAllUser(ctx context.Context, filter dto.Use
 	return nil
 }
 
-func (d *userRepository) getCacheFindAllUser(ctx context.Context, filter dto.UserFilter) ([]domain.User, dto.Pagination, error) {
+func (d *userRepository) getCacheFindAllUser(ctx context.Context, filter dto.UserFilter) ([]entity.User, dto.Pagination, error) {
 	var (
-		results    []domain.User
+		results    []entity.User
 		pagination dto.Pagination
 	)
 
