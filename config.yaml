@@ -52,7 +52,7 @@ redis:
 queries:
   path: ./etc/queries/
 
-auth:
+token:
   expired_token: 5m
   expired_refresh_token: 15m
 
@@ -67,9 +67,26 @@ scheduler:
       max_age: 80
 
 middleware:
+  public_paths:
+    - /health
+    - /ready
+    - /swagger/
+    - /auth/login
+    - /auth/register
+    - /auth/refresh
   rate_limiter:
     command: "1-S" # 1 request per second
     limit: 500 # max 500 clients
+  role_rate_limit:
+    admin:
+      command: "1-M"
+      limit: 10
+    user:
+      command: "1-M"
+      limit: 5
+    guest:
+      command: "1-M"
+      limit: 1
 
 http:
   app_name: go-far-app

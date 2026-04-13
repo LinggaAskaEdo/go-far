@@ -6,7 +6,6 @@ import (
 	"strconv"
 	"strings"
 
-	"go-far/src/config/auth"
 	"go-far/src/config/database"
 	"go-far/src/config/logger"
 	"go-far/src/config/middleware"
@@ -14,6 +13,7 @@ import (
 	"go-far/src/config/redis"
 	cfgscheduler "go-far/src/config/scheduler"
 	"go-far/src/config/server"
+	"go-far/src/config/token"
 	"go-far/src/config/tracer"
 
 	"github.com/goccy/go-yaml"
@@ -26,7 +26,7 @@ type Config struct {
 	MySQL      database.DatabaseOptions      `yaml:"mysql"`
 	Redis      redis.RedisOptions            `yaml:"redis"`
 	Queries    query.QueriesOptions          `yaml:"queries"`
-	Auth       auth.AuthOptions              `yaml:"auth"`
+	Token      token.TokenOptions            `yaml:"token"`
 	Middleware middleware.MiddlewareOptions  `yaml:"middleware"`
 	HTTP       server.HttpOptions            `yaml:"http"`
 	Scheduler  cfgscheduler.SchedulerOptions `yaml:"scheduler"`

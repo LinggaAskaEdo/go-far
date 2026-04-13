@@ -1,4 +1,4 @@
-package auth
+package token
 
 import (
 	"context"
@@ -11,6 +11,7 @@ import (
 	"time"
 
 	x "go-far/src/model/errors"
+	"go-far/src/preference"
 
 	"github.com/golang-jwt/jwt/v5"
 	"github.com/redis/go-redis/v9"
@@ -20,25 +21,25 @@ import (
 
 const jwtSecretEnv = "JWT_SECRET_GO_FAR"
 
-// Auth defines the authentication interface
-type Auth interface {
+// Token defines the token management interface
+type Token interface {
 	GenerateToken(r *http.Request, data any) (*TokenDetails, error)
 	ValidateToken(r *http.Request) (*AccessDetails, error)
 	ValidateRefreshToken(r *http.Request, token string) (*AccessDetails, error)
 }
 
 var (
-	onceAuth = &sync.Once{}
-	authInst *auth
+	onceToken = &sync.Once{}
+	tokenInst *token
 )
 
-// AuthOptions holds authentication configuration
-type AuthOptions struct {
+// TokenOptions holds token configuration
+type TokenOptions struct {
 	ExpiredToken        time.Duration `yaml:"expired_token"`
 	ExpiredRefreshToken time.Duration `yaml:"expired_refresh_token"`
 }
 
-type auth struct {
+type token struct {
 	log                 zerolog.Logger
 	redis               *redis.Client
 	secret              []byte
@@ -65,15 +66,15 @@ type AccessDetails struct {
 	Role        string
 }
 
-// InitAuth initializes the authentication module
-func InitAuth(log zerolog.Logger, opt AuthOptions, redis *redis.Client) Auth {
-	onceAuth.Do(func() {
+// InitToken initializes the token module
+func InitToken(log zerolog.Logger, opt TokenOptions, redis *redis.Client) Token {
+	onceToken.Do(func() {
 		secret := os.Getenv(jwtSecretEnv)
 		if secret == "" {
 			log.Panic().Msgf("Environment variable %s is not set", jwtSecretEnv)
 		}
 
-		authInst = &auth{
+		tokenInst = &token{
 			log:                 log,
 			redis:               redis,
 			secret:              []byte(secret),
@@ -82,10 +83,10 @@ func InitAuth(log zerolog.Logger, opt AuthOptions, redis *redis.Client) Auth {
 		}
 	})
 
-	return authInst
+	return tokenInst
 }
 
-func (a *auth) GenerateToken(r *http.Request, data any) (*TokenDetails, error) {
+func (a *token) GenerateToken(r *http.Request, data any) (*TokenDetails, error) {
 	ctx := r.Context()
 	td := &TokenDetails{}
 	var err error
@@ -156,7 +157,7 @@ func (a *auth) GenerateToken(r *http.Request, data any) (*TokenDetails, error) {
 	return td, nil
 }
 
-func (a *auth) saveToRedis(ctx context.Context, publicID string, td *TokenDetails) error {
+func (a *token) saveToRedis(ctx context.Context, publicID string, td *TokenDetails) error {
 	respAccess := a.redis.Set(ctx, td.AccessUUID, publicID, a.expiredToken)
 	if respAccess.Err() != nil {
 		return x.WrapWithCode(respAccess.Err(), x.CodeHTTPInternalServerError, "Failed to store access token in Redis")
@@ -170,11 +171,11 @@ func (a *auth) saveToRedis(ctx context.Context, publicID string, td *TokenDetail
 	return nil
 }
 
-func (a *auth) ValidateToken(r *http.Request) (*AccessDetails, error) {
+func (a *token) ValidateToken(r *http.Request) (*AccessDetails, error) {
 	return a.checkingToken(r)
 }
 
-func (a *auth) checkingToken(r *http.Request) (*AccessDetails, error) {
+func (a *token) checkingToken(r *http.Request) (*AccessDetails, error) {
 	ctx := r.Context()
 
 	tokenStr := a.extractToken(r)
@@ -185,7 +186,7 @@ func (a *auth) checkingToken(r *http.Request) (*AccessDetails, error) {
 
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok || !token.Valid {
-		return nil, x.NewWithCode(x.CodeHTTPUnauthorized, "Invalid token")
+		return nil, x.NewWithCode(x.CodeHTTPUnauthorized, preference.ErrInvalidToken)
 	}
 
 	userID := claims["user_id"].(string)
@@ -216,7 +217,7 @@ func (a *auth) checkingToken(r *http.Request) (*AccessDetails, error) {
 	}, nil
 }
 
-func (a *auth) extractToken(r *http.Request) string {
+func (a *token) extractToken(r *http.Request) string {
 	authHeaders := r.Header["Authorization"]
 	if len(authHeaders) == 0 {
 		return ""
@@ -235,21 +236,21 @@ func (a *auth) extractToken(r *http.Request) string {
 	return ""
 }
 
-func (a *auth) verifyToken(tokenStr string) (*jwt.Token, error) {
+func (a *token) verifyToken(tokenStr string) (*jwt.Token, error) {
 	token, err := jwt.Parse(tokenStr, func(jwtToken *jwt.Token) (any, error) {
 		if _, ok := jwtToken.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, x.WrapWithCode(fmt.Errorf("unexpected signing method: %v", jwtToken.Header["alg"]), x.CodeHTTPUnauthorized, "Invalid token")
+			return nil, x.WrapWithCode(fmt.Errorf("unexpected signing method: %v", jwtToken.Header["alg"]), x.CodeHTTPUnauthorized, preference.ErrInvalidToken)
 		}
 		return a.secret, nil
 	})
 	if err != nil {
-		return nil, x.WrapWithCode(err, x.CodeHTTPUnauthorized, "Invalid token")
+		return nil, x.WrapWithCode(err, x.CodeHTTPUnauthorized, preference.ErrInvalidToken)
 	}
 
 	return token, nil
 }
 
-func (a *auth) ValidateRefreshToken(r *http.Request, tokenStr string) (*AccessDetails, error) {
+func (a *token) ValidateRefreshToken(r *http.Request, tokenStr string) (*AccessDetails, error) {
 	ctx := r.Context()
 
 	token, err := a.verifyToken(tokenStr)
@@ -259,7 +260,7 @@ func (a *auth) ValidateRefreshToken(r *http.Request, tokenStr string) (*AccessDe
 
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok || !token.Valid {
-		return nil, x.NewWithCode(x.CodeHTTPUnauthorized, "Invalid token")
+		return nil, x.NewWithCode(x.CodeHTTPUnauthorized, preference.ErrInvalidToken)
 	}
 
 	userID := claims["user_id"].(string)

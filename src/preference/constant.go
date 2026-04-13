@@ -60,4 +60,43 @@ const (
 	// Limiter Error Message
 	FormatError  string = "Please check the format with your input."
 	CommandError string = "The command of first number should > 0"
+
+	// Context Keys
+	ContextKeyAuthUser contextKey = "auth_user"
+
+	// HTTP Headers
+	HeaderContentType               string = "Content-Type"
+	HeaderXRateLimitLimitGlobal     string = "X-RateLimit-Limit-global"
+	HeaderXRateLimitRemainingGlobal string = "X-RateLimit-Remaining-global"
+	HeaderXRateLimitResetGlobal     string = "X-RateLimit-Reset-global"
+	HeaderXRateLimitLimitRoute      string = "X-RateLimit-Limit-route"
+	HeaderXRateLimitRemainingRoute  string = "X-RateLimit-Remaining-route"
+	HeaderXRateLimitResetRoute      string = "X-RateLimit-Reset-route"
+	HeaderAuthorization             string = "Authorization"
+	HeaderXRequestID                string = "X-Request-ID"
+	HeaderXForwardedFor             string = "X-Forwarded-For"
+	HeaderXRealIP                   string = "X-Real-IP"
+	HeaderAccessControlAllowOrigin  string = "Access-Control-Allow-Origin"
+	HeaderAccessControlAllowHeaders string = "Access-Control-Allow-Headers"
+	HeaderAccessControlAllowMethods string = "Access-Control-Allow-Methods"
+	HeaderXFrameOptions             string = "X-Frame-Options"
+	HeaderContentSecurityPolicy     string = "Content-Security-Policy"
+	HeaderXXSSProtection            string = "X-XSS-Protection"
+	HeaderStrictTransportSecurity   string = "Strict-Transport-Security"
+	HeaderReferrerPolicy            string = "Referrer-Policy"
+	HeaderXContentTypeOptions       string = "X-Content-Type-Options"
+	HeaderPermissionsPolicy         string = "Permissions-Policy"
+
+	// Content Types
+	ContentTypeJSON string = "application/json"
+
+	// Auth Error Messages
+	ErrInvalidToken string = "Invalid token"
+
+	// Allowed HTTP Methods
+	AllowedMethods string = "GET, POST, PUT, DELETE"
+
+	// CORS Security Values
+	CSPValue               string = "default-src 'self'; connect-src *; font-src *; script-src-elem * 'unsafe-inline'; img-src * data:; style-src * 'unsafe-inline';"
+	PermissionsPolicyValue string = "geolocation=(),midi=(),sync-xhr=(),microphone=(),camera=(),magnetometer=(),gyroscope=(),fullscreen=(self),payment=()"
 )

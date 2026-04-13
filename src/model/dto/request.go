@@ -42,6 +42,7 @@ type UpdateUserRequest struct {
 }
 
 type UserFilter struct {
+	ID       string `form:"id"`
 	Name     string `form:"name"`
 	Email    string `form:"email"`
 	MinAge   int    `form:"min_age"`

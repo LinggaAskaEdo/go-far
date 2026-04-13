@@ -4,8 +4,8 @@ import (
 	"net/http"
 	"sync"
 
-	"go-far/src/config/auth"
 	"go-far/src/config/middleware"
+	"go-far/src/config/token"
 	"go-far/src/preference"
 	"go-far/src/service"
 	"go-far/src/service/user"
@@ -15,13 +15,13 @@ var onceRestHandler = &sync.Once{}
 
 type rest struct {
 	mux  *http.ServeMux
-	auth auth.Auth
+	auth token.Token
 	mw   middleware.Middleware
 	svc  *service.Service
 	usvc user.UserServiceItf
 }
 
-func InitRestHandler(mux *http.ServeMux, auth auth.Auth, mw middleware.Middleware, svc *service.Service, usvc user.UserServiceItf) {
+func InitRestHandler(mux *http.ServeMux, auth token.Token, mw middleware.Middleware, svc *service.Service, usvc user.UserServiceItf) {
 	var e *rest
 
 	onceRestHandler.Do(func() {
@@ -63,7 +63,7 @@ func (e *rest) Serve() {
 
 	// User routes
 	e.mux.HandleFunc("POST "+preference.RouteUsers, e.CreateUser)
-	e.mux.HandleFunc("GET "+preference.RouteUsersByID, e.mw.Limiter("1-M", 3)(http.HandlerFunc(e.GetUser)).ServeHTTP)
+	e.mux.HandleFunc("GET "+preference.RouteUsersByID, e.mw.RoleLimiter()(http.HandlerFunc(e.GetUser)).ServeHTTP)
 	e.mux.HandleFunc("GET "+preference.RouteUsers, e.ListUsers)
 	e.mux.HandleFunc("PUT "+preference.RouteUsersByID, e.UpdateUser)
 	e.mux.HandleFunc("DELETE "+preference.RouteUsersByID, e.DeleteUser)

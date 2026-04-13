@@ -8,7 +8,7 @@ import (
 	"sync"
 	"time"
 
-	"go-far/src/config/auth"
+	"go-far/src/config/token"
 	"go-far/src/preference"
 
 	"github.com/redis/go-redis/v9"
@@ -33,21 +33,25 @@ var (
 type Middleware interface {
 	Handler() func(http.Handler) http.Handler
 	CORS() func(http.Handler) http.Handler
-	Limiter(command string, limit int) func(http.Handler) http.Handler
+	RoleLimiter() func(http.Handler) http.Handler
 }
 
 type middleware struct {
-	log    zerolog.Logger
-	auth   auth.Auth
-	opt    MiddlewareOptions
-	rdb    *redis.Client
-	limit  int
-	period time.Duration
+	log           zerolog.Logger
+	tkn           token.Token
+	opt           MiddlewareOptions
+	rdb           *redis.Client
+	limit         int
+	period        time.Duration
+	roleRateLimit RoleRateLimitOptions
+	publicPaths   []string
 }
 
 // MiddlewareOptions holds middleware configuration
 type MiddlewareOptions struct {
-	RateLimiter RateLimiterOptions `yaml:"rate_limiter"`
+	PublicPaths   []string             `yaml:"public_paths"`
+	RateLimiter   RateLimiterOptions   `yaml:"rate_limiter"`
+	RoleRateLimit RoleRateLimitOptions `yaml:"role_rate_limit"`
 }
 
 // RateLimiterOptions holds rate limiter configuration
@@ -56,8 +60,21 @@ type RateLimiterOptions struct {
 	Limit   int    `yaml:"limit"`
 }
 
+// RoleRateLimitOptions holds role-based rate limiter configuration
+type RoleRateLimitOptions struct {
+	Admin RoleRateLimit `yaml:"admin"`
+	User  RoleRateLimit `yaml:"user"`
+	Guest RoleRateLimit `yaml:"guest"`
+}
+
+// RoleRateLimit holds rate limit config for a single role
+type RoleRateLimit struct {
+	Command string `yaml:"command"`
+	Limit   int    `yaml:"limit"`
+}
+
 // InitMiddleware initializes the middleware
-func InitMiddleware(log zerolog.Logger, opt MiddlewareOptions, auth auth.Auth, rdb *redis.Client) Middleware {
+func InitMiddleware(log zerolog.Logger, opt MiddlewareOptions, tkn token.Token, rdb *redis.Client) Middleware {
 	onceMiddleware.Do(func() {
 		var limit int
 		var period time.Duration
@@ -81,12 +98,14 @@ func InitMiddleware(log zerolog.Logger, opt MiddlewareOptions, auth auth.Auth, r
 		}
 
 		middlewareInst = &middleware{
-			log:    log,
-			opt:    opt,
-			auth:   auth,
-			rdb:    rdb,
-			limit:  limit,
-			period: period,
+			log:           log,
+			opt:           opt,
+			tkn:           tkn,
+			rdb:           rdb,
+			limit:         limit,
+			period:        period,
+			roleRateLimit: opt.RoleRateLimit,
+			publicPaths:   opt.PublicPaths,
 		}
 	})
 

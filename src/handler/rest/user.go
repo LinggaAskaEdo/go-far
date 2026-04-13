@@ -6,7 +6,9 @@ import (
 	"net/url"
 	"strconv"
 
+	"go-far/src/config/middleware"
 	"go-far/src/model/dto"
+	"go-far/src/model/entity"
 	x "go-far/src/model/errors"
 	"go-far/src/preference"
 
@@ -97,11 +99,22 @@ func (e *rest) GetUser(w http.ResponseWriter, r *http.Request) {
 func (e *rest) ListUsers(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
+	authUser, ok := middleware.GetAuthUser(ctx)
+	if !ok {
+		e.httpRespError(w, r, x.NewWithCode(x.CodeHTTPUnauthorized, "unauthenticated"))
+		return
+	}
+
 	filter := decodeUserFilter(r.URL.Query())
 	cacheControl := dto.CacheControl{}
 
 	if r.Header.Get(preference.CacheControl) == preference.CacheMustRevalidate {
 		cacheControl.MustRevalidate = true
+	}
+
+	// Non-admin users can only see their own profile
+	if authUser.Role != string(entity.RoleAdmin) {
+		filter.ID = authUser.UserID
 	}
 
 	users, pagination, err := e.svc.User.ListUsers(ctx, cacheControl, filter)

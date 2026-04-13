@@ -17,6 +17,13 @@ type contextKey string
 
 const startTimeKey contextKey = "request_start_time"
 
+// AuthUser holds authenticated user info from the token
+type AuthUser struct {
+	UserID   string
+	Username string
+	Role     string
+}
+
 // responseWriter wraps http.ResponseWriter to capture the status code
 type responseWriter struct {
 	http.ResponseWriter
@@ -34,15 +41,64 @@ func withStartTime(ctx context.Context, t time.Time) context.Context {
 	return context.WithValue(ctx, startTimeKey, t)
 }
 
-// Handler returns the main middleware handler for request logging and tracing
+// WithAuthUser stores authenticated user info in context
+func WithAuthUser(ctx context.Context, user *AuthUser) context.Context {
+	return context.WithValue(ctx, preference.ContextKeyAuthUser, user)
+}
+
+// GetAuthUser retrieves authenticated user info from context
+func GetAuthUser(ctx context.Context) (*AuthUser, bool) {
+	user, ok := ctx.Value(preference.ContextKeyAuthUser).(*AuthUser)
+	return user, ok
+}
+
+// isPublicPath checks if a path is exempt from authentication
+func (mw *middleware) isPublicPath(path string) bool {
+	for _, pub := range mw.publicPaths {
+		if pub == path || (strings.HasSuffix(pub, "/") && strings.HasPrefix(path, pub)) {
+			return true
+		}
+	}
+	return false
+}
+
+// Handler returns the main middleware handler for logging, tracing, and authentication
 func (mw *middleware) Handler() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
-			if strings.HasPrefix(r.URL.Path, "/swagger/") {
+			path := r.URL.Path
+			isPublic := mw.isPublicPath(path)
+
+			// Authentication (skip public paths)
+			if !isPublic {
+				authHeader := r.Header.Get(preference.HeaderAuthorization)
+				if authHeader == "" {
+					http.Error(w, `{"error":"missing authorization header"}`, http.StatusUnauthorized)
+					return
+				}
+
+				accessDetails, err := mw.tkn.ValidateToken(r)
+				if err != nil {
+					http.Error(w, `{"error":"invalid token"}`, http.StatusUnauthorized)
+					return
+				}
+
+				authUser := &AuthUser{
+					UserID:   accessDetails.UserID,
+					Username: accessDetails.Username,
+					Role:     accessDetails.Role,
+				}
+
+				r = r.WithContext(WithAuthUser(r.Context(), authUser))
+			}
+
+			// Skip logging for swagger
+			if strings.HasPrefix(path, "/swagger/") {
 				next.ServeHTTP(w, r)
 				return
 			}
 
+			// Logging and tracing
 			start := time.Now()
 			ctx := withStartTime(r.Context(), start)
 			ctx, traceID, spanID := mw.prepareContext(ctx, r)
@@ -64,12 +120,12 @@ func (mw *middleware) prepareContext(ctx context.Context, r *http.Request) (cont
 	traceID := spanContext.TraceID().String()
 	spanID := spanContext.SpanID().String()
 
-	if r.Header.Get("X-Request-ID") == "" {
+	if r.Header.Get(preference.HeaderXRequestID) == "" {
 		spanID = xid.New().String()
 	}
 
 	ctx = mw.attachTraceSpanIDs(ctx, traceID, spanID)
-	r.Header.Set("X-Request-ID", spanID)
+	r.Header.Set(preference.HeaderXRequestID, spanID)
 
 	return ctx, traceID, spanID
 }
@@ -109,7 +165,6 @@ func (mw *middleware) logRequestEnd(traceID, spanID string, start time.Time, sta
 func (mw *middleware) attachTraceSpanIDs(ctx context.Context, traceID, spanID string) context.Context {
 	ctx = context.WithValue(ctx, preference.CONTEXT_KEY_LOG_TRACE_ID, traceID)
 	ctx = context.WithValue(ctx, preference.CONTEXT_KEY_LOG_SPAN_ID, spanID)
-
 	return mw.attachLogger(ctx)
 }
 

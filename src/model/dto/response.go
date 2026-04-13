@@ -1,7 +1,7 @@
 package dto
 
 import (
-	"go-far/src/config/auth"
+	"go-far/src/config/token"
 	"go-far/src/model/entity"
 	x "go-far/src/model/errors"
 )
@@ -19,8 +19,8 @@ type UserTokenData struct {
 	Role     entity.Role
 }
 
-// ToTokenResponse converts auth.TokenDetails to a DTO for API responses
-func ToTokenResponse(td *auth.TokenDetails) TokenResponse {
+// ToTokenResponse converts token.TokenDetails to a DTO for API responses
+func ToTokenResponse(td *token.TokenDetails) TokenResponse {
 	return TokenResponse{
 		AccessToken:  td.AccessToken,
 		RefreshToken: td.RefreshToken,

@@ -4,7 +4,6 @@ import (
 	"flag"
 
 	_ "go-far/etc/docs"
-	"go-far/src/config/auth"
 	"go-far/src/config/database"
 	"go-far/src/config/grace"
 	"go-far/src/config/logger"
@@ -13,6 +12,7 @@ import (
 	cfgredis "go-far/src/config/redis"
 	cfgscheduler "go-far/src/config/scheduler"
 	"go-far/src/config/server"
+	"go-far/src/config/token"
 	"go-far/src/config/tracer"
 	restHandler "go-far/src/handler/rest"
 	schedHandler "go-far/src/handler/scheduler"
@@ -75,16 +75,16 @@ func init() {
 	middleware.InitValidator(log)
 
 	// Auth Initialization
-	authInst := auth.InitAuth(log, conf.Auth, redis1)
+	tokenInst := token.InitToken(log, conf.Token, redis1)
 
 	// Middleware Initialization
-	mw := middleware.InitMiddleware(log, conf.Middleware, authInst, redis2)
+	mw := middleware.InitMiddleware(log, conf.Middleware, tokenInst, redis2)
 
 	// HTTP Mux Initialization
 	mux := server.InitHttpMux(log, mw, conf.HTTP)
 
 	// REST Handler Initialization (registers routes on mux)
-	restHandler.InitRestHandler(mux, authInst, mw, service, service.User)
+	restHandler.InitRestHandler(mux, tokenInst, mw, service, service.User)
 
 	// Build the full handler with middleware chain
 	handler := server.WrapHandler(mux, mw, conf.HTTP)

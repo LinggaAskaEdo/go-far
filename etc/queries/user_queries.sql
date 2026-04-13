@@ -17,6 +17,9 @@ WHERE email = {{ .Email }};
 SELECT id, email, name, age, role, is_active, created_at, updated_at
 FROM users
 WHERE 1=1
+{{- if .ID }}
+    AND id = {{ .ID }}
+{{- end }}
 {{- if .Name }}
     AND name ILIKE {{ .NamePattern }}
 {{- end }}
@@ -36,6 +39,9 @@ LIMIT {{ .Limit }} OFFSET {{ .Offset }};
 SELECT COUNT(*)
 FROM users
 WHERE 1=1
+{{- if .ID }}
+    AND id = {{ .ID }}
+{{- end }}
 {{- if .Name }}
     AND name ILIKE {{ .NamePattern }}
 {{- end }}

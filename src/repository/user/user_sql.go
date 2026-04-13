@@ -89,6 +89,7 @@ func (d *userRepository) findAllSQLUser(ctx context.Context, filter dto.UserFilt
 	}
 
 	templateData := map[string]any{
+		"ID":           filter.ID,
 		"Name":         filter.Name,
 		"Email":        filter.Email,
 		"NamePattern":  "%" + filter.Name + "%",
