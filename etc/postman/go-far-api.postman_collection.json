@@ -1,9 +1,9 @@
 {
   "info": {
     "name": "Go-Far API",
-    "description": "Clean Architecture CRUD API with Go",
+    "description": "DDD CRUD API with Go - JWT auth, role-based rate limiting, PostgreSQL, Redis",
     "schema": "https://schema.getpostman.com/json/collection/v2.1.0/collection.json",
-    "version": "1.1.0"
+    "version": "2.0.0"
   },
   "variable": [
     {
@@ -30,6 +30,21 @@
       "key": "refresh_token",
       "value": "",
       "type": "string"
+    },
+    {
+      "key": "admin_access_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "user_access_token",
+      "value": "",
+      "type": "string"
+    },
+    {
+      "key": "guest_access_token",
+      "value": "",
+      "type": "string"
     }
   ],
   "item": [
@@ -37,7 +52,7 @@
       "name": "Auth",
       "item": [
         {
-          "name": "Register",
+          "name": "Register Admin",
           "event": [
             {
               "listen": "test",
@@ -68,18 +83,18 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"name\": \"John Doe\",\n  \"email\": \"john.doe@example.com\",\n  \"password\": \"securePass123!\",\n  \"age\": 30,\n  \"role\": \"user\"\n}"
+              "raw": "{\n  \"name\": \"Admin User\",\n  \"email\": \"admin@gofar.com\",\n  \"password\": \"AdminPass123!\",\n  \"age\": 35,\n  \"role\": \"admin\"\n}"
             },
             "url": {
               "raw": "{{base_url}}/auth/register",
               "host": ["{{base_url}}"],
               "path": ["auth", "register"]
             },
-            "description": "Register a new user and receive access/refresh tokens"
+            "description": "Register a new admin user with full access"
           }
         },
         {
-          "name": "Login",
+          "name": "Login Admin",
           "event": [
             {
               "listen": "test",
@@ -88,6 +103,7 @@
                   "if (pm.response.code === 200) {",
                   "    var jsonData = pm.response.json();",
                   "    if (jsonData.data) {",
+                  "        pm.collectionVariables.set('admin_access_token', jsonData.data.accessToken);",
                   "        pm.collectionVariables.set('access_token', jsonData.data.accessToken);",
                   "        pm.collectionVariables.set('refresh_token', jsonData.data.refreshToken);",
                   "    }",
@@ -111,14 +127,186 @@
             ],
             "body": {
               "mode": "raw",
-              "raw": "{\n  \"email\": \"john.doe@example.com\",\n  \"password\": \"securePass123!\"\n}"
+              "raw": "{\n  \"email\": \"admin@gofar.com\",\n  \"password\": \"AdminPass123!\"\n}"
             },
             "url": {
               "raw": "{{base_url}}/auth/login",
               "host": ["{{base_url}}"],
               "path": ["auth", "login"]
             },
-            "description": "Login with email/password to get access/refresh tokens"
+            "description": "Login as admin (role: admin, 10 req/min rate limit)"
+          }
+        },
+        {
+          "name": "Register User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.data && jsonData.data.id) {",
+                  "        pm.collectionVariables.set('user_id', jsonData.data.id);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-app-lang",
+                "value": "en"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Regular User\",\n  \"email\": \"user@gofar.com\",\n  \"password\": \"UserPass123!\",\n  \"age\": 28,\n  \"role\": \"user\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "register"]
+            },
+            "description": "Register a new standard user"
+          }
+        },
+        {
+          "name": "Login User",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.data) {",
+                  "        pm.collectionVariables.set('user_access_token', jsonData.data.accessToken);",
+                  "        pm.collectionVariables.set('access_token', jsonData.data.accessToken);",
+                  "        pm.collectionVariables.set('refresh_token', jsonData.data.refreshToken);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-app-lang",
+                "value": "en"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"user@gofar.com\",\n  \"password\": \"UserPass123!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Login as regular user (role: user, 5 req/min rate limit)"
+          }
+        },
+        {
+          "name": "Register Guest",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 201) {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.data && jsonData.data.id) {",
+                  "        pm.collectionVariables.set('user_id', jsonData.data.id);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-app-lang",
+                "value": "en"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"name\": \"Guest User\",\n  \"email\": \"guest@gofar.com\",\n  \"password\": \"GuestPass123!\",\n  \"age\": 22,\n  \"role\": \"guest\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/register",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "register"]
+            },
+            "description": "Register a new guest user with limited access"
+          }
+        },
+        {
+          "name": "Login Guest",
+          "event": [
+            {
+              "listen": "test",
+              "script": {
+                "exec": [
+                  "if (pm.response.code === 200) {",
+                  "    var jsonData = pm.response.json();",
+                  "    if (jsonData.data) {",
+                  "        pm.collectionVariables.set('guest_access_token', jsonData.data.accessToken);",
+                  "        pm.collectionVariables.set('access_token', jsonData.data.accessToken);",
+                  "        pm.collectionVariables.set('refresh_token', jsonData.data.refreshToken);",
+                  "    }",
+                  "}"
+                ],
+                "type": "text/javascript"
+              }
+            }
+          ],
+          "request": {
+            "method": "POST",
+            "header": [
+              {
+                "key": "Content-Type",
+                "value": "application/json"
+              },
+              {
+                "key": "x-app-lang",
+                "value": "en"
+              }
+            ],
+            "body": {
+              "mode": "raw",
+              "raw": "{\n  \"email\": \"guest@gofar.com\",\n  \"password\": \"GuestPass123!\"\n}"
+            },
+            "url": {
+              "raw": "{{base_url}}/auth/login",
+              "host": ["{{base_url}}"],
+              "path": ["auth", "login"]
+            },
+            "description": "Login as guest (role: guest, 1 req/min rate limit)"
           }
         },
         {
@@ -228,6 +416,10 @@
               {
                 "key": "x-app-lang",
                 "value": "en"
+              },
+              {
+                "key": "Authorization",
+                "value": "Bearer {{admin_access_token}}"
               }
             ],
             "body": {
@@ -239,12 +431,22 @@
               "host": ["{{base_url}}"],
               "path": ["users"]
             },
-            "description": "Create a new user with password"
+            "description": "Create a new user. Requires authentication."
           }
         },
         {
           "name": "Get User by ID",
           "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
             "method": "GET",
             "header": [
               {
@@ -257,12 +459,22 @@
               "host": ["{{base_url}}"],
               "path": ["users", "{{user_id}}"]
             },
-            "description": "Get a user by their ID"
+            "description": "Get a user by their ID. Requires authentication. Rate limited by role: admin=10/min, user=5/min, guest=1/min."
           }
         },
         {
           "name": "List Users",
           "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{admin_access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
             "method": "GET",
             "header": [
               {
@@ -321,12 +533,22 @@
                 }
               ]
             },
-            "description": "Get a paginated list of users with optional filters"
+            "description": "Get a paginated list of users. Admin can see all users. Non-admin can only see their own profile."
           }
         },
         {
           "name": "Update User",
           "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
             "method": "PUT",
             "header": [
               {
@@ -347,12 +569,22 @@
               "host": ["{{base_url}}"],
               "path": ["users", "{{user_id}}"]
             },
-            "description": "Update an existing user"
+            "description": "Update an existing user. Requires authentication."
           }
         },
         {
           "name": "Delete User",
           "request": {
+            "auth": {
+              "type": "bearer",
+              "bearer": [
+                {
+                  "key": "token",
+                  "value": "{{access_token}}",
+                  "type": "string"
+                }
+              ]
+            },
             "method": "DELETE",
             "header": [
               {
@@ -365,7 +597,7 @@
               "host": ["{{base_url}}"],
               "path": ["users", "{{user_id}}"]
             },
-            "description": "Delete a user by ID"
+            "description": "Delete a user by ID. Requires authentication."
           }
         }
       ]
