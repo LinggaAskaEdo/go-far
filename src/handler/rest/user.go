@@ -123,7 +123,7 @@ func (e *rest) ListUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	e.httpRespSuccess(w, r, http.StatusOK, users, &pagination)
+	e.httpRespSuccess(w, r, http.StatusOK, users, pagination)
 }
 
 func decodeUserFilter(q url.Values) dto.UserFilter {
@@ -137,12 +137,15 @@ func decodeUserFilter(q url.Values) dto.UserFilter {
 	if v := q.Get("min_age"); v != "" {
 		filter.MinAge, _ = strconv.Atoi(v)
 	}
+
 	if v := q.Get("max_age"); v != "" {
 		filter.MaxAge, _ = strconv.Atoi(v)
 	}
+
 	if v := q.Get("page"); v != "" {
 		filter.Page, _ = strconv.ParseInt(v, 10, 64)
 	}
+
 	if v := q.Get("page_size"); v != "" {
 		filter.PageSize, _ = strconv.ParseInt(v, 10, 64)
 	}

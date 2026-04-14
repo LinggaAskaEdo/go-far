@@ -64,21 +64,21 @@ func (s *userService) Login(ctx context.Context, req dto.LoginRequest) (*entity.
 		return nil, x.NewWithCode(x.CodeHTTPUnauthorized, "Invalid credentials")
 	}
 
-	return &user, nil
+	return user, nil
 }
 
-func (s *userService) GetUser(ctx context.Context, id string) (entity.User, error) {
+func (s *userService) GetUser(ctx context.Context, id string) (*entity.User, error) {
 	return s.userRepository.FindByID(ctx, id)
 }
 
-func (s *userService) ListUsers(ctx context.Context, cacheControl dto.CacheControl, filter dto.UserFilter) ([]entity.User, dto.Pagination, error) {
+func (s *userService) ListUsers(ctx context.Context, cacheControl dto.CacheControl, filter dto.UserFilter) (*[]entity.User, *dto.Pagination, error) {
 	return s.userRepository.FindAll(ctx, cacheControl, filter)
 }
 
-func (s *userService) UpdateUser(ctx context.Context, id string, req dto.UpdateUserRequest) (entity.User, error) {
+func (s *userService) UpdateUser(ctx context.Context, id string, req dto.UpdateUserRequest) (*entity.User, error) {
 	existingUser, err := s.userRepository.FindByID(ctx, id)
 	if err != nil {
-		return existingUser, err
+		return nil, err
 	}
 
 	if req.Name != "" {
@@ -102,7 +102,7 @@ func (s *userService) UpdateUser(ctx context.Context, id string, req dto.UpdateU
 	}
 
 	if err := s.userRepository.Update(ctx, id, existingUser); err != nil {
-		return existingUser, err
+		return nil, err
 	}
 
 	return s.userRepository.FindByID(ctx, id)

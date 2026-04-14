@@ -69,7 +69,7 @@ func (d *userRepository) createSQLUser(ctx context.Context, tx *sqlx.Tx, user *e
 	return tx, user, nil
 }
 
-func (d *userRepository) findAllSQLUser(ctx context.Context, filter dto.UserFilter) ([]entity.User, dto.Pagination, error) {
+func (d *userRepository) findAllSQLUser(ctx context.Context, filter dto.UserFilter) (*[]entity.User, *dto.Pagination, error) {
 	var (
 		results      []entity.User
 		totalRecords int64
@@ -103,7 +103,7 @@ func (d *userRepository) findAllSQLUser(ctx context.Context, filter dto.UserFilt
 	query, args, err := d.queryLoader.Compile("FindAllUsersBase", templateData)
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("build_find_users_query_err")
-		return nil, pagination, x.WrapWithCode(err, x.CodeSQLQueryBuild, "build_find_users_query_err")
+		return nil, &pagination, x.WrapWithCode(err, x.CodeSQLQueryBuild, "build_find_users_query_err")
 	}
 
 	query = d.injectSortClauses(query, filter.SortBy, filter.SortDir)
@@ -111,19 +111,19 @@ func (d *userRepository) findAllSQLUser(ctx context.Context, filter dto.UserFilt
 	err = d.sql0.SelectContext(ctx, &results, query, args...)
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("find_users_err")
-		return nil, pagination, x.WrapWithCode(err, x.CodeSQLRowScan, "find_users_err")
+		return nil, &pagination, x.WrapWithCode(err, x.CodeSQLRowScan, "find_users_err")
 	}
 
 	countQuery, countArgs, err := d.queryLoader.Compile("CountUsersBase", templateData)
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("count_users_query_err")
-		return nil, pagination, x.WrapWithCode(err, x.CodeSQLQueryBuild, "count_users_query_err")
+		return nil, &pagination, x.WrapWithCode(err, x.CodeSQLQueryBuild, "count_users_query_err")
 	}
 
 	err = d.sql0.GetContext(ctx, &totalRecords, countQuery, countArgs...)
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("count_users_err")
-		return nil, pagination, x.WrapWithCode(err, x.CodeSQLRowScan, "count_users_err")
+		return nil, &pagination, x.WrapWithCode(err, x.CodeSQLRowScan, "count_users_err")
 	}
 
 	zerolog.Ctx(ctx).Debug().Int64("total", totalRecords).Msg("total_users_found")
@@ -137,7 +137,7 @@ func (d *userRepository) findAllSQLUser(ctx context.Context, filter dto.UserFilt
 	pagination.CurrentElements = int64(len(results))
 	pagination.TotalElements = totalRecords
 
-	return results, pagination, nil
+	return &results, &pagination, nil
 }
 
 func (d *userRepository) injectSortClauses(query, sortBy, sortDir string) string {
@@ -147,7 +147,7 @@ func (d *userRepository) injectSortClauses(query, sortBy, sortDir string) string
 	return query
 }
 
-func (d *userRepository) updateSQLUser(ctx context.Context, id string, user entity.User) error {
+func (d *userRepository) updateSQLUser(ctx context.Context, id string, user *entity.User) error {
 	data := map[string]any{
 		"ID":        id,
 		"Name":      user.Name,

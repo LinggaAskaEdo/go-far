@@ -19,7 +19,7 @@ const (
 	durationUserExpiration              = 5 * time.Minute
 )
 
-func (d *userRepository) setCacheFindAllUser(ctx context.Context, filter dto.UserFilter, result []entity.User, pagination dto.Pagination) error {
+func (d *userRepository) setCacheFindAllUser(ctx context.Context, filter dto.UserFilter, result *[]entity.User, pagination *dto.Pagination) error {
 	var encJSON []byte
 
 	rawKey, err := json.Marshal(filter)
@@ -63,7 +63,7 @@ func (d *userRepository) setCacheFindAllUser(ctx context.Context, filter dto.Use
 	return nil
 }
 
-func (d *userRepository) getCacheFindAllUser(ctx context.Context, filter dto.UserFilter) ([]entity.User, dto.Pagination, error) {
+func (d *userRepository) getCacheFindAllUser(ctx context.Context, filter dto.UserFilter) (*[]entity.User, *dto.Pagination, error) {
 	var (
 		results    []entity.User
 		pagination dto.Pagination
@@ -72,7 +72,7 @@ func (d *userRepository) getCacheFindAllUser(ctx context.Context, filter dto.Use
 	// serialize query param to string
 	rawKey, err := json.Marshal(filter)
 	if err != nil {
-		return results, pagination, x.WrapWithCode(err, x.CodeCacheMarshal, "get_cache_find_all_user_marshal")
+		return nil, nil, x.WrapWithCode(err, x.CodeCacheMarshal, "get_cache_find_all_user_marshal")
 	}
 
 	field := string(rawKey)
@@ -80,40 +80,40 @@ func (d *userRepository) getCacheFindAllUser(ctx context.Context, filter dto.Use
 	// fetch transaction
 	resultRaw, err := d.redis0.HGet(ctx, userByParamHashKey, field).Bytes()
 	if err == redis.Nil {
-		return results, pagination, err
+		return nil, nil, err
 	} else if err != nil {
-		return results, pagination, x.WrapWithCode(err, x.CodeCacheGetHashKey, "get_cache_find_all_user")
+		return nil, nil, x.WrapWithCode(err, x.CodeCacheGetHashKey, "get_cache_find_all_user")
 	}
 
 	var decJSON []byte
 	decJSON, err = snappy.Decode(decJSON, resultRaw)
 	if err != nil {
-		return results, pagination, x.WrapWithCode(err, x.CodeCacheDecode, "get_cache_find_all_user")
+		return nil, nil, x.WrapWithCode(err, x.CodeCacheDecode, "get_cache_find_all_user")
 	}
 
 	if err := json.Unmarshal(decJSON, &results); err != nil {
-		return results, pagination, x.WrapWithCode(err, x.CodeCacheUnmarshal, "get_cache_find_all_user")
+		return nil, nil, x.WrapWithCode(err, x.CodeCacheUnmarshal, "get_cache_find_all_user")
 	}
 
 	// fetch pagination
 	paginationRaw, err := d.redis0.HGet(ctx, userPaginationByParamHashKey, field).Bytes()
 	if err == redis.Nil {
-		return results, pagination, err
+		return nil, nil, err
 	} else if err != nil {
-		return results, pagination, x.WrapWithCode(err, x.CodeCacheGetHashKey, "get_cache_find_all_user_pagination")
+		return nil, nil, x.WrapWithCode(err, x.CodeCacheGetHashKey, "get_cache_find_all_user_pagination")
 	}
 
 	// decode pagination (encoded json)
 	decJSON = []byte{}
 	decJSON, err = snappy.Decode(decJSON, paginationRaw)
 	if err != nil {
-		return results, pagination, x.WrapWithCode(err, x.CodeCacheDecode, "get_cache_find_all_user_pagination")
+		return nil, nil, x.WrapWithCode(err, x.CodeCacheDecode, "get_cache_find_all_user_pagination")
 	}
 
 	// unmarshaling returned byte
 	if err := json.Unmarshal(decJSON, &pagination); err != nil {
-		return results, pagination, x.WrapWithCode(err, x.CodeCacheUnmarshal, "get_cache_find_all_user_pagination")
+		return nil, nil, x.WrapWithCode(err, x.CodeCacheUnmarshal, "get_cache_find_all_user_pagination")
 	}
 
-	return results, pagination, nil
+	return &results, &pagination, nil
 }

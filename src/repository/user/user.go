@@ -14,10 +14,10 @@ import (
 
 type UserRepositoryItf interface {
 	Create(ctx context.Context, user *entity.User) (*entity.User, error)
-	FindByID(ctx context.Context, id string) (entity.User, error)
-	FindByEmail(ctx context.Context, email string) (entity.User, error)
-	FindAll(ctx context.Context, cacheControl dto.CacheControl, filter dto.UserFilter) ([]entity.User, dto.Pagination, error)
-	Update(ctx context.Context, id string, user entity.User) error
+	FindByID(ctx context.Context, id string) (*entity.User, error)
+	FindByEmail(ctx context.Context, email string) (*entity.User, error)
+	FindAll(ctx context.Context, cacheControl dto.CacheControl, filter dto.UserFilter) (*[]entity.User, *dto.Pagination, error)
+	Update(ctx context.Context, id string, user *entity.User) error
 	Delete(ctx context.Context, id string) error
 }
 
