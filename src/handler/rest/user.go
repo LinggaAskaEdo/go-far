@@ -38,6 +38,12 @@ func (e *rest) CreateUser(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := dto.ValidateRequest(&req); err != nil {
+		zerolog.Ctx(ctx).Warn().Err(err).Msg("validation_failed_create_user")
+		e.httpRespError(w, r, err)
+		return
+	}
+
 	user, err := e.svc.User.CreateUser(ctx, req)
 	if err != nil {
 		e.httpRespError(w, r, err)
@@ -189,6 +195,12 @@ func (e *rest) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("invalid_request_body")
 		e.httpRespError(w, r, x.WrapWithCode(err, x.CodeHTTPUnmarshal, "invalid_request_body"))
+		return
+	}
+
+	if err := dto.ValidateRequest(&req); err != nil {
+		zerolog.Ctx(ctx).Warn().Err(err).Msg("validation_failed_update_user")
+		e.httpRespError(w, r, err)
 		return
 	}
 

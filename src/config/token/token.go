@@ -267,7 +267,10 @@ func (a *token) ValidateRefreshToken(r *http.Request, tokenStr string) (*AccessD
 	username := claims["name"].(string)
 	role := claims["role"].(string)
 
-	var accessUUID, refreshUUID, redisIDUser string
+	var refreshUUID, redisIDUser string
+
+	// Extract access_uuid from claims
+	accessUUID, _ := claims["access_uuid"].(string)
 
 	refreshUUID, ok = claims["refresh_uuid"].(string)
 	if !ok {

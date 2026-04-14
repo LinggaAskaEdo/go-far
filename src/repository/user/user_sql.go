@@ -128,12 +128,15 @@ func (d *userRepository) findAllSQLUser(ctx context.Context, filter dto.UserFilt
 
 	zerolog.Ctx(ctx).Debug().Int64("total", totalRecords).Msg("total_users_found")
 
-	totalPage := totalRecords / filter.PageSize
-	if totalRecords%filter.PageSize > 0 || totalRecords == 0 {
-		totalPage++
+	// Calculate total pages with proper handling of empty results
+	var totalPage int64
+	if totalRecords > 0 {
+		totalPage = (totalRecords + filter.PageSize - 1) / filter.PageSize
+	} else {
+		totalPage = 0
 	}
 
-	pagination.TotalPages = util.ValidatePage(totalPage)
+	pagination.TotalPages = totalPage
 	pagination.CurrentElements = int64(len(results))
 	pagination.TotalElements = totalRecords
 

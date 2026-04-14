@@ -74,6 +74,9 @@ middleware:
     - /auth/login
     - /auth/register
     - /auth/refresh
+  auth_rate_limit:
+    command: "3-M"  # 3 requests per minute per IP
+    limit: 3
   rate_limiter:
     command: "1-S" # 1 request per second
     limit: 500 # max 500 clients

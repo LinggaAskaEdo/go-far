@@ -25,6 +25,7 @@ type ServerOptions struct {
 	IdleTimeout     time.Duration `json:"idle_timeout"`
 	ShutdownTimeout time.Duration `yaml:"shutdown_timeout"`
 	Mode            string        `yaml:"mode"`
+	MaxBodyBytes    int64         `yaml:"max_body_bytes"` // Max request body size in bytes (default 1MB)
 }
 
 // HttpOptions holds HTTP handler configuration
@@ -61,8 +62,17 @@ func InitHttpMux() *http.ServeMux {
 }
 
 // WrapHandler wraps an http.Handler with the middleware chain for server use
-func WrapHandler(mux *http.ServeMux, mw middleware.Middleware, opt HttpOptions) http.Handler {
+func WrapHandler(mux *http.ServeMux, mw middleware.Middleware, opt HttpOptions, maxBodyBytes int64) http.Handler {
 	var handler http.Handler = mux
+
+	// Apply request body size limit to prevent memory exhaustion attacks
+	if maxBodyBytes > 0 {
+		handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
+			handler.ServeHTTP(w, r)
+		})
+	}
+
 	handler = mw.CORS()(handler)
 	handler = mw.Handler()(handler)
 	if opt.AppName != "" {

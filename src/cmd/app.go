@@ -86,8 +86,14 @@ func init() {
 	// REST Handler Initialization (registers routes on mux)
 	restHandler.InitRestHandler(mux, tokenInst, mw, service, service.User, sql0, redis0)
 
+	// Default max body size: 1MB (1048576 bytes) if not configured
+	maxBodyBytes := conf.Server.MaxBodyBytes
+	if maxBodyBytes == 0 {
+		maxBodyBytes = 1 << 20 // 1MB
+	}
+
 	// Build the full handler with middleware chain
-	handler := server.WrapHandler(mux, mw, conf.HTTP)
+	handler := server.WrapHandler(mux, mw, conf.HTTP, maxBodyBytes)
 
 	// Scheduler Initialization
 	scheduler = cfgscheduler.InitScheduler(log, conf.Scheduler)

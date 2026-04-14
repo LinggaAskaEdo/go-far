@@ -29,7 +29,7 @@ func (d *userRepository) Create(ctx context.Context, user *entity.User) (*entity
 			zerolog.Ctx(ctx).Error().Err(rollbackErr).Msg("rollback_create_user")
 		}
 		zerolog.Ctx(ctx).Error().Err(err).Msg("sql_create_user")
-		return user, x.Wrap(err, "sql_create_user")
+		return nil, x.Wrap(err, "sql_create_user")
 	}
 
 	if err = tx.Commit(); err != nil {
@@ -37,7 +37,7 @@ func (d *userRepository) Create(ctx context.Context, user *entity.User) (*entity
 			zerolog.Ctx(ctx).Error().Err(rollbackErr).Msg("rollback_after_commit_failure")
 		}
 		zerolog.Ctx(ctx).Error().Err(err).Msg("commit_create_user")
-		return user, x.Wrap(err, "commit_create_user")
+		return nil, x.Wrap(err, "commit_create_user")
 	}
 
 	return user, nil

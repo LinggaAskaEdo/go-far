@@ -119,14 +119,16 @@ func (mw *middleware) prepareContext(ctx context.Context, r *http.Request) (cont
 	spanContext := span.SpanContext()
 
 	traceID := spanContext.TraceID().String()
-	spanID := spanContext.SpanID().String()
 
-	if r.Header.Get(preference.HeaderXRequestID) == "" {
+	var spanID string
+	if requestID := r.Header.Get(preference.HeaderXRequestID); requestID != "" {
+		spanID = requestID
+	} else {
 		spanID = xid.New().String()
+		r.Header.Set(preference.HeaderXRequestID, spanID)
 	}
 
 	ctx = mw.attachTraceSpanIDs(ctx, traceID, spanID)
-	r.Header.Set(preference.HeaderXRequestID, spanID)
 
 	return ctx, traceID, spanID
 }

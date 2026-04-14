@@ -49,10 +49,11 @@ func (e *rest) Serve() {
 	e.mux.HandleFunc("GET "+preference.RouteHealth, e.Health)
 	e.mux.HandleFunc("GET "+preference.RouteReady, e.Ready)
 
-	// Auth routes (public)
-	e.mux.HandleFunc("POST "+preference.RouteAuthRegister, e.Register)
-	e.mux.HandleFunc("POST "+preference.RouteAuthLogin, e.Login)
-	e.mux.HandleFunc("POST "+preference.RouteAuthRefresh, e.RefreshToken)
+	// Auth routes (public, but rate-limited by IP to prevent brute force)
+	authLimiter := e.mw.AuthLimiter()
+	e.mux.HandleFunc("POST "+preference.RouteAuthRegister, authLimiter(http.HandlerFunc(e.Register)).ServeHTTP)
+	e.mux.HandleFunc("POST "+preference.RouteAuthLogin, authLimiter(http.HandlerFunc(e.Login)).ServeHTTP)
+	e.mux.HandleFunc("POST "+preference.RouteAuthRefresh, authLimiter(http.HandlerFunc(e.RefreshToken)).ServeHTTP)
 
 	// Car routes (authenticated, rate-limited by role)
 	limiter := e.mw.RoleLimiter()

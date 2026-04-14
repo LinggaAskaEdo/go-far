@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"sync"
 	"time"
 
 	cfg "go-far/src/config/scheduler"
@@ -19,6 +20,7 @@ type UserGeneratorJob struct {
 	userService user.UserServiceItf
 	config      cfg.UserGeneratorJobOptions
 	rng         *rand.Rand
+	mu          sync.Mutex
 }
 
 func InitUserGeneratorJob(log zerolog.Logger, userService user.UserServiceItf, cfg cfg.UserGeneratorJobOptions) *UserGeneratorJob {
@@ -53,9 +55,11 @@ func (j *UserGeneratorJob) Run(ctx context.Context) error {
 		user := j.generateRandomUser()
 
 		req := dto.CreateUserRequest{
-			Name:  user.Name,
-			Email: user.Email,
-			Age:   user.Age,
+			Name:     user.Name,
+			Email:    user.Email,
+			Password: "UserPass123!",
+			Age:      user.Age,
+			Role:     entity.RoleUser,
 		}
 
 		_, err := j.userService.CreateUser(ctx, req)
@@ -88,18 +92,25 @@ func (j *UserGeneratorJob) generateRandomUser() *entity.User {
 	lastName := j.randomLastName()
 	name := fmt.Sprintf("%s %s", firstName, lastName)
 
+	j.mu.Lock()
 	timestamp := time.Now().Unix()
 	email := fmt.Sprintf("%s.%s.%d@example.com",
 		firstName,
 		lastName,
 		timestamp+int64(j.rng.Intn(1000)))
-
 	age := j.config.MinAge + j.rng.Intn(j.config.MaxAge-j.config.MinAge+1)
+	j.mu.Unlock()
+
+	// All generated users use the default test password
+	password := "UserPass123!"
 
 	return &entity.User{
-		Name:  name,
-		Email: email,
-		Age:   age,
+		Name:     name,
+		Email:    email,
+		Password: password,
+		Age:      age,
+		Role:     entity.RoleUser,
+		IsActive: true,
 	}
 }
 
@@ -114,6 +125,9 @@ func (j *UserGeneratorJob) randomFirstName() string {
 		"Edward", "Deborah", "Ronald", "Stephanie", "Timothy", "Rebecca", "Jason", "Sharon",
 	}
 
+	j.mu.Lock()
+	defer j.mu.Unlock()
+
 	return firstNames[j.rng.Intn(len(firstNames))]
 }
 
@@ -127,6 +141,9 @@ func (j *UserGeneratorJob) randomLastName() string {
 		"Green", "Adams", "Nelson", "Baker", "Hall", "Rivera", "Campbell", "Mitchell",
 		"Carter", "Roberts", "Gomez", "Phillips", "Evans", "Turner", "Diaz", "Parker",
 	}
+
+	j.mu.Lock()
+	defer j.mu.Unlock()
 
 	return lastNames[j.rng.Intn(len(lastNames))]
 }

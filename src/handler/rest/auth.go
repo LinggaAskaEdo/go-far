@@ -34,6 +34,12 @@ func (e *rest) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
+	if err := dto.ValidateRequest(&req); err != nil {
+		zerolog.Ctx(ctx).Warn().Err(err).Msg("validation_failed_register")
+		e.httpRespError(w, r, err)
+		return
+	}
+
 	user, err := e.usvc.RegisterUser(ctx, req)
 	if err != nil {
 		e.httpRespError(w, r, err)
@@ -63,6 +69,12 @@ func (e *rest) Login(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("invalid_request_body")
 		e.httpRespError(w, r, x.WrapWithCode(err, x.CodeHTTPUnmarshal, "invalid_request_body"))
+		return
+	}
+
+	if err := dto.ValidateRequest(&req); err != nil {
+		zerolog.Ctx(ctx).Warn().Err(err).Msg("validation_failed_login")
+		e.httpRespError(w, r, err)
 		return
 	}
 
