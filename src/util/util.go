@@ -14,7 +14,7 @@ func ValidateLimit(limit int64) int64 {
 
 func ValidatePage(page int64) int64 {
 	if page < 1 {
-		return 0
+		return 1
 	}
 
 	return page

@@ -1098,6 +1098,12 @@ const docTemplate = `{
                             "$ref": "#/definitions/dto.HTTPErrorResp"
                         }
                     },
+                    "403": {
+                        "description": "Forbidden",
+                        "schema": {
+                            "$ref": "#/definitions/dto.HTTPErrorResp"
+                        }
+                    },
                     "500": {
                         "description": "Internal Server Error",
                         "schema": {
@@ -1147,6 +1153,12 @@ const docTemplate = `{
                     },
                     "400": {
                         "description": "Bad Request",
+                        "schema": {
+                            "$ref": "#/definitions/dto.HTTPErrorResp"
+                        }
+                    },
+                    "403": {
+                        "description": "Forbidden",
                         "schema": {
                             "$ref": "#/definitions/dto.HTTPErrorResp"
                         }
@@ -1693,7 +1705,7 @@ var SwaggerInfo = &swag.Spec{
 	BasePath:         "",
 	Schemes:          []string{"http", "https"},
 	Title:            "Go-Far",
-	Description:      "Clean Architecture CRUD API with Go",
+	Description:      "A production-ready RESTful API built with Go following Domain-Driven Design principles, featuring PostgreSQL, Redis, JWT authentication, role-based rate limiting, and OpenTelemetry tracing.",
 	InfoInstanceName: "swagger",
 	SwaggerTemplate:  docTemplate,
 }

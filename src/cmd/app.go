@@ -81,10 +81,10 @@ func init() {
 	mw := middleware.InitMiddleware(log, conf.Middleware, tokenInst, redis2)
 
 	// HTTP Mux Initialization
-	mux := server.InitHttpMux(log, mw, conf.HTTP)
+	mux := server.InitHttpMux()
 
 	// REST Handler Initialization (registers routes on mux)
-	restHandler.InitRestHandler(mux, tokenInst, mw, service, service.User)
+	restHandler.InitRestHandler(mux, tokenInst, mw, service, service.User, sql0, redis0)
 
 	// Build the full handler with middleware chain
 	handler := server.WrapHandler(mux, mw, conf.HTTP)
@@ -100,12 +100,12 @@ func init() {
 	tracerInst = tracer.InitTracer(log, conf.Tracer)
 
 	// App Initialization
-	app = grace.InitGrace(log, httpServer, tracerInst)
+	app = grace.InitGrace(log, httpServer, tracerInst, conf.Server.ShutdownTimeout)
 }
 
 // @title			Go-Far
 // @version		1.0
-// @description	Clean Architecture CRUD API with Go
+// @description	A production-ready RESTful API built with Go following Domain-Driven Design principles, featuring PostgreSQL, Redis, JWT authentication, role-based rate limiting, and OpenTelemetry tracing.
 // @termsOfService	http://swagger.io/terms/
 // @contact.name	API Support
 // @contact.url	http://www.swagger.io/support

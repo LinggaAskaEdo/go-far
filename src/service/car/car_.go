@@ -23,8 +23,11 @@ func (s *carService) CreateCar(ctx context.Context, req dto.CreateCarRequest) (*
 		return nil, err
 	}
 
-	// Assign car to user via junction table
-	carUUID, _ := uuid.Parse(car.ID)
+	carUUID, err := uuid.Parse(car.ID)
+	if err != nil {
+		return nil, err
+	}
+
 	if err := s.carRepository.AssignCarToUser(ctx, req.UserID, carUUID); err != nil {
 		return nil, err
 	}
@@ -53,7 +56,10 @@ func (s *carService) CreateBulkCars(ctx context.Context, req dto.BulkCreateCarsR
 	}
 
 	for _, car := range cars {
-		carID, _ := uuid.Parse(car.ID)
+		carID, err := uuid.Parse(car.ID)
+		if err != nil {
+			return nil, err
+		}
 		carIDs = append(carIDs, carID)
 	}
 
@@ -115,7 +121,7 @@ func (s *carService) UpdateCar(ctx context.Context, id uuid.UUID, req dto.Update
 		return nil, err
 	}
 
-	return s.carRepository.FindByID(ctx, id)
+	return existingCar, nil
 }
 
 func (s *carService) DeleteCar(ctx context.Context, id uuid.UUID) error {

@@ -25,20 +25,22 @@ type App interface {
 }
 
 type app struct {
-	log        zerolog.Logger
-	httpServer *http.Server
-	tracer     tracer.Tracer
+	log             zerolog.Logger
+	httpServer      *http.Server
+	tracer          tracer.Tracer
+	shutdownTimeout time.Duration
 }
 
 // InitGrace initializes graceful shutdown handling
-func InitGrace(log zerolog.Logger, httpServer *http.Server, tracer tracer.Tracer) App {
+func InitGrace(log zerolog.Logger, httpServer *http.Server, tracer tracer.Tracer, shutdownTimeout time.Duration) App {
 	var gs *app
 
 	onceGrace.Do(func() {
 		gs = &app{
-			log:        log,
-			httpServer: httpServer,
-			tracer:     tracer,
+			log:             log,
+			httpServer:      httpServer,
+			tracer:          tracer,
+			shutdownTimeout: shutdownTimeout,
 		}
 	})
 
@@ -52,7 +54,7 @@ func (g *app) Serve() {
 	signal.Notify(signalCh, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 
 	wg.Add(1)
-	go startHTTPServer(ctx, &wg, g.log, g.httpServer, g.tracer)
+	go startHTTPServer(ctx, &wg, g.log, g.httpServer, g.tracer, g.shutdownTimeout)
 
 	<-signalCh
 
@@ -62,7 +64,7 @@ func (g *app) Serve() {
 	g.log.Debug().Msg("Shutdown complete...")
 }
 
-func startHTTPServer(ctx context.Context, wg *sync.WaitGroup, log zerolog.Logger, httpServer *http.Server, tracer tracer.Tracer) {
+func startHTTPServer(ctx context.Context, wg *sync.WaitGroup, log zerolog.Logger, httpServer *http.Server, tracer tracer.Tracer, shutdownTimeout time.Duration) {
 	defer wg.Done()
 
 	go func() {
@@ -79,7 +81,7 @@ func startHTTPServer(ctx context.Context, wg *sync.WaitGroup, log zerolog.Logger
 	log.Debug().Msg("HTTP server started...")
 
 	log.Debug().Msg("Shutting down HTTP server gracefully...")
-	shutdownCtx, cancelShutdown := context.WithTimeout(ctx, 5*time.Second)
+	shutdownCtx, cancelShutdown := context.WithTimeout(ctx, shutdownTimeout)
 	defer cancelShutdown()
 
 	err := httpServer.Shutdown(shutdownCtx)

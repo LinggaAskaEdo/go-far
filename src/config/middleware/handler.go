@@ -59,6 +59,7 @@ func (mw *middleware) isPublicPath(path string) bool {
 			return true
 		}
 	}
+
 	return false
 }
 
@@ -169,9 +170,12 @@ func (mw *middleware) attachTraceSpanIDs(ctx context.Context, traceID, spanID st
 }
 
 func (mw *middleware) attachLogger(ctx context.Context) context.Context {
+	traceID, _ := ctx.Value(preference.CONTEXT_KEY_LOG_TRACE_ID).(string)
+	spanID, _ := ctx.Value(preference.CONTEXT_KEY_LOG_SPAN_ID).(string)
+
 	return mw.log.With().
-		Str(string(preference.CONTEXT_KEY_LOG_TRACE_ID), ctx.Value(preference.CONTEXT_KEY_LOG_TRACE_ID).(string)).
-		Str(string(preference.CONTEXT_KEY_LOG_SPAN_ID), ctx.Value(preference.CONTEXT_KEY_LOG_SPAN_ID).(string)).
+		Str(string(preference.CONTEXT_KEY_LOG_TRACE_ID), traceID).
+		Str(string(preference.CONTEXT_KEY_LOG_SPAN_ID), spanID).
 		Logger().
 		WithContext(ctx)
 }

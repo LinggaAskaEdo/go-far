@@ -12,76 +12,40 @@ import (
 	"go-far/src/preference"
 )
 
-// Lua script for atomic rate limiting (reduces Redis round-trips from 6 to 2)
+// Lua script for atomic rate limiting (single key, no race conditions)
 const rateLimitLuaScript = `
-	local routeKey = KEYS[1]
-	local globalKey = KEYS[2]
-	local routeLimit = tonumber(ARGV[1])
-	local globalLimit = tonumber(ARGV[2])
-	local routeDuration = tonumber(ARGV[3])
-	local globalDuration = tonumber(ARGV[4])
+	local key = KEYS[1]
+	local limit = tonumber(ARGV[1])
+	local duration = tonumber(ARGV[2])
 
-	-- Check and increment route limit
-	local routeCount = tonumber(redis.call('INCR', routeKey))
-	if routeCount == 1 then
-		redis.call('EXPIRE', routeKey, routeDuration)
+	local count = tonumber(redis.call('INCR', key))
+	if count == 1 then
+		redis.call('EXPIRE', key, duration)
 	end
 
-	-- Check route limit
-	if routeCount > routeLimit then
-		local routeTTL = redis.call('TTL', routeKey)
-		return {0, routeCount, 0, routeTTL, 'route'}
+	local ttl = redis.call('TTL', key)
+
+	if count > limit then
+		return {0, count, ttl}
 	end
 
-	-- Check and increment global limit
-	local globalCount = tonumber(redis.call('INCR', globalKey))
-	if globalCount == 1 then
-		redis.call('EXPIRE', globalKey, globalDuration)
-	end
-
-	-- Check global limit
-	if globalCount > globalLimit then
-		local globalTTL = redis.call('TTL', globalKey)
-		return {0, globalCount, 0, globalTTL, 'global'}
-	end
-
-	-- Success: return counts and TTLs
-	local routeTTL = redis.call('TTL', routeKey)
-	local globalTTL = redis.call('TTL', globalKey)
-	return {1, routeCount, globalCount, routeTTL, globalTTL}
+	return {1, count, ttl}
 `
 
 // rateLimitResult holds parsed rate limiting data
 type rateLimitResult struct {
-	Allowed      bool
-	RouteCount   int64
-	GlobalCount  int64
-	RouteTTL     int64
-	GlobalTTL    int64
-	ExceededType string // "route" or "global"
+	Allowed bool
+	Count   int64
+	TTL     int64
 }
 
 // parseRateLimitResult converts raw Redis result to structured data
-func parseRateLimitResult(resultArr []interface{}) rateLimitResult {
+func parseRateLimitResult(resultArr []any) rateLimitResult {
 	return rateLimitResult{
-		Allowed:      resultArr[0].(int64) == 1,
-		RouteCount:   resultArr[1].(int64),
-		GlobalCount:  resultArr[2].(int64),
-		RouteTTL:     resultArr[3].(int64),
-		GlobalTTL:    resultArr[4].(int64),
-		ExceededType: getStringOrDefault(resultArr, 5, ""),
+		Allowed: resultArr[0].(int64) == 1,
+		Count:   resultArr[1].(int64),
+		TTL:     resultArr[2].(int64),
 	}
-}
-
-// getStringOrDefault safely extracts a string from result array
-func getStringOrDefault(resultArr []interface{}, idx int, defaultVal string) string {
-	if idx < len(resultArr) {
-		if s, ok := resultArr[idx].(string); ok {
-			return s
-		}
-	}
-
-	return defaultVal
 }
 
 // formatRemaining calculates remaining requests
@@ -164,21 +128,18 @@ func (mw *middleware) RoleLimiter() func(http.Handler) http.Handler {
 }
 
 func (mw *middleware) evalRoleRateLimit(path, method string, authUser *AuthUser, limit int, duration time.Duration) (rateLimitResult, error) {
-	routeKey := "ratelimit:route:" + path + ":" + method + ":" + authUser.UserID
-	globalKey := "ratelimit:user:" + authUser.UserID
+	key := "ratelimit:role:" + path + ":" + method + ":" + authUser.UserID
 
-	result, err := mw.rdb.Eval(context.Background(), rateLimitLuaScript, []string{routeKey, globalKey},
-		limit,                   // route limit
-		limit,                   // global limit (same as role limit)
-		int(duration.Seconds()), // route duration
-		int(duration.Seconds()), // global duration
+	result, err := mw.rdb.Eval(context.Background(), rateLimitLuaScript, []string{key},
+		limit,                   // rate limit
+		int(duration.Seconds()), // window duration in seconds
 	).Result()
 	if err != nil {
 		return rateLimitResult{}, err
 	}
 
-	resultArr, ok := result.([]interface{})
-	if !ok || len(resultArr) < 5 {
+	resultArr, ok := result.([]any)
+	if !ok || len(resultArr) < 3 {
 		return rateLimitResult{}, errors.New("invalid rate limit response")
 	}
 
@@ -189,15 +150,15 @@ func (mw *middleware) writeRoleRateLimitExceeded(w http.ResponseWriter, result r
 	w.Header().Set(preference.HeaderContentType, preference.ContentTypeJSON)
 	w.Header().Set(preference.HeaderXRateLimitLimitGlobal, strconv.Itoa(limit))
 	w.Header().Set(preference.HeaderXRateLimitRemainingGlobal, "0")
-	w.Header().Set(preference.HeaderXRateLimitResetGlobal, formatTime(now, result.GlobalTTL))
+	w.Header().Set(preference.HeaderXRateLimitResetGlobal, formatTime(now, result.TTL))
 	w.WriteHeader(http.StatusTooManyRequests)
 	_ = json.NewEncoder(w).Encode(map[string]string{"error": "role rate limit exceeded", "role": role})
 }
 
 func (mw *middleware) setRoleRateLimitHeaders(w http.ResponseWriter, result rateLimitResult, now time.Time, limit int) {
 	w.Header().Set(preference.HeaderXRateLimitLimitGlobal, strconv.Itoa(limit))
-	w.Header().Set(preference.HeaderXRateLimitRemainingGlobal, formatRemaining(int64(limit), result.GlobalCount))
-	w.Header().Set(preference.HeaderXRateLimitResetGlobal, formatTime(now, result.GlobalTTL))
+	w.Header().Set(preference.HeaderXRateLimitRemainingGlobal, formatRemaining(int64(limit), result.Count))
+	w.Header().Set(preference.HeaderXRateLimitResetGlobal, formatTime(now, result.TTL))
 }
 
 // getRoleRateLimit returns the rate limit config for a given role

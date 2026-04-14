@@ -135,19 +135,27 @@ func decodeUserFilter(q url.Values) dto.UserFilter {
 	}
 
 	if v := q.Get("min_age"); v != "" {
-		filter.MinAge, _ = strconv.Atoi(v)
+		if minAge, err := strconv.Atoi(v); err == nil {
+			filter.MinAge = minAge
+		}
 	}
 
 	if v := q.Get("max_age"); v != "" {
-		filter.MaxAge, _ = strconv.Atoi(v)
+		if maxAge, err := strconv.Atoi(v); err == nil {
+			filter.MaxAge = maxAge
+		}
 	}
 
 	if v := q.Get("page"); v != "" {
-		filter.Page, _ = strconv.ParseInt(v, 10, 64)
+		if page, err := strconv.ParseInt(v, 10, 64); err == nil {
+			filter.Page = page
+		}
 	}
 
 	if v := q.Get("page_size"); v != "" {
-		filter.PageSize, _ = strconv.ParseInt(v, 10, 64)
+		if pageSize, err := strconv.ParseInt(v, 10, 64); err == nil {
+			filter.PageSize = pageSize
+		}
 	}
 
 	return filter

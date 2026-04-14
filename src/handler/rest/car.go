@@ -4,7 +4,9 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"go-far/src/config/middleware"
 	"go-far/src/model/dto"
+	"go-far/src/model/entity"
 	x "go-far/src/model/errors"
 
 	"github.com/google/uuid"
@@ -142,15 +144,28 @@ func (e *rest) GetCarWithOwner(w http.ResponseWriter, r *http.Request) {
 //	@Param			user_id	path		string	true	"User ID"
 //	@Success		200		{object}	dto.HttpSuccessResp{data=[]entity.Car}
 //	@Failure		400		{object}	dto.HTTPErrorResp
+//	@Failure		403		{object}	dto.HTTPErrorResp
 //	@Failure		500		{object}	dto.HTTPErrorResp
 //	@Router			/users/{user_id}/cars [get]
 func (e *rest) ListCarsByUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
+	authUser, ok := middleware.GetAuthUser(ctx)
+	if !ok {
+		e.httpRespError(w, r, x.NewWithCode(x.CodeHTTPUnauthorized, "unauthenticated"))
+		return
+	}
+
 	userID, err := uuid.Parse(r.PathValue("user_id"))
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("invalid_user_id")
 		e.httpRespError(w, r, x.WrapWithCode(err, x.CodeHTTPBadRequest, "invalid_user_id"))
+		return
+	}
+
+	// Non-admin users can only view their own cars
+	if authUser.Role != string(entity.RoleAdmin) && authUser.UserID != userID.String() {
+		e.httpRespError(w, r, x.NewWithCode(x.CodeHTTPForbidden, "forbidden"))
 		return
 	}
 
@@ -172,15 +187,28 @@ func (e *rest) ListCarsByUser(w http.ResponseWriter, r *http.Request) {
 //	@Param			user_id	path		string	true	"User ID"
 //	@Success		200		{object}	dto.HttpSuccessResp{data=int}
 //	@Failure		400		{object}	dto.HTTPErrorResp
+//	@Failure		403		{object}	dto.HTTPErrorResp
 //	@Failure		500		{object}	dto.HTTPErrorResp
 //	@Router			/users/{user_id}/cars/count [get]
 func (e *rest) CountCarsByUser(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
+	authUser, ok := middleware.GetAuthUser(ctx)
+	if !ok {
+		e.httpRespError(w, r, x.NewWithCode(x.CodeHTTPUnauthorized, "unauthenticated"))
+		return
+	}
+
 	userID, err := uuid.Parse(r.PathValue("user_id"))
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("invalid_user_id")
 		e.httpRespError(w, r, x.WrapWithCode(err, x.CodeHTTPBadRequest, "invalid_user_id"))
+		return
+	}
+
+	// Non-admin users can only count their own cars
+	if authUser.Role != string(entity.RoleAdmin) && authUser.UserID != userID.String() {
+		e.httpRespError(w, r, x.NewWithCode(x.CodeHTTPForbidden, "forbidden"))
 		return
 	}
 

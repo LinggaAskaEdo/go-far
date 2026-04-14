@@ -93,6 +93,10 @@ const (
 	// Auth Error Messages
 	ErrInvalidToken string = "Invalid token"
 
+	// Readiness Status Messages
+	StatusReady    string = "ready"
+	StatusNotReady string = "not ready"
+
 	// Allowed HTTP Methods
 	AllowedMethods string = "GET, POST, PUT, DELETE"
 

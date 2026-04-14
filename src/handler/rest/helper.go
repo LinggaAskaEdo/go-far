@@ -40,12 +40,40 @@ func (e *rest) Health(w http.ResponseWriter, r *http.Request) {
 //	@Failure		503	{object}	dto.HTTPErrorResp
 //	@Router			/ready [get]
 func (e *rest) Ready(w http.ResponseWriter, r *http.Request) {
-	// Add dependency checks here (database, redis, etc.)
-	// For now, return a simple ready response
+	ctx := r.Context()
+	depStatus := map[string]string{}
+	ready := true
+
+	// Check database
+	if err := e.sql0.PingContext(ctx); err != nil {
+		depStatus["database"] = preference.StatusNotReady
+		ready = false
+	} else {
+		depStatus["database"] = preference.StatusReady
+	}
+
+	// Check Redis
+	if err := e.redis.Ping(ctx).Err(); err != nil {
+		depStatus["redis"] = preference.StatusNotReady
+		ready = false
+	} else {
+		depStatus["redis"] = preference.StatusReady
+	}
+
+	if !ready {
+		status := dto.ReadinessStatus{
+			Status:       preference.StatusNotReady,
+			Timestamp:    time.Now().Format(time.RFC3339),
+			Dependencies: depStatus,
+		}
+		e.httpRespSuccess(w, r, http.StatusServiceUnavailable, status, nil)
+		return
+	}
+
 	status := dto.ReadinessStatus{
-		Status:       "ready",
+		Status:       preference.StatusReady,
 		Timestamp:    time.Now().Format(time.RFC3339),
-		Dependencies: map[string]string{"database": "unknown", "redis": "unknown"},
+		Dependencies: depStatus,
 	}
 
 	e.httpRespSuccess(w, r, http.StatusOK, status, nil)

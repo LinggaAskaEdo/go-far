@@ -9,7 +9,7 @@ A production-ready RESTful API built with Go following Domain-Driven Design prin
 - **Database** - PostgreSQL with sqlx (MySQL supported)
 - **Caching** - Redis with snappy compression
 - **Authentication** - JWT with HS-256 signing, refresh tokens, and role-based access
-- **Role-Based Rate Limiting** - Dual-layer (route + global) with per-role limits
+- **Role-Based Rate Limiting** - Per-role sliding window rate limiting via Redis Lua script (atomic, race-condition free)
 - **Observability** - OpenTelemetry tracing with OTLP exporter
 - **Scheduled Jobs** - Cron-based job scheduler
 - **API Documentation** - Swagger/OpenAPI 2.0
@@ -98,10 +98,10 @@ go-far/
 
 ### Health Check
 
-| Method | Endpoint    | Description       |
-|--------|-------------|-------------------|
-| GET    | `/health`   | Health check      |
-| GET    | `/ready`    | Readiness check   |
+| Method   | Endpoint      | Description                                    |
+| -------- | ------------- | ---------------------------------------------- |
+| GET      | `/health`     | Health check (public)                          |
+| GET      | `/ready`      | Readiness check with DB & Redis ping (public)  |
 
 ### Users
 
@@ -115,18 +115,18 @@ go-far/
 
 ### Cars
 
-| Method | Endpoint                        | Description                   |
-|--------|---------------------------------|-------------------------------|
-| POST   | `/cars`                         | Create car                    |
-| POST   | `/cars/bulk`                    | Create multiple cars          |
-| GET    | `/cars/{id}`                    | Get car by ID                 |
-| GET    | `/cars/{id}/owner`              | Get car with owner details    |
-| PUT    | `/cars/{id}`                    | Update car                    |
-| DELETE | `/cars/{id}`                    | Delete car                    |
-| POST   | `/cars/{id}/transfer`           | Transfer ownership            |
-| PUT    | `/cars/availability`            | Bulk update availability      |
-| GET    | `/users/{user_id}/cars`         | List cars by user             |
-| GET    | `/users/{user_id}/cars/count`   | Count cars by user            |
+| Method | Endpoint                        | Description                              |
+|--------|---------------------------------|------------------------------------------|
+| POST   | `/cars`                         | Create car                               |
+| POST   | `/cars/bulk`                    | Create multiple cars                     |
+| GET    | `/cars/{id}`                    | Get car by ID                            |
+| GET    | `/cars/{id}/owner`              | Get car with owner details               |
+| PUT    | `/cars/{id}`                    | Update car                               |
+| DELETE | `/cars/{id}`                    | Delete car                               |
+| POST   | `/cars/{id}/transfer`           | Transfer ownership                       |
+| PUT    | `/cars/availability`            | Bulk update availability                 |
+| GET    | `/users/{user_id}/cars`         | List cars by user (IDOR protected)       |
+| GET    | `/users/{user_id}/cars/count`   | Count cars by user (IDOR protected)      |
 
 ### Swagger Documentation
 
@@ -141,6 +141,11 @@ Access Swagger UI at: `http://localhost:8181/swagger/index.html`
 | `guest` | Limited read-only access    |
 
 Roles are assigned during registration and stored as a PostgreSQL enum type.
+
+## 🔒 Security
+
+- **IDOR Protection** - User-scoped car endpoints (`/users/{user_id}/cars`) enforce ownership checks. Non-admin users can only access their own resources.
+- **Readiness Probe** - The `/ready` endpoint actively checks database and Redis connectivity, returning `503` if dependencies are unavailable.
 
 ## ⚙️ Configuration
 

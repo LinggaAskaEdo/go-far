@@ -209,21 +209,11 @@ func (r *carRepository) CountByUserID(ctx context.Context, userID uuid.UUID) (in
 }
 
 func (r *carRepository) Update(ctx context.Context, id uuid.UUID, car *entity.Car) error {
-	err := r.updateSQLCar(ctx, id, car)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return r.updateSQLCar(ctx, id, car)
 }
 
 func (r *carRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	err := r.deleteSQLCar(ctx, id)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return r.deleteSQLCar(ctx, id)
 }
 
 func (r *carRepository) TransferOwnership(ctx context.Context, carID, newUserID uuid.UUID) error {
@@ -293,6 +283,12 @@ func (r *carRepository) BulkUpdateAvailability(ctx context.Context, carIDs []uui
 	}
 
 	zerolog.Ctx(ctx).Debug().Int64("rows_affected", rows).Msg("bulk_update_availability_success")
+
+	// Invalidate cache for affected cars
+	for _, id := range carIDs {
+		cacheKey := "car:" + id.String()
+		r.redis0.Del(ctx, cacheKey)
+	}
 
 	return nil
 }

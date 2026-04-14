@@ -363,7 +363,9 @@ info:
     email: support@swagger.io
     name: API Support
     url: http://www.swagger.io/support
-  description: Clean Architecture CRUD API with Go
+  description: A production-ready RESTful API built with Go following Domain-Driven
+    Design principles, featuring PostgreSQL, Redis, JWT authentication, role-based
+    rate limiting, and OpenTelemetry tracing.
   license:
     name: Apache 2.0
     url: http://www.apache.org/licenses/LICENSE-2.0.html
@@ -1035,6 +1037,10 @@ paths:
           description: Bad Request
           schema:
             $ref: '#/definitions/dto.HTTPErrorResp'
+        "403":
+          description: Forbidden
+          schema:
+            $ref: '#/definitions/dto.HTTPErrorResp'
         "500":
           description: Internal Server Error
           schema:
@@ -1065,6 +1071,10 @@ paths:
               type: object
         "400":
           description: Bad Request
+          schema:
+            $ref: '#/definitions/dto.HTTPErrorResp'
+        "403":
+          description: Forbidden
           schema:
             $ref: '#/definitions/dto.HTTPErrorResp'
         "500":

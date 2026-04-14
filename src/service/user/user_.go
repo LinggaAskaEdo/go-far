@@ -105,7 +105,7 @@ func (s *userService) UpdateUser(ctx context.Context, id string, req dto.UpdateU
 		return nil, err
 	}
 
-	return s.userRepository.FindByID(ctx, id)
+	return existingUser, nil
 }
 
 func (s *userService) DeleteUser(ctx context.Context, id string) error {

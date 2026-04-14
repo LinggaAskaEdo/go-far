@@ -139,19 +139,9 @@ func (d *userRepository) FindAll(ctx context.Context, cacheControl dto.CacheCont
 }
 
 func (d *userRepository) Update(ctx context.Context, id string, user *entity.User) error {
-	err := d.updateSQLUser(ctx, id, user)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return d.updateSQLUser(ctx, id, user)
 }
 
 func (d *userRepository) Delete(ctx context.Context, id string) error {
-	err := d.deleteSQLUser(ctx, id)
-	if err != nil {
-		return err
-	}
-
-	return nil
+	return d.deleteSQLUser(ctx, id)
 }

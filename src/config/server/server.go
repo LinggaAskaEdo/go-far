@@ -49,28 +49,13 @@ func InitHttpServer(logger zerolog.Logger, opt ServerOptions, handler http.Handl
 	return httpServerInst
 }
 
-// InitHttpMux initializes the HTTP ServeMux with middleware chain
-func InitHttpMux(log zerolog.Logger, mw middleware.Middleware, opt HttpOptions) *http.ServeMux {
+// InitHttpMux initializes the HTTP ServeMux
+func InitHttpMux() *http.ServeMux {
 	mux := http.NewServeMux()
 
 	// Serve swagger files
 	swaggerFS := http.Dir("./etc/docs")
 	mux.Handle("GET /swagger/", http.StripPrefix("/swagger/", http.FileServer(swaggerFS)))
-
-	// Wrap the mux with middleware
-	var handler http.Handler = mux
-	handler = mw.CORS()(handler)
-	handler = mw.Handler()(handler)
-
-	// Wrap with OpenTelemetry middleware
-	if opt.AppName != "" {
-		handler = otelhttp.NewHandler(handler, opt.AppName)
-	}
-
-	// Return a wrapper that serves the mux through the middleware chain
-	// We need to return the mux so routes can be registered, but the server
-	// will use the wrapped handler. We'll handle this in InitHttpServer.
-	_ = handler // stored for server use
 
 	return mux
 }
