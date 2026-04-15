@@ -99,6 +99,7 @@ func (mw *middleware) writeJSONError(w http.ResponseWriter, msg string, code int
 func (mw *middleware) RoleLimiter() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+			zerolog.Ctx(r.Context()).Debug().Msg("RoleLimiter: entering middleware")
 			authUser, ok := GetAuthUser(r.Context())
 			if !ok {
 				http.Error(w, `{"error":"unauthenticated"}`, http.StatusUnauthorized)
@@ -126,7 +127,9 @@ func (mw *middleware) RoleLimiter() func(http.Handler) http.Handler {
 			}
 
 			mw.setRoleRateLimitHeaders(w, limitResult, now, limit)
+			zerolog.Ctx(r.Context()).Debug().Msg("RoleLimiter: calling next handler")
 			next.ServeHTTP(w, r)
+			zerolog.Ctx(r.Context()).Debug().Msg("RoleLimiter: next handler returned")
 		})
 	}
 }

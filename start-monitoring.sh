@@ -96,7 +96,7 @@ docker run -d \
 	--network otis-network \
 	-p 9090:9090 \
 	-v $(pwd)/etc/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml \
-	-v prometheus-volume:/prometheus \
+	-v monitoring_prometheus_data:/prometheus \
 	prom/prometheus:latest
 
 wait_for_port 9090 "Prometheus"
@@ -113,7 +113,7 @@ docker run -d \
     -e GF_SECURITY_ADMIN_PASSWORD=admin \
     -e GF_USERS_ALLOW_SIGN_UP=false \
 	-e GF_FEATURE_TOGGLES_ENABLE=traceqlEditor \
-	-v grafana-volume:/var/lib/grafana \
+	-v monitoring_grafana_data:/var/lib/grafana \
 	-v $(pwd)/etc/grafana/provisioning:/etc/grafana/provisioning \
 	grafana/grafana:latest
 

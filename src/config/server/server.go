@@ -62,14 +62,20 @@ func InitHttpMux() *http.ServeMux {
 }
 
 // WrapHandler wraps an http.Handler with the middleware chain for server use
-func WrapHandler(mux *http.ServeMux, mw middleware.Middleware, opt HttpOptions, maxBodyBytes int64) http.Handler {
+func WrapHandler(mux *http.ServeMux, mw middleware.Middleware, opt HttpOptions, serverOpt ServerOptions) http.Handler {
 	var handler http.Handler = mux
+
+	maxBodyBytes := serverOpt.MaxBodyBytes
+	if maxBodyBytes == 0 {
+		maxBodyBytes = 1 << 20 // 1MB
+	}
 
 	// Apply request body size limit to prevent memory exhaustion attacks
 	if maxBodyBytes > 0 {
+		bodyLimitedHandler := handler // capture current value, not reference
 		handler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
-			handler.ServeHTTP(w, r)
+			bodyLimitedHandler.ServeHTTP(w, r)
 		})
 	}
 

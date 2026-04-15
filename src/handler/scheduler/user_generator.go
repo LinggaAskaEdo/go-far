@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"math/rand"
+	"strings"
 	"sync"
 	"time"
 
@@ -57,7 +58,7 @@ func (j *UserGeneratorJob) Run(ctx context.Context) error {
 		req := dto.CreateUserRequest{
 			Name:     user.Name,
 			Email:    user.Email,
-			Password: "UserPass123!",
+			Password: user.Password,
 			Age:      user.Age,
 			Role:     entity.RoleUser,
 		}
@@ -94,7 +95,7 @@ func (j *UserGeneratorJob) generateRandomUser() *entity.User {
 
 	j.mu.Lock()
 	timestamp := time.Now().Unix()
-	email := fmt.Sprintf("%s.%s.%d@example.com",
+	email := fmt.Sprintf("%s.%s.%d@gofar.com",
 		firstName,
 		lastName,
 		timestamp+int64(j.rng.Intn(1000)))
@@ -106,7 +107,7 @@ func (j *UserGeneratorJob) generateRandomUser() *entity.User {
 
 	return &entity.User{
 		Name:     name,
-		Email:    email,
+		Email:    strings.ToLower(email),
 		Password: password,
 		Age:      age,
 		Role:     entity.RoleUser,

@@ -156,6 +156,7 @@ server:
   port: 8181
   write_timeout: 10s
   read_timeout: 10s
+  max_body_bytes: 1048576  # 1MB, typical: 1-10MB for REST APIs
 
 postgres:
   host: localhost
@@ -171,6 +172,22 @@ redis:
 token:
   expired_token: 5m
   expired_refresh_token: 15m
+
+scheduler:
+  enabled: true
+  jobs:
+    user_generator:
+      enabled: true
+      cron: "0 0 */1 * * *"  # Every 1 hour
+      batch_size: 5
+      min_age: 18
+      max_age: 80
+    car_generator:
+      enabled: true
+      cron: "0 */30 * * * *"  # Every 30 minutes
+      batch_size: 3
+      min_year: 2015
+      max_year: 2025
 
 middleware:
   public_paths:
@@ -194,6 +211,17 @@ middleware:
       command: "1-M"
       limit: 1
 ```
+
+### Scheduler Jobs
+
+The application includes automatic data seeding via cron jobs:
+
+| Job              | Schedule        | Description                                      |
+| ---------------- | --------------- | ------------------------------------------------ |
+| `user_generator` | Every 1 hour    | Generates random users with realistic names      |
+| `car_generator`  | Every 30 mins   | Generates random cars with real models/colors    |
+
+**Car Generator** includes 70+ real car models from major brands (Toyota, Honda, Ford, BMW, Mercedes-Benz, Audi, Tesla, etc.) with authentic colors and randomly generated US-format license plates.
 
 ### Environment Variables
 

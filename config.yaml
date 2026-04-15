@@ -5,6 +5,7 @@ server:
   idle_timeout: 60s
   shutdown_timeout: 5s
   mode: release # debug, release
+  max_body_bytes: 1048576 # 1MB (1 << 20), typical: 1-10MB for REST APIs
 
 logger:
   enabled: true
@@ -57,14 +58,20 @@ token:
   expired_refresh_token: 15m
 
 scheduler:
-  enabled: false
+  enabled: true
   jobs:
     user_generator:
       enabled: true
-      cron: "*/30 * * * * *" # Every 30 seconds
+      cron: "0 0 */1 * * *" # Every 1 hour
       batch_size: 5
       min_age: 18
       max_age: 80
+    car_generator:
+      enabled: true
+      cron: "0 */30 * * * *" # Every 30 minutes
+      batch_size: 3
+      min_year: 2015
+      max_year: 2025
 
 middleware:
   public_paths:

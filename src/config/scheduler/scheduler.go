@@ -33,6 +33,7 @@ type SchedulerOptions struct {
 // SchedulerJobsOptions holds individual job configurations
 type SchedulerJobsOptions struct {
 	UserGeneratorJob UserGeneratorJobOptions `yaml:"user_generator"`
+	CarGeneratorJob  CarGeneratorJobOptions  `yaml:"car_generator"`
 }
 
 // UserGeneratorJobOptions holds user generator job configuration
@@ -42,6 +43,15 @@ type UserGeneratorJobOptions struct {
 	BatchSize int    `yaml:"batch_size"`
 	MinAge    int    `yaml:"min_age"`
 	MaxAge    int    `yaml:"max_age"`
+}
+
+// CarGeneratorJobOptions holds car generator job configuration
+type CarGeneratorJobOptions struct {
+	Enabled   bool   `yaml:"enabled"`
+	Cron      string `yaml:"cron"`
+	BatchSize int    `yaml:"batch_size"`
+	MinYear   int    `yaml:"min_year"`
+	MaxYear   int    `yaml:"max_year"`
 }
 
 // InitScheduler initializes the scheduler

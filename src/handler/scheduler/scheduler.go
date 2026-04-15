@@ -47,6 +47,14 @@ func (s *schedulerHandler) Serve() *cfg.Scheduler {
 		}
 	}
 
+	// Car Generator
+	if s.jobs.CarGeneratorJob.Enabled {
+		carJob := InitCarGeneratorJob(s.log, s.svc.Car, s.svc.User, s.jobs.CarGeneratorJob)
+		if err := s.sch.AddJob(carJob); err != nil {
+			s.log.Error().Err(err).Msg("Failed to add CarGeneratorJob to scheduler")
+		}
+	}
+
 	// Start scheduler
 	s.sch.Start()
 
