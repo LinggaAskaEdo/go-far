@@ -53,7 +53,7 @@ func InitTracer(log zerolog.Logger, opt TracerOptions) Tracer {
 	res, err := resource.New(ctx,
 		resource.WithAttributes(
 			semconv.ServiceName("go-far-app"),
-			semconv.ServiceVersion("1.5.0"),
+			semconv.ServiceVersion("1.6.0"),
 		),
 	)
 	if err != nil {

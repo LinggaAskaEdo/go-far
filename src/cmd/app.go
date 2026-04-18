@@ -109,7 +109,7 @@ func init() {
 }
 
 // @title			Go-Far
-// @version		1.5.0
+// @version		1.6.0
 // @description	A production-ready RESTful API built with Go following Domain-Driven Design principles, featuring PostgreSQL, Redis, JWT authentication, role-based rate limiting, and OpenTelemetry tracing.
 // @termsOfService	http://swagger.io/terms/
 // @contact.name	API Support
