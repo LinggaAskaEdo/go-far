@@ -3,14 +3,13 @@ package rest
 import (
 	"encoding/json"
 	"net/http"
-	"net/url"
-	"strconv"
 
 	"go-far/src/config/middleware"
 	"go-far/src/model/dto"
 	"go-far/src/model/entity"
 	x "go-far/src/model/errors"
 	"go-far/src/preference"
+	"go-far/src/util"
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
@@ -111,7 +110,7 @@ func (e *rest) ListUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	filter := decodeUserFilter(r.URL.Query())
+	filter := util.DecodeQuery[dto.UserFilter](r.URL.Query())
 	cacheControl := dto.CacheControl{}
 
 	if r.Header.Get(preference.CacheControl) == preference.CacheMustRevalidate {
@@ -132,39 +131,28 @@ func (e *rest) ListUsers(w http.ResponseWriter, r *http.Request) {
 	e.httpRespSuccess(w, r, http.StatusOK, users, pagination)
 }
 
-func decodeUserFilter(q url.Values) dto.UserFilter {
-	filter := dto.UserFilter{
-		Name:    q.Get("name"),
-		Email:   q.Get("email"),
-		SortBy:  q.Get("sort_by"),
-		SortDir: q.Get("sort_dir"),
+func (e *rest) ListUsersV2(w http.ResponseWriter, r *http.Request) {
+	ctx := r.Context()
+
+	authUser, ok := middleware.GetAuthUser(ctx)
+	if !ok {
+		e.httpRespError(w, r, x.NewWithCode(x.CodeHTTPUnauthorized, "unauthenticated"))
+		return
 	}
 
-	if v := q.Get("min_age"); v != "" {
-		if minAge, err := strconv.Atoi(v); err == nil {
-			filter.MinAge = minAge
-		}
+	filter := util.DecodeQuery[dto.UserFilterV2](r.URL.Query())
+
+	if authUser.Role != string(entity.RoleAdmin) {
+		filter.ID = authUser.UserID
 	}
 
-	if v := q.Get("max_age"); v != "" {
-		if maxAge, err := strconv.Atoi(v); err == nil {
-			filter.MaxAge = maxAge
-		}
+	users, pagination, err := e.svc.User.ListUsersV2(ctx, filter)
+	if err != nil {
+		e.httpRespError(w, r, err)
+		return
 	}
 
-	if v := q.Get("page"); v != "" {
-		if page, err := strconv.ParseInt(v, 10, 64); err == nil {
-			filter.Page = page
-		}
-	}
-
-	if v := q.Get("page_size"); v != "" {
-		if pageSize, err := strconv.ParseInt(v, 10, 64); err == nil {
-			filter.PageSize = pageSize
-		}
-	}
-
-	return filter
+	e.httpRespSuccess(w, r, http.StatusOK, users, pagination)
 }
 
 // UpdateUser godoc
