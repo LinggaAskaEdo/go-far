@@ -2,8 +2,10 @@ package scheduler
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math/rand"
+	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -13,8 +15,19 @@ import (
 	"go-far/src/service/car"
 	"go-far/src/service/user"
 
-	"github.com/google/uuid"
 	"github.com/rs/zerolog"
+)
+
+var (
+	carColors = []string{
+		"Pearl White", "Midnight Black", "Silver Metallic",
+		"Ruby Red", "Navy Blue", "Crimson Red",
+		"Forest Green", "Ocean Blue", "Sunset Orange",
+		"Champagne Gold",
+	}
+
+	licenseLetters = []string{"A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"}
+	licenseNumbers = []string{"0", "1", "2", "3", "4", "5", "6", "7", "8", "9"}
 )
 
 type CarGeneratorJob struct {
@@ -22,17 +35,60 @@ type CarGeneratorJob struct {
 	carService  car.CarServiceItf
 	userService user.UserServiceItf
 	config      cfg.CarGeneratorJobOptions
+	nhtsaURL    string
 	rng         *rand.Rand
 	mu          sync.Mutex
+	httpClient  *http.Client
+	carCache    []carInfo
+	cacheMu     sync.Mutex
 }
 
-func InitCarGeneratorJob(log zerolog.Logger, carService car.CarServiceItf, userService user.UserServiceItf, cfg cfg.CarGeneratorJobOptions) *CarGeneratorJob {
+type carInfo struct {
+	Brand  string
+	Model  string
+	Year   int
+	Colors []string
+}
+
+type makeInfo struct {
+	MakeID   int
+	MakeName string
+}
+
+type nhtsaMakesResponse struct {
+	Count  int `json:"Count"`
+	Result []struct {
+		MakeID   int    `json:"MakeId"`
+		MakeName string `json:"MakeName"`
+	} `json:"Results"`
+}
+
+type nhtsaModelsResponse struct {
+	Count  int `json:"Count"`
+	Result []struct {
+		ModelName string `json:"Model_Name"`
+	} `json:"Results"`
+}
+
+type carData struct {
+	Brand        string
+	Model        string
+	Year         int
+	Color        string
+	LicensePlate string
+	IsAvailable  bool
+}
+
+func InitCarGeneratorJob(log zerolog.Logger, carService car.CarServiceItf, userService user.UserServiceItf, cfg cfg.CarGeneratorJobOptions, httpClient *http.Client, nhtsaURL string) *CarGeneratorJob {
 	return &CarGeneratorJob{
 		log:         log,
 		carService:  carService,
 		userService: userService,
 		config:      cfg,
 		rng:         rand.New(rand.NewSource(time.Now().UnixNano())),
+		httpClient:  httpClient,
+		carCache:    make([]carInfo, 0),
+		nhtsaURL:    nhtsaURL,
 	}
 }
 
@@ -50,6 +106,8 @@ func (j *CarGeneratorJob) Run(ctx context.Context) error {
 		return nil
 	}
 
+	j.fetchCarDataFromAPI()
+
 	j.log.Info().
 		Int("batch_size", j.config.BatchSize).
 		Msg("Generating random cars")
@@ -64,15 +122,16 @@ func (j *CarGeneratorJob) Run(ctx context.Context) error {
 
 	userList := *users
 
+	j.mu.Lock()
+	defer j.mu.Unlock()
+
 	successCount := 0
 	for i := 0; i < j.config.BatchSize; i++ {
 		carData := j.generateRandomCar()
 
 		owner := userList[j.rng.Intn(len(userList))]
-		ownerID, _ := uuid.Parse(owner.ID)
 
 		req := dto.CreateCarRequest{
-			UserID:       ownerID,
 			Brand:        carData.Brand,
 			Model:        carData.Model,
 			Year:         carData.Year,
@@ -80,7 +139,7 @@ func (j *CarGeneratorJob) Run(ctx context.Context) error {
 			LicensePlate: carData.LicensePlate,
 		}
 
-		_, err := j.carService.CreateCar(ctx, req)
+		_, err := j.carService.CreateCar(ctx, req, owner.ID)
 		if err != nil {
 			j.log.Warn().
 				Err(err).
@@ -105,19 +164,7 @@ func (j *CarGeneratorJob) Run(ctx context.Context) error {
 	return nil
 }
 
-type carData struct {
-	Brand        string
-	Model        string
-	Year         int
-	Color        string
-	LicensePlate string
-	IsAvailable  bool
-}
-
 func (j *CarGeneratorJob) generateRandomCar() *carData {
-	j.mu.Lock()
-	defer j.mu.Unlock()
-
 	carInfo := j.randomCar()
 	year := j.config.MinYear + j.rng.Intn(j.config.MaxYear-j.config.MinYear+1)
 	licensePlate := j.generateLicensePlate()
@@ -132,134 +179,205 @@ func (j *CarGeneratorJob) generateRandomCar() *carData {
 	}
 }
 
-type carInfo struct {
-	Brand  string
-	Model  string
-	Colors []string
-}
-
 func (j *CarGeneratorJob) randomCar() *carInfo {
-	cars := []carInfo{
-		{Brand: "Toyota", Model: "Camry", Colors: []string{"Pearl White", "Midnight Black", "Silver Metallic", "Ruby Red", "Navy Blue"}},
-		{Brand: "Toyota", Model: "Corolla", Colors: []string{"Super White", "Black", "Classic Silver", "Barcelona Red", "Hydro Blue"}},
-		{Brand: "Toyota", Model: "RAV4", Colors: []string{"Magnetic Gray", "Black", "Lunar Rock", "Blue Fusion", "Ruby Flare"}},
-		{Brand: "Toyota", Model: "Highlander", Colors: []string{"Blizzard Pearl", "Magnetic Gray", "Attitude Black", "Blueprint", "Ruby Flare"}},
-		{Brand: "Honda", Model: "Civic", Colors: []string{"Rallye Red", "Crystal Black", "Lunar Silver", "Modern Steel", "Aegean Blue"}},
-		{Brand: "Honda", Model: "Accord", Colors: []string{"Platinum White", "Crystal Black", "Lunar Silver", "Modern Steel", "Still Night"}},
-		{Brand: "Honda", Model: "CR-V", Colors: []string{"Sonic Gray", "Crystal Black", "Lunar Silver", "Obsidian Blue", "Radiant Red"}},
-		{Brand: "Honda", Model: "Pilot", Colors: []string{"Platinum White", "Crystal Black", "Lunar Silver", "Steel Sapphire", "Obsidian Blue"}},
-		{Brand: "Ford", Model: "F-150", Colors: []string{"Oxford White", "Race Red", "Antimatter Blue", "Carbonized Gray", "Agate Black"}},
-		{Brand: "Ford", Model: "Mustang", Colors: []string{"Race Red", "Oxford White", "Twister Orange", "Velocity Blue", "Dark Highland Green"}},
-		{Brand: "Ford", Model: "Explorer", Colors: []string{"Rapid Red", "Agate Black", "Iconic Silver", "Blue Metallic", "Stone Gray"}},
-		{Brand: "Ford", Model: "Escape", Colors: []string{"Rapid Red", "Agate Black", "Iconic Silver", "Sedona", "Baltic Sea"}},
-		{Brand: "Chevrolet", Model: "Silverado", Colors: []string{"Summit White", "Black", "Red Hot", "Silver Ice", "Oakwood"}},
-		{Brand: "Chevrolet", Model: "Malibu", Colors: []string{"Summit White", "Black", "Mosaic Gray", "Cherry Bomb", "Cayenne Orange"}},
-		{Brand: "Chevrolet", Model: "Equinox", Colors: []string{"Summit White", "Black", "Mosaic Gray", "Cayenne", "Kinetic Blue"}},
-		{Brand: "Chevrolet", Model: "Tahoe", Colors: []string{"Summit White", "Black", "Cherry Bomb", "Iridescent Pearl", "Satin Steel"}},
-		{Brand: "BMW", Model: "3 Series", Colors: []string{"Alpine White", "Black Sapphire", "Mineral Gray", "Jet Black", "Melbourne Red"}},
-		{Brand: "BMW", Model: "5 Series", Colors: []string{"Alpine White", "Black Sapphire", "Mineral Gray", "Phytonic Blue", "Tanzanite Blue"}},
-		{Brand: "BMW", Model: "X3", Colors: []string{"Alpine White", "Black Sapphire", "Mineral Gray", "Phytonic Blue", "Brooklyn Gray"}},
-		{Brand: "BMW", Model: "X5", Colors: []string{"Alpine White", "Black Sapphire", "Mineral Gray", "Phytonic Blue", "Tanzanite Blue"}},
-		{Brand: "Mercedes-Benz", Model: "C-Class", Colors: []string{"Polar White", "Obsidian Black", "Selenite Gray", "Selenite Pearl", "Hyacinth Red"}},
-		{Brand: "Mercedes-Benz", Model: "E-Class", Colors: []string{"Polar White", "Obsidian Black", "Selenite Gray", "Designo Diamond", "Hyacinth Red"}},
-		{Brand: "Mercedes-Benz", Model: "GLC", Colors: []string{"Polar White", "Obsidian Black", "Selenite Gray", "Mojave", "Denim Blue"}},
-		{Brand: "Mercedes-Benz", Model: "GLE", Colors: []string{"Polar White", "Obsidian Black", "Selenite Gray", "Mojave", "Selenite Pearl"}},
-		{Brand: "Audi", Model: "A4", Colors: []string{"Glacier White", "Mythos Black", "Navarra Blue", "Daytona Gray", "Progressive Red"}},
-		{Brand: "Audi", Model: "A6", Colors: []string{"Glacier White", "Mythos Black", "Navarra Blue", "Firmament Blue", "Seville Red"}},
-		{Brand: "Audi", Model: "Q5", Colors: []string{"Glacier White", "Mythos Black", "Navarra Blue", "Daytona Gray", "Progressive Red"}},
-		{Brand: "Audi", Model: "Q7", Colors: []string{"Glacier White", "Mythos Black", "Orca Black", "Night Suite", "Barolo Brown"}},
-		{Brand: "Tesla", Model: "Model 3", Colors: []string{"Pearl White", "Solid Black", "Midnight Silver", "Deep Blue", "Red Multi-Coat"}},
-		{Brand: "Tesla", Model: "Model Y", Colors: []string{"Pearl White", "Solid Black", "Midnight Silver", "Deep Blue", "Red Multi-Coat"}},
-		{Brand: "Tesla", Model: "Model S", Colors: []string{"Pearl White", "Solid Black", "Midnight Silver", "Ultra Red", "Deep Blue"}},
-		{Brand: "Tesla", Model: "Model X", Colors: []string{"Pearl White", "Solid Black", "Midnight Silver", "Ultra Red", "Deep Blue"}},
-		{Brand: "Nissan", Model: "Altima", Colors: []string{"Super Black", "Gun Metallic", "Scarlet Ember", "Pearl White", "Deep Blue Pearl"}},
-		{Brand: "Nissan", Model: "Sentra", Colors: []string{"Super Black", "Gun Metallic", "Electric Blue", "Pearl White", "Monarch Orange"}},
-		{Brand: "Nissan", Model: "Rogue", Colors: []string{"Super Black", "Gun Metallic", "Pearl White", "Caspian Blue", "Gun Metallic"}},
-		{Brand: "Hyundai", Model: "Sonata", Colors: []string{"Phantom Black", "Portofino Gray", "Calypso Red", "Oxford White", "Hyper White"}},
-		{Brand: "Hyundai", Model: "Elantra", Colors: []string{"Phantom Black", "Intense Blue", "Fluid Metal", "Cherry Bomb", "Atlas White"}},
-		{Brand: "Hyundai", Model: "Tucson", Colors: []string{"Phantom Black", "Amazon Gray", "Intense Blue", "Shimmering Silver", "Sage Gray"}},
-		{Brand: "Hyundai", Model: "Santa Fe", Colors: []string{"Phantom Black", "Twilight Black", "Waterfall White", "Taiga Brown", "Sage Gray"}},
-		{Brand: "Kia", Model: "Optima", Colors: []string{"Snow White Pearl", "Aurora Black", "Sparkling Silver", "Runway Red", "Pacific Blue"}},
-		{Brand: "Kia", Model: "Sportage", Colors: []string{"Snow White Pearl", "Aurora Black", "Steel Gray", "Cherry Black", "Pacific Blue"}},
-		{Brand: "Kia", Model: "Telluride", Colors: []string{"Snow White Pearl", "Aurora Black", "Steel Gray", "Wolf Gray", "Everlasting Silver"}},
-		{Brand: "Mazda", Model: "Mazda3", Colors: []string{"Soul Red Crystal", "Machine Gray", "Snowflake White", "Jet Black", "Deep Crystal Blue"}},
-		{Brand: "Mazda", Model: "Mazda6", Colors: []string{"Soul Red Crystal", "Machine Gray", "Snowflake White", "Jet Black", "Deep Crystal Blue"}},
-		{Brand: "Mazda", Model: "CX-5", Colors: []string{"Soul Red Crystal", "Machine Gray", "Snowflake White", "Jet Black", "Deep Crystal Blue"}},
-		{Brand: "Mazda", Model: "CX-9", Colors: []string{"Soul Red Crystal", "Machine Gray", "Snowflake White", "Jet Black", "Deep Crystal Blue"}},
-		{Brand: "Subaru", Model: "Outback", Colors: []string{"Crystal Black Silica", "Crystal White Pearl", "Magnetite Gray", "Crimson Red Pearl", "Autumn Green"}},
-		{Brand: "Subaru", Model: "Forester", Colors: []string{"Crystal Black Silica", "Crystal White Pearl", "Magnetite Gray", "Sepia", "Harbor Blue"}},
-		{Brand: "Subaru", Model: "Impreza", Colors: []string{"Crystal Black Silica", "Crystal White Pearl", "Magnetite Gray", "Lapis Blue", "Ocean Blue"}},
-		{Brand: "Volkswagen", Model: "Jetta", Colors: []string{"Pure White", "Deep Black", "Tornado Red", "Platinum Gray", "Pyrite Silver"}},
-		{Brand: "Volkswagen", Model: "Passat", Colors: []string{"Pure White", "Deep Black", "Tornado Red", "Platinum Gray", "Tourmaline Blue"}},
-		{Brand: "Volkswagen", Model: "Tiguan", Colors: []string{"Pure White", "Deep Black", "Tornado Red", "Platinum Gray", "Night Blue"}},
-		{Brand: "Volkswagen", Model: "Atlas", Colors: []string{"Pure White", "Deep Black", "Tornado Red", "Platinum Gray", "Fortana Red"}},
-		{Brand: "Lexus", Model: "ES", Colors: []string{"Caviar", "Eminent White", "Atomic Silver", "Matte Nocturnal", "Crimson"}},
-		{Brand: "Lexus", Model: "RX", Colors: []string{"Caviar", "Eminent White", "Atomic Silver", "Matte Black", "Crimson"}},
-		{Brand: "Lexus", Model: "NX", Colors: []string{"Caviar", "Eminent White", "Atomic Silver", "Cobalt", "Cadmium Orange"}},
-		{Brand: "Lexus", Model: "IS", Colors: []string{"Caviar", "Eminent White", "Atomic Silver", "Infrared", "Ultrasonic Blue"}},
-		{Brand: "Porsche", Model: "911", Colors: []string{"GT Silver", "Jet Black", "Guards Red", "Carrara White", "Racing Yellow"}},
-		{Brand: "Porsche", Model: "Cayenne", Colors: []string{"Jet Black", "Carrara White", "Volcano Gray", "Quartzite", "Black Taupe"}},
-		{Brand: "Porsche", Model: "Macan", Colors: []string{"Jet Black", "Carrara White", "Volcano Gray", "Dolomite Silver", "Mamba Green"}},
-		{Brand: "Jeep", Model: "Wrangler", Colors: []string{"Bright White", "Black", "Firecracker Red", "Sarge Green", "Hydro Blue"}},
-		{Brand: "Jeep", Model: "Grand Cherokee", Colors: []string{"Bright White", "Black", "Velvet Red", "Silver Zynith", "Midnight Sky"}},
-		{Brand: "Jeep", Model: "Cherokee", Colors: []string{"Bright White", "Black", "Light Brownstone", "Sting Gray", "Hydro Blue"}},
-		{Brand: "GMC", Model: "Sierra", Colors: []string{"Summit White", "Onyx Black", "Cardinal Red", "Quicksilver", "Mountain Shadow"}},
-		{Brand: "GMC", Model: "Yukon", Colors: []string{"Summit White", "Onyx Black", "Dark Sky", "Quicksilver", "Cayenne"}},
-		{Brand: "Ram", Model: "1500", Colors: []string{"Bright White", "Diamond Black", "Flame Red", "Patriot Blue", "Hydro Blue"}},
-		{Brand: "Ram", Model: "2500", Colors: []string{"Bright White", "Diamond Black", "Flame Red", "Granite", "Maximum Steel"}},
+	j.cacheMu.Lock()
+	defer j.cacheMu.Unlock()
+
+	if len(j.carCache) == 0 {
+		j.log.Warn().Msg("car cache is empty, returning fallback")
+		return j.getFallbackCar()
 	}
 
-	return &cars[j.rng.Intn(len(cars))]
+	car := j.carCache[j.rng.Intn(len(j.carCache))]
+
+	return &car
+}
+
+func (j *CarGeneratorJob) fetchCarDataFromAPI() {
+	if j.nhtsaURL == "" {
+		j.log.Warn().Msg("NHTSA API URL not configured, skipping")
+		return
+	}
+
+	if j.httpClient == nil {
+		j.log.Warn().Msg("HTTP client not available, skipping")
+		return
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
+	defer cancel()
+
+	newCars := j.fetchMakesFromAPI(ctx)
+	if len(newCars) == 0 {
+		j.log.Warn().Msg("no car data fetched from NHTSA API")
+		return
+	}
+
+	j.cacheMu.Lock()
+	j.carCache = newCars
+	j.cacheMu.Unlock()
+
+	j.log.Info().Int("count", len(newCars)).Msg("car data fetched from NHTSA API")
+}
+
+func (j *CarGeneratorJob) fetchMakesFromAPI(ctx context.Context) []carInfo {
+	url := fmt.Sprintf("%s/GetMakeForManufacturer?format=json", j.nhtsaURL)
+	resp, err := j.httpClient.Get(url)
+	if err != nil {
+		j.log.Warn().Err(err).Msg("failed to fetch makes from NHTSA")
+		return nil
+	}
+	defer resp.Body.Close()
+
+	var makesResp nhtsaMakesResponse
+	if err := json.NewDecoder(resp.Body).Decode(&makesResp); err != nil {
+		j.log.Warn().Err(err).Msg("failed to decode makes response")
+		return nil
+	}
+
+	if len(makesResp.Result) == 0 {
+		return nil
+	}
+
+	rand.Shuffle(len(makesResp.Result), func(i, j int) {
+		makesResp.Result[i], makesResp.Result[j] = makesResp.Result[j], makesResp.Result[i]
+	})
+
+	makes := make([]makeInfo, len(makesResp.Result))
+	for i, m := range makesResp.Result {
+		makes[i] = makeInfo{MakeID: m.MakeID, MakeName: m.MakeName}
+	}
+
+	return j.fetchModelsForMakes(ctx, makes)
+}
+
+func (j *CarGeneratorJob) fetchModelsForMakes(ctx context.Context, makes []makeInfo) []carInfo {
+	numMakes := min(10, len(makes))
+	var newCars []carInfo
+
+	for i := 0; i < numMakes; i++ {
+		select {
+		case <-ctx.Done():
+			return newCars
+		default:
+		}
+
+		make := makes[i]
+		models := j.fetchModelsForMake(make.MakeName)
+		if len(models) == 0 {
+			continue
+		}
+
+		numModels := min(2, len(models))
+		for m := range numModels {
+			newCars = append(newCars, carInfo{
+				Brand:  make.MakeName,
+				Model:  models[m],
+				Year:   j.config.MinYear + rand.Intn(j.config.MaxYear-j.config.MinYear+1),
+				Colors: j.getRandomColors(3),
+			})
+		}
+	}
+
+	return newCars
+}
+
+func (j *CarGeneratorJob) fetchModelsForMake(makeName string) []string {
+	modelURL := fmt.Sprintf("%s/GetModelsForMake/%s?format=json", j.nhtsaURL, makeName)
+	resp, err := j.httpClient.Get(modelURL)
+	if err != nil {
+		return nil
+	}
+	defer resp.Body.Close()
+
+	var modelsResp nhtsaModelsResponse
+	if err := json.NewDecoder(resp.Body).Decode(&modelsResp); err != nil {
+		return nil
+	}
+
+	if len(modelsResp.Result) == 0 {
+		return nil
+	}
+
+	rand.Shuffle(len(modelsResp.Result), func(i, j int) {
+		modelsResp.Result[i], modelsResp.Result[j] = modelsResp.Result[j], modelsResp.Result[i]
+	})
+
+	models := make([]string, len(modelsResp.Result))
+	for i, r := range modelsResp.Result {
+		models[i] = r.ModelName
+	}
+	return models
+}
+
+func (j *CarGeneratorJob) getRandomColors(num int) []string {
+	shuffled := make([]string, len(carColors))
+	copy(shuffled, carColors)
+	rand.Shuffle(len(shuffled), func(i, j int) {
+		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
+	})
+
+	if num > len(shuffled) {
+		num = len(shuffled)
+	}
+
+	return shuffled[:num]
+}
+
+func (j *CarGeneratorJob) getFallbackCar() *carInfo {
+	fallbacks := []carInfo{
+		{Brand: "Toyota", Model: "Camry", Year: 2023, Colors: []string{carColors[0], carColors[1], carColors[2]}},
+		{Brand: "Honda", Model: "Civic", Year: 2023, Colors: []string{"Rallye Red", "Crystal Black", "Lunar Silver"}},
+		{Brand: "Ford", Model: "F-150", Year: 2023, Colors: []string{"Oxford White", "Race Red", "Antimatter Blue"}},
+		{Brand: "Tesla", Model: "Model 3", Year: 2023, Colors: []string{carColors[0], "Solid Black", "Midnight Silver"}},
+		{Brand: "BMW", Model: "3 Series", Year: 2023, Colors: []string{"Alpine White", "Black Sapphire", "Mineral Gray"}},
+	}
+
+	return &fallbacks[j.rng.Intn(len(fallbacks))]
 }
 
 func (j *CarGeneratorJob) generateLicensePlate() string {
-	j.mu.Lock()
-	defer j.mu.Unlock()
-
-	letters := []string{"A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"}
-	numbers := []string{"0", "1", "2", "3", "4", "5", "6", "7", "8", "9"}
-
 	format := j.rng.Intn(4)
 	var plate strings.Builder
 
 	switch format {
 	case 0:
-		plate.WriteString(letters[j.rng.Intn(len(letters))])
-		plate.WriteString(letters[j.rng.Intn(len(letters))])
-		plate.WriteString(letters[j.rng.Intn(len(letters))])
+		plate.WriteString(licenseLetters[j.rng.Intn(len(licenseLetters))])
+		plate.WriteString(licenseLetters[j.rng.Intn(len(licenseLetters))])
+		plate.WriteString(licenseLetters[j.rng.Intn(len(licenseLetters))])
 		plate.WriteString("-")
-		plate.WriteString(numbers[j.rng.Intn(len(numbers))])
-		plate.WriteString(numbers[j.rng.Intn(len(numbers))])
-		plate.WriteString(numbers[j.rng.Intn(len(numbers))])
-		plate.WriteString(numbers[j.rng.Intn(len(numbers))])
+		plate.WriteString(licenseNumbers[j.rng.Intn(len(licenseNumbers))])
+		plate.WriteString(licenseNumbers[j.rng.Intn(len(licenseNumbers))])
+		plate.WriteString(licenseNumbers[j.rng.Intn(len(licenseNumbers))])
+		plate.WriteString(licenseNumbers[j.rng.Intn(len(licenseNumbers))])
 	case 1:
-		plate.WriteString(letters[j.rng.Intn(len(letters))])
-		plate.WriteString(letters[j.rng.Intn(len(letters))])
-		plate.WriteString(letters[j.rng.Intn(len(letters))])
-		plate.WriteString(letters[j.rng.Intn(len(letters))])
-		plate.WriteString(letters[j.rng.Intn(len(letters))])
-		plate.WriteString(numbers[j.rng.Intn(len(numbers))])
-		plate.WriteString(numbers[j.rng.Intn(len(numbers))])
-		plate.WriteString(numbers[j.rng.Intn(len(numbers))])
+		plate.WriteString(licenseLetters[j.rng.Intn(len(licenseLetters))])
+		plate.WriteString(licenseLetters[j.rng.Intn(len(licenseLetters))])
+		plate.WriteString(licenseLetters[j.rng.Intn(len(licenseLetters))])
+		plate.WriteString(licenseLetters[j.rng.Intn(len(licenseLetters))])
+		plate.WriteString(licenseLetters[j.rng.Intn(len(licenseLetters))])
+		plate.WriteString(licenseNumbers[j.rng.Intn(len(licenseNumbers))])
+		plate.WriteString(licenseNumbers[j.rng.Intn(len(licenseNumbers))])
+		plate.WriteString(licenseNumbers[j.rng.Intn(len(licenseNumbers))])
 	case 2:
-		plate.WriteString(numbers[j.rng.Intn(len(numbers))])
-		plate.WriteString(numbers[j.rng.Intn(len(numbers))])
-		plate.WriteString(numbers[j.rng.Intn(len(numbers))])
-		plate.WriteString(numbers[j.rng.Intn(len(numbers))])
+		plate.WriteString(licenseNumbers[j.rng.Intn(len(licenseNumbers))])
+		plate.WriteString(licenseNumbers[j.rng.Intn(len(licenseNumbers))])
+		plate.WriteString(licenseNumbers[j.rng.Intn(len(licenseNumbers))])
+		plate.WriteString(licenseNumbers[j.rng.Intn(len(licenseNumbers))])
 		plate.WriteString("-")
-		plate.WriteString(letters[j.rng.Intn(len(letters))])
-		plate.WriteString(letters[j.rng.Intn(len(letters))])
-		plate.WriteString(letters[j.rng.Intn(len(letters))])
-		plate.WriteString(letters[j.rng.Intn(len(letters))])
+		plate.WriteString(licenseLetters[j.rng.Intn(len(licenseLetters))])
+		plate.WriteString(licenseLetters[j.rng.Intn(len(licenseLetters))])
+		plate.WriteString(licenseLetters[j.rng.Intn(len(licenseLetters))])
+		plate.WriteString(licenseLetters[j.rng.Intn(len(licenseLetters))])
 	default:
-		plate.WriteString(letters[j.rng.Intn(len(letters))])
-		plate.WriteString(letters[j.rng.Intn(len(letters))])
-		plate.WriteString(letters[j.rng.Intn(len(letters))])
-		plate.WriteString(numbers[j.rng.Intn(len(numbers))])
-		plate.WriteString(numbers[j.rng.Intn(len(numbers))])
-		plate.WriteString(numbers[j.rng.Intn(len(numbers))])
-		plate.WriteString(numbers[j.rng.Intn(len(numbers))])
-		plate.WriteString(numbers[j.rng.Intn(len(numbers))])
+		plate.WriteString(licenseLetters[j.rng.Intn(len(licenseLetters))])
+		plate.WriteString(licenseLetters[j.rng.Intn(len(licenseLetters))])
+		plate.WriteString(licenseLetters[j.rng.Intn(len(licenseLetters))])
+		plate.WriteString(licenseNumbers[j.rng.Intn(len(licenseNumbers))])
+		plate.WriteString(licenseNumbers[j.rng.Intn(len(licenseNumbers))])
+		plate.WriteString(licenseNumbers[j.rng.Intn(len(licenseNumbers))])
+		plate.WriteString(licenseNumbers[j.rng.Intn(len(licenseNumbers))])
+		plate.WriteString(licenseNumbers[j.rng.Intn(len(licenseNumbers))])
 	}
 
 	return fmt.Sprintf("USA-%s", plate.String())

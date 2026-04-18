@@ -5,11 +5,12 @@ import (
 
 	"go-far/src/model/dto"
 	"go-far/src/model/entity"
+	x "go-far/src/model/errors"
 
 	"github.com/google/uuid"
 )
 
-func (s *carService) CreateCar(ctx context.Context, req dto.CreateCarRequest) (*entity.Car, error) {
+func (s *carService) CreateCar(ctx context.Context, req dto.CreateCarRequest, ownerUserID string) (*entity.Car, error) {
 	car := &entity.Car{
 		Brand:        req.Brand,
 		Model:        req.Model,
@@ -28,14 +29,19 @@ func (s *carService) CreateCar(ctx context.Context, req dto.CreateCarRequest) (*
 		return nil, err
 	}
 
-	if err := s.carRepository.AssignCarToUser(ctx, req.UserID, carUUID); err != nil {
+	userUUID, err := uuid.Parse(ownerUserID)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.carRepository.AssignCarToUser(ctx, userUUID, carUUID); err != nil {
 		return nil, err
 	}
 
 	return car, nil
 }
 
-func (s *carService) CreateBulkCars(ctx context.Context, req dto.BulkCreateCarsRequest) ([]*entity.Car, error) {
+func (s *carService) CreateBulkCars(ctx context.Context, req dto.BulkCreateCarsRequest, ownerUserID string) ([]*entity.Car, error) {
 	cars := make([]*entity.Car, 0, len(req.Cars))
 	carIDs := make([]uuid.UUID, 0, len(req.Cars))
 
@@ -64,7 +70,12 @@ func (s *carService) CreateBulkCars(ctx context.Context, req dto.BulkCreateCarsR
 	}
 
 	// Assign all cars to user via junction table
-	if err := s.carRepository.AssignCarsToUserBulk(ctx, req.UserID, carIDs); err != nil {
+	userUUID, err := uuid.Parse(ownerUserID)
+	if err != nil {
+		return nil, err
+	}
+
+	if err := s.carRepository.AssignCarsToUserBulk(ctx, userUUID, carIDs); err != nil {
 		return nil, err
 	}
 
@@ -87,10 +98,18 @@ func (s *carService) CountCarsByUser(ctx context.Context, userID uuid.UUID) (int
 	return s.carRepository.CountByUserID(ctx, userID)
 }
 
-func (s *carService) UpdateCar(ctx context.Context, id uuid.UUID, req dto.UpdateCarRequest) (*entity.Car, error) {
+func (s *carService) UpdateCar(ctx context.Context, id uuid.UUID, req dto.UpdateCarRequest, userID string) (*entity.Car, error) {
 	existingCar, err := s.carRepository.FindByID(ctx, id)
 	if err != nil {
 		return nil, err
+	}
+
+	isOwner, err := s.carRepository.IsCarOwnedByUser(ctx, id, userID)
+	if err != nil {
+		return nil, err
+	}
+	if !isOwner {
+		return nil, x.NewWithCode(x.CodeHTTPForbidden, "you do not have permission to update this car")
 	}
 
 	if req.Brand != "" {
@@ -124,14 +143,41 @@ func (s *carService) UpdateCar(ctx context.Context, id uuid.UUID, req dto.Update
 	return existingCar, nil
 }
 
-func (s *carService) DeleteCar(ctx context.Context, id uuid.UUID) error {
+func (s *carService) DeleteCar(ctx context.Context, id uuid.UUID, userID string) error {
+	isOwner, err := s.carRepository.IsCarOwnedByUser(ctx, id, userID)
+	if err != nil {
+		return err
+	}
+	if !isOwner {
+		return x.NewWithCode(x.CodeHTTPForbidden, "you do not have permission to delete this car")
+	}
+
 	return s.carRepository.Delete(ctx, id)
 }
 
-func (s *carService) TransferCarOwnership(ctx context.Context, carID, newUserID uuid.UUID) error {
+func (s *carService) TransferCarOwnership(ctx context.Context, carID, newUserID uuid.UUID, userID string) error {
+	isOwner, err := s.carRepository.IsCarOwnedByUser(ctx, carID, userID)
+	if err != nil {
+		return err
+	}
+	if !isOwner {
+		return x.NewWithCode(x.CodeHTTPForbidden, "you do not have permission to transfer this car")
+	}
+
 	return s.carRepository.TransferOwnership(ctx, carID, newUserID)
 }
 
-func (s *carService) BulkUpdateAvailability(ctx context.Context, req dto.BulkUpdateAvailabilityRequest) error {
+func (s *carService) BulkUpdateAvailability(ctx context.Context, req dto.BulkUpdateAvailabilityRequest, userID string) error {
+	ownershipMap, err := s.carRepository.AreCarsOwnedByUser(ctx, req.CarIDs, userID)
+	if err != nil {
+		return err
+	}
+
+	for carID, isOwned := range ownershipMap {
+		if !isOwned {
+			return x.NewWithCode(x.CodeHTTPForbidden, "you do not have permission to update car: "+carID.String())
+		}
+	}
+
 	return s.carRepository.BulkUpdateAvailability(ctx, req.CarIDs, req.IsAvailable)
 }

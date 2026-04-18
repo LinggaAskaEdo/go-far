@@ -54,17 +54,15 @@ type UserFilter struct {
 }
 
 type CreateCarRequest struct {
-	UserID       uuid.UUID `json:"user_id" binding:"required"`
-	Brand        string    `json:"brand" binding:"required,min=2,max=100"`
-	Model        string    `json:"model" binding:"required,min=2,max=100"`
-	Year         int       `json:"year" binding:"required,gte=1900,lte=2100"`
-	Color        string    `json:"color" binding:"omitempty,max=50"`
-	LicensePlate string    `json:"license_plate" binding:"required,min=3,max=20"`
+	Brand        string `json:"brand" binding:"required,min=2,max=100"`
+	Model        string `json:"model" binding:"required,min=2,max=100"`
+	Year         int    `json:"year" binding:"required,gte=1900,lte=2100"`
+	Color        string `json:"color" binding:"omitempty,max=50"`
+	LicensePlate string `json:"license_plate" binding:"required,min=3,max=20"`
 }
 
 type BulkCreateCarsRequest struct {
-	UserID uuid.UUID          `json:"user_id" binding:"required"`
-	Cars   []CreateCarRequest `json:"cars" binding:"required,min=1,max=50,dive"`
+	Cars []CreateCarRequest `json:"cars" binding:"required,min=1,max=50,dive"`
 }
 
 type UpdateCarRequest struct {

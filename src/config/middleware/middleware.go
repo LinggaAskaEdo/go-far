@@ -48,7 +48,7 @@ type middleware struct {
 	authRateLimit AuthRateLimitOptions
 	authLimit     int
 	authPeriod    time.Duration
-	publicPaths   []string
+	publicPaths   map[string]bool
 }
 
 // MiddlewareOptions holds middleware configuration
@@ -107,6 +107,11 @@ func InitMiddleware(log zerolog.Logger, opt MiddlewareOptions, tkn token.Token, 
 			authLimit = 3
 		}
 
+		publicPathsMap := make(map[string]bool, len(opt.PublicPaths))
+		for _, p := range opt.PublicPaths {
+			publicPathsMap[p] = true
+		}
+
 		middlewareInst = &middleware{
 			log:           log,
 			opt:           opt,
@@ -118,7 +123,7 @@ func InitMiddleware(log zerolog.Logger, opt MiddlewareOptions, tkn token.Token, 
 			authRateLimit: opt.AuthRateLimit,
 			authLimit:     authLimit,
 			authPeriod:    authPeriod,
-			publicPaths:   opt.PublicPaths,
+			publicPaths:   publicPathsMap,
 		}
 	})
 

@@ -15,27 +15,27 @@ import (
 )
 
 func (d *userRepository) Create(ctx context.Context, user *entity.User) (*entity.User, error) {
-	tx, err := d.sql0.BeginTxx(ctx, &sql.TxOptions{
-		Isolation: sql.LevelDefault,
-	})
+	tx, err := d.sql0.BeginTxx(ctx, &sql.TxOptions{Isolation: sql.LevelDefault})
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("tx_create_user")
 		return user, x.Wrap(err, "tx_create_user")
 	}
 
+	defer func() {
+		if err != nil {
+			if rollbackErr := tx.Rollback(); rollbackErr != nil {
+				zerolog.Ctx(ctx).Error().Err(rollbackErr).Msg("rollback_create_user")
+			}
+		}
+	}()
+
 	tx, user, err = d.createSQLUser(ctx, tx, user)
 	if err != nil {
-		if rollbackErr := tx.Rollback(); rollbackErr != nil {
-			zerolog.Ctx(ctx).Error().Err(rollbackErr).Msg("rollback_create_user")
-		}
 		zerolog.Ctx(ctx).Error().Err(err).Msg("sql_create_user")
 		return nil, x.Wrap(err, "sql_create_user")
 	}
 
 	if err = tx.Commit(); err != nil {
-		if rollbackErr := tx.Rollback(); rollbackErr != nil {
-			zerolog.Ctx(ctx).Error().Err(rollbackErr).Msg("rollback_after_commit_failure")
-		}
 		zerolog.Ctx(ctx).Error().Err(err).Msg("commit_create_user")
 		return nil, x.Wrap(err, "commit_create_user")
 	}
@@ -47,10 +47,8 @@ func (d *userRepository) FindByID(ctx context.Context, id string) (*entity.User,
 	var user entity.User
 
 	cacheKey := fmt.Sprintf("user:%s", id)
-
 	cached, err := d.redis0.Get(ctx, cacheKey).Result()
 	if err == nil {
-
 		if err := json.Unmarshal([]byte(cached), &user); err == nil {
 			zerolog.Ctx(ctx).Debug().Str("id", id).Msg("data_found_in_cache")
 			return &user, nil
@@ -94,6 +92,7 @@ func (d *userRepository) FindByEmail(ctx context.Context, email string) (*entity
 		if err == sql.ErrNoRows {
 			return nil, x.NewWithCode(x.CodeHTTPUnauthorized, "Invalid credentials")
 		}
+
 		zerolog.Ctx(ctx).Error().Err(err).Str("email", email).Msg("find_user_by_email_err")
 		return nil, x.WrapWithCode(err, x.CodeSQLRowScan, "find_user_by_email_err")
 	}

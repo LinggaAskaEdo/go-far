@@ -17,7 +17,7 @@
             "name": "Apache 2.0",
             "url": "http://www.apache.org/licenses/LICENSE-2.0.html"
         },
-        "version": "1.0"
+        "version": "1.5.0"
     },
     "host": "localhost:8181",
     "paths": {
@@ -1174,8 +1174,7 @@
         "dto.BulkCreateCarsRequest": {
             "type": "object",
             "required": [
-                "cars",
-                "user_id"
+                "cars"
             ],
             "properties": {
                 "cars": {
@@ -1185,9 +1184,6 @@
                     "items": {
                         "$ref": "#/definitions/dto.CreateCarRequest"
                     }
-                },
-                "user_id": {
-                    "type": "string"
                 }
             }
         },
@@ -1215,7 +1211,6 @@
                 "brand",
                 "license_plate",
                 "model",
-                "user_id",
                 "year"
             ],
             "properties": {
@@ -1237,9 +1232,6 @@
                     "type": "string",
                     "maxLength": 100,
                     "minLength": 2
-                },
-                "user_id": {
-                    "type": "string"
                 },
                 "year": {
                     "type": "integer",

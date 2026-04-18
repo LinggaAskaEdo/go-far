@@ -3,7 +3,6 @@ package database
 import (
 	"errors"
 	"fmt"
-	"os"
 	"strings"
 	"time"
 
@@ -20,7 +19,7 @@ type DatabaseOptions struct {
 	Host            string        `yaml:"host"`
 	Port            int           `yaml:"port"`
 	User            string        `yaml:"user"`
-	Password        string        `yaml:"password"`
+	Password        string        `yaml:"password" env:"POSTGRES_DOCKER_PASSWORD"`
 	DBName          string        `yaml:"dbname"`
 	SSLMode         bool          `yaml:"sslmode"`
 	MaxOpenConns    int           `yaml:"max_open_conns"`
@@ -33,32 +32,6 @@ type DatabaseOptions struct {
 func InitDB(log zerolog.Logger, opt DatabaseOptions) *sqlx.DB {
 	if !opt.Enabled {
 		return nil
-	}
-
-	// Allow environment variables to override config file values
-	if envHost := os.Getenv("DB_HOST"); envHost != "" {
-		opt.Host = envHost
-	}
-	if envPort := os.Getenv("DB_PORT"); envPort != "" {
-		if port := parseInt(envPort); port > 0 {
-			opt.Port = port
-		}
-	}
-	if envUser := os.Getenv("DB_USER"); envUser != "" {
-		opt.User = envUser
-	}
-	// Driver-specific password overrides
-	if opt.Driver == preference.POSTGRES {
-		if envPassword := os.Getenv("POSTGRES_DOCKER_PASSWORD"); envPassword != "" {
-			opt.Password = envPassword
-		}
-	} else if opt.Driver == preference.MYSQL {
-		if envPassword := os.Getenv("MYSQL_DOCKER_PASSWORD"); envPassword != "" {
-			opt.Password = envPassword
-		}
-	}
-	if envDBName := os.Getenv("DB_NAME"); envDBName != "" {
-		opt.DBName = envDBName
 	}
 
 	driver, host, err := getURI(opt)
@@ -75,6 +48,7 @@ func InitDB(log zerolog.Logger, opt DatabaseOptions) *sqlx.DB {
 
 	// Set connection pool settings with better defaults
 	db.SetMaxOpenConns(opt.MaxOpenConns)
+
 	// Set MaxIdleConns close to MaxOpenConns to reduce connection churn
 	db.SetMaxIdleConns(max(opt.MaxOpenConns/2, opt.MaxIdleConns))
 	db.SetConnMaxLifetime(opt.ConnMaxLifetime)
@@ -90,6 +64,7 @@ func getURI(opt DatabaseOptions) (string, string, error) {
 		if opt.SSLMode {
 			ssl = `require`
 		}
+
 		return opt.Driver, fmt.Sprintf("host=%s port=%d user=%s password=%s dbname=%s sslmode=%s", opt.Host, opt.Port, opt.User, opt.Password, opt.DBName, ssl), nil
 
 	case preference.MYSQL:
@@ -97,17 +72,10 @@ func getURI(opt DatabaseOptions) (string, string, error) {
 		if opt.SSLMode {
 			ssl = `true`
 		}
+
 		return opt.Driver, fmt.Sprintf("%s:%s@tcp(%s:%v)/%s?tls=%s&parseTime=%t", opt.User, opt.Password, opt.Host, opt.Port, opt.DBName, ssl, true), nil
 
 	default:
 		return "", "", errors.New("DB Driver is not supported ")
 	}
-}
-
-func parseInt(s string) int {
-	var result int
-	if _, err := fmt.Sscanf(s, "%d", &result); err != nil {
-		return 0
-	}
-	return result
 }

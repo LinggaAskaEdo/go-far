@@ -11,39 +11,25 @@ import (
 )
 
 func (s *userService) CreateUser(ctx context.Context, req dto.CreateUserRequest) (*entity.User, error) {
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
-	if err != nil {
-		return nil, x.WrapWithCode(err, x.CodeHTTPInternalServerError, "Failed to hash password")
-	}
-
-	user := &entity.User{
-		Name:     req.Name,
-		Email:    req.Email,
-		Password: string(hashedPassword),
-		Age:      req.Age,
-		Role:     req.Role,
-	}
-
-	user, err = s.userRepository.Create(ctx, user)
-	if err != nil {
-		return nil, err
-	}
-
-	return user, nil
+	return s.registerUser(ctx, req.Name, req.Email, req.Password, req.Age, req.Role)
 }
 
 func (s *userService) RegisterUser(ctx context.Context, req dto.RegisterRequest) (*entity.User, error) {
-	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(req.Password), bcrypt.DefaultCost)
+	return s.registerUser(ctx, req.Name, req.Email, req.Password, req.Age, req.Role)
+}
+
+func (s *userService) registerUser(ctx context.Context, name, email, password string, age int, role entity.Role) (*entity.User, error) {
+	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
-		return nil, x.WrapWithCode(err, x.CodeHTTPInternalServerError, "Failed to hash password")
+		return nil, x.WrapWithCode(err, x.CodeHTTPInternalServerError, "failed to hash password")
 	}
 
 	user := &entity.User{
-		Name:     req.Name,
-		Email:    req.Email,
+		Name:     name,
+		Email:    email,
 		Password: string(hashedPassword),
-		Age:      req.Age,
-		Role:     req.Role,
+		Age:      age,
+		Role:     role,
 	}
 
 	user, err = s.userRepository.Create(ctx, user)

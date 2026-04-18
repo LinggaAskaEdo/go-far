@@ -2,10 +2,12 @@ package main
 
 import (
 	"flag"
+	"net/http"
 
 	_ "go-far/etc/docs"
 	"go-far/src/config/database"
 	"go-far/src/config/grace"
+	"go-far/src/config/httpclient"
 	"go-far/src/config/logger"
 	"go-far/src/config/middleware"
 	"go-far/src/config/query"
@@ -26,14 +28,14 @@ import (
 )
 
 var (
-	minJitter int
-	maxJitter int
-
-	sql0      *sqlx.DB
-	redis0    *redis.Client
-	redis1    *redis.Client
-	redis2    *redis.Client
-	scheduler *cfgscheduler.Scheduler
+	minJitter  int
+	maxJitter  int
+	sql0       *sqlx.DB
+	redis0     *redis.Client
+	redis1     *redis.Client
+	redis2     *redis.Client
+	scheduler  *cfgscheduler.Scheduler
+	httpClient *http.Client
 
 	tracerInst tracer.Tracer
 	app        grace.App
@@ -64,6 +66,9 @@ func init() {
 	redis1 = cfgredis.InitRedis(log, conf.Redis, preference.REDIS_AUTH)
 	redis2 = cfgredis.InitRedis(log, conf.Redis, preference.REDIS_LIMITER)
 
+	// HTTP Client Initialization
+	httpClient = httpclient.InitHttpClient(log, conf.HttpClient)
+
 	// Query Loader Initialization
 	queryLoader := query.InitQueryLoader(log, conf.Queries)
 
@@ -91,7 +96,7 @@ func init() {
 
 	// Scheduler Initialization
 	scheduler = cfgscheduler.InitScheduler(log, conf.Scheduler)
-	schedHandler.InitSchedulerHandler(log, scheduler, service, conf.Scheduler.SchedulerJobs)
+	schedHandler.InitSchedulerHandler(log, scheduler, service, conf.Scheduler.SchedulerJobs, httpClient, conf.Scheduler.Enabled)
 
 	// HTTP Server Initialization
 	httpServer := server.InitHttpServer(log, conf.Server, handler)
@@ -104,7 +109,7 @@ func init() {
 }
 
 // @title			Go-Far
-// @version		1.0
+// @version		1.5.0
 // @description	A production-ready RESTful API built with Go following Domain-Driven Design principles, featuring PostgreSQL, Redis, JWT authentication, role-based rate limiting, and OpenTelemetry tracing.
 // @termsOfService	http://swagger.io/terms/
 // @contact.name	API Support

@@ -2,6 +2,8 @@ package entity
 
 import (
 	"time"
+
+	"github.com/google/uuid"
 )
 
 type Car struct {
@@ -20,4 +22,9 @@ type CarWithOwner struct {
 	Car
 	OwnerName  string `db:"owner_name" json:"owner_name"`
 	OwnerEmail string `db:"owner_email" json:"owner_email"`
+}
+
+type UserCar struct {
+	UserID uuid.UUID `json:"user_id"`
+	CarID  uuid.UUID `json:"car_id"`
 }

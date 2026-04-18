@@ -93,6 +93,10 @@ const (
 	// Auth Error Messages
 	ErrInvalidToken string = "Invalid token"
 
+	// Token Constants
+	TokenSeparator string = "++"
+	TokenKeyPrefix string = "access:"
+
 	// Readiness Status Messages
 	StatusReady    string = "ready"
 	StatusNotReady string = "not ready"

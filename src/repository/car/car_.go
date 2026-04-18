@@ -15,26 +15,26 @@ import (
 )
 
 func (r *carRepository) Create(ctx context.Context, car *entity.Car) error {
-	tx, err := r.sql0.BeginTxx(ctx, &sql.TxOptions{
-		Isolation: sql.LevelDefault,
-	})
+	tx, err := r.sql0.BeginTxx(ctx, &sql.TxOptions{Isolation: sql.LevelDefault})
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("tx_create_car")
 		return x.Wrap(err, "tx_create_car")
 	}
 
-	if err = r.createSQLCar(ctx, tx, car); err != nil {
-		if rollbackErr := tx.Rollback(); rollbackErr != nil {
-			zerolog.Ctx(ctx).Error().Err(rollbackErr).Msg("rollback_create_car")
+	defer func() {
+		if err != nil {
+			if rollbackErr := tx.Rollback(); rollbackErr != nil {
+				zerolog.Ctx(ctx).Error().Err(rollbackErr).Msg("rollback_create_car")
+			}
 		}
+	}()
+
+	if err = r.createSQLCar(ctx, tx, car); err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("sql_create_car")
 		return err
 	}
 
 	if err = tx.Commit(); err != nil {
-		if rollbackErr := tx.Rollback(); rollbackErr != nil {
-			zerolog.Ctx(ctx).Error().Err(rollbackErr).Msg("rollback_after_commit_failure")
-		}
 		zerolog.Ctx(ctx).Error().Err(err).Msg("commit_create_car")
 		return x.Wrap(err, "commit_create_car")
 	}
@@ -43,26 +43,26 @@ func (r *carRepository) Create(ctx context.Context, car *entity.Car) error {
 }
 
 func (r *carRepository) CreateBulk(ctx context.Context, cars []*entity.Car) error {
-	tx, err := r.sql0.BeginTxx(ctx, &sql.TxOptions{
-		Isolation: sql.LevelDefault,
-	})
+	tx, err := r.sql0.BeginTxx(ctx, &sql.TxOptions{Isolation: sql.LevelDefault})
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("tx_create_bulk_cars")
 		return x.Wrap(err, "tx_create_bulk_cars")
 	}
 
-	if err = r.createBulkSQLCars(ctx, tx, cars); err != nil {
-		if rollbackErr := tx.Rollback(); rollbackErr != nil {
-			zerolog.Ctx(ctx).Error().Err(rollbackErr).Msg("rollback_create_bulk_cars")
+	defer func() {
+		if err != nil {
+			if rollbackErr := tx.Rollback(); rollbackErr != nil {
+				zerolog.Ctx(ctx).Error().Err(rollbackErr).Msg("rollback_create_bulk_cars")
+			}
 		}
+	}()
+
+	if err = r.createBulkSQLCars(ctx, tx, cars); err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("sql_create_bulk_cars")
 		return err
 	}
 
 	if err = tx.Commit(); err != nil {
-		if rollbackErr := tx.Rollback(); rollbackErr != nil {
-			zerolog.Ctx(ctx).Error().Err(rollbackErr).Msg("rollback_after_commit_failure")
-		}
 		zerolog.Ctx(ctx).Error().Err(err).Msg("commit_create_bulk_cars")
 		return x.Wrap(err, "commit_create_bulk_cars")
 	}
@@ -90,14 +90,9 @@ func (r *carRepository) AssignCarToUser(ctx context.Context, userID uuid.UUID, c
 }
 
 func (r *carRepository) AssignCarsToUserBulk(ctx context.Context, userID uuid.UUID, carIDs []uuid.UUID) error {
-	type userCar struct {
-		UserID uuid.UUID
-		CarID  uuid.UUID
-	}
-
-	userCars := make([]userCar, len(carIDs))
+	userCars := make([]entity.UserCar, len(carIDs))
 	for i, carID := range carIDs {
-		userCars[i] = userCar{UserID: userID, CarID: carID}
+		userCars[i] = entity.UserCar{UserID: userID, CarID: carID}
 	}
 
 	query, args, err := r.queryLoader.Compile("AssignCarToUserBulk", userCars)
@@ -140,6 +135,7 @@ func (r *carRepository) FindByID(ctx context.Context, id uuid.UUID) (*entity.Car
 			zerolog.Ctx(ctx).Debug().Str("id", id.String()).Msg("car_not_found")
 			return nil, x.WrapWithCode(err, x.CodeSQLEmptyRow, "car_not_found")
 		}
+
 		zerolog.Ctx(ctx).Error().Err(err).Str("id", id.String()).Msg("find_car_err")
 		return nil, x.WrapWithCode(err, x.CodeSQLRowScan, "find_car_err")
 	}
@@ -165,6 +161,7 @@ func (r *carRepository) FindByIDWithOwner(ctx context.Context, id uuid.UUID) (*e
 			zerolog.Ctx(ctx).Debug().Str("id", id.String()).Msg("car_not_found")
 			return nil, x.WrapWithCode(err, x.CodeSQLEmptyRow, "car_not_found")
 		}
+
 		zerolog.Ctx(ctx).Error().Err(err).Str("id", id.String()).Msg("find_car_with_owner_err")
 		return nil, x.WrapWithCode(err, x.CodeSQLRowScan, "find_car_with_owner_err")
 	}
@@ -291,4 +288,62 @@ func (r *carRepository) BulkUpdateAvailability(ctx context.Context, carIDs []uui
 	}
 
 	return nil
+}
+
+func (r *carRepository) IsCarOwnedByUser(ctx context.Context, carID uuid.UUID, userID string) (bool, error) {
+	query, args, err := r.queryLoader.Compile("CheckCarOwnership", map[string]any{
+		"CarID":  carID,
+		"UserID": userID,
+	})
+	if err != nil {
+		zerolog.Ctx(ctx).Error().Err(err).Msg("build_check_car_ownership_query_err")
+		return false, x.WrapWithCode(err, x.CodeSQLQueryBuild, "build_check_car_ownership_query_err")
+	}
+
+	var count int
+	err = r.sql0.GetContext(ctx, &count, query, args...)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return false, nil
+		}
+
+		zerolog.Ctx(ctx).Error().Err(err).Str("car_id", carID.String()).Str("user_id", userID).Msg("check_car_ownership_err")
+		return false, x.WrapWithCode(err, x.CodeSQLRowScan, "check_car_ownership_err")
+	}
+
+	return count > 0, nil
+}
+
+func (r *carRepository) AreCarsOwnedByUser(ctx context.Context, carIDs []uuid.UUID, userID string) (map[uuid.UUID]bool, error) {
+	if len(carIDs) == 0 {
+		return make(map[uuid.UUID]bool), nil
+	}
+
+	query, args, err := r.queryLoader.Compile("CheckCarsOwnership", map[string]any{
+		"CarIDs": carIDs,
+		"UserID": userID,
+	})
+	if err != nil {
+		zerolog.Ctx(ctx).Error().Err(err).Msg("build_check_cars_ownership_query_err")
+		return nil, x.WrapWithCode(err, x.CodeSQLQueryBuild, "build_check_cars_ownership_query_err")
+	}
+
+	var ownedCarIDs []uuid.UUID
+	err = r.sql0.SelectContext(ctx, &ownedCarIDs, query, args...)
+	if err != nil {
+		zerolog.Ctx(ctx).Error().Err(err).Msg("check_cars_ownership_err")
+		return nil, x.WrapWithCode(err, x.CodeSQLRead, "check_cars_ownership_err")
+	}
+
+	ownedSet := make(map[uuid.UUID]struct{}, len(ownedCarIDs))
+	for _, id := range ownedCarIDs {
+		ownedSet[id] = struct{}{}
+	}
+
+	ownershipMap := make(map[uuid.UUID]bool, len(carIDs))
+	for _, id := range carIDs {
+		_, ownershipMap[id] = ownedSet[id]
+	}
+
+	return ownershipMap, nil
 }

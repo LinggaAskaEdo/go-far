@@ -1177,8 +1177,7 @@ const docTemplate = `{
         "dto.BulkCreateCarsRequest": {
             "type": "object",
             "required": [
-                "cars",
-                "user_id"
+                "cars"
             ],
             "properties": {
                 "cars": {
@@ -1188,9 +1187,6 @@ const docTemplate = `{
                     "items": {
                         "$ref": "#/definitions/dto.CreateCarRequest"
                     }
-                },
-                "user_id": {
-                    "type": "string"
                 }
             }
         },
@@ -1218,7 +1214,6 @@ const docTemplate = `{
                 "brand",
                 "license_plate",
                 "model",
-                "user_id",
                 "year"
             ],
             "properties": {
@@ -1240,9 +1235,6 @@ const docTemplate = `{
                     "type": "string",
                     "maxLength": 100,
                     "minLength": 2
-                },
-                "user_id": {
-                    "type": "string"
                 },
                 "year": {
                     "type": "integer",
@@ -1700,7 +1692,7 @@ const docTemplate = `{
 
 // SwaggerInfo holds exported Swagger Info so clients can modify it
 var SwaggerInfo = &swag.Spec{
-	Version:          "1.0",
+	Version:          "1.5.0",
 	Host:             "localhost:8181",
 	BasePath:         "",
 	Schemes:          []string{"http", "https"},

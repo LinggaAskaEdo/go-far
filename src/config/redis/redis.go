@@ -3,7 +3,6 @@ package redis
 import (
 	"context"
 	"fmt"
-	"os"
 	"time"
 
 	"go-far/src/preference"
@@ -39,14 +38,6 @@ func InitRedis(log zerolog.Logger, opt RedisOptions, redisType string) *redis.Cl
 
 	if !opt.Enabled {
 		return nil
-	}
-
-	// Allow environment variables to override config file values
-	if envAddr := os.Getenv("REDIS_ADDRESS"); envAddr != "" {
-		opt.Address = envAddr
-	}
-	if envPassword := os.Getenv("REDIS_PASSWORD"); envPassword != "" {
-		opt.Password = envPassword
 	}
 
 	switch redisType {

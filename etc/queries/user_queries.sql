@@ -32,7 +32,14 @@ WHERE 1=1
 {{- if gt .MaxAge 0 }}
     AND age <= {{ .MaxAge }}
 {{- end }}
-ORDER BY __SORT_BY__ __SORT_DIR__
+{{- if .SortBy }}
+    ORDER BY {{ .SortBy }} 
+    {{- if eq .SortDir "DESC" }}
+        DESC
+    {{ else }}
+        ASC
+    {{ end }}
+{{- end }}
 LIMIT {{ .Limit }} OFFSET {{ .Offset }};
 
 -- name: CountUsersBase

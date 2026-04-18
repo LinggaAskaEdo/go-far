@@ -39,7 +39,7 @@ func (mw *middleware) CORS() func(http.Handler) http.Handler {
 			}
 
 			if !slices.Contains([]string{"GET", "POST", "PUT", "DELETE"}, r.Method) {
-				http.Error(w, "Method Not Allowed", http.StatusMethodNotAllowed)
+				mw.writeJSONError(w, http.StatusMethodNotAllowed, "method not allowed")
 				return
 			}
 

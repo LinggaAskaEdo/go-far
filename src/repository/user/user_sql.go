@@ -61,6 +61,8 @@ func (d *userRepository) createSQLUser(ctx context.Context, tx *sqlx.Tx, user *e
 		return tx, user, x.WrapWithCode(err, x.CodeSQLQueryBuild, "build_create_user_query_err")
 	}
 
+	zerolog.Ctx(ctx).Debug().Str("query", query).Any("args", args).Msg("compiled_query")
+
 	row := tx.QueryRowContext(ctx, query, args...).Scan(&user.ID, &user.CreatedAt, &user.UpdatedAt)
 	if err := row; err != nil {
 		return tx, user, x.Wrap(err, "create_sql_user")
@@ -98,6 +100,8 @@ func (d *userRepository) findAllSQLUser(ctx context.Context, filter dto.UserFilt
 		"MaxAge":       filter.MaxAge,
 		"Limit":        filter.PageSize,
 		"Offset":       (filter.Page - 1) * filter.PageSize,
+		"SortBy":       filter.SortBy,
+		"SortDir":      filter.SortDir,
 	}
 
 	query, args, err := d.queryLoader.Compile("FindAllUsersBase", templateData)
@@ -106,7 +110,7 @@ func (d *userRepository) findAllSQLUser(ctx context.Context, filter dto.UserFilt
 		return nil, &pagination, x.WrapWithCode(err, x.CodeSQLQueryBuild, "build_find_users_query_err")
 	}
 
-	query = d.injectSortClauses(query, filter.SortBy, filter.SortDir)
+	zerolog.Ctx(ctx).Debug().Str("query", query).Any("args", args).Msg("compiled_query")
 
 	err = d.sql0.SelectContext(ctx, &results, query, args...)
 	if err != nil {
@@ -119,6 +123,8 @@ func (d *userRepository) findAllSQLUser(ctx context.Context, filter dto.UserFilt
 		zerolog.Ctx(ctx).Error().Err(err).Msg("count_users_query_err")
 		return nil, &pagination, x.WrapWithCode(err, x.CodeSQLQueryBuild, "count_users_query_err")
 	}
+
+	zerolog.Ctx(ctx).Debug().Str("query", countQuery).Any("args", countArgs).Msg("compiled_query")
 
 	err = d.sql0.GetContext(ctx, &totalRecords, countQuery, countArgs...)
 	if err != nil {
@@ -143,13 +149,6 @@ func (d *userRepository) findAllSQLUser(ctx context.Context, filter dto.UserFilt
 	return &results, &pagination, nil
 }
 
-func (d *userRepository) injectSortClauses(query, sortBy, sortDir string) string {
-	query = strings.ReplaceAll(query, "__SORT_BY__", sortBy)
-	query = strings.ReplaceAll(query, "__SORT_DIR__", sortDir)
-
-	return query
-}
-
 func (d *userRepository) updateSQLUser(ctx context.Context, id string, user *entity.User) error {
 	data := map[string]any{
 		"ID":        id,
@@ -166,6 +165,8 @@ func (d *userRepository) updateSQLUser(ctx context.Context, id string, user *ent
 		zerolog.Ctx(ctx).Error().Err(err).Msg("build_update_user_query_err")
 		return x.WrapWithCode(err, x.CodeSQLQueryBuild, "build_update_user_query_err")
 	}
+
+	zerolog.Ctx(ctx).Debug().Str("query", query).Any("args", args).Msg("compiled_query")
 
 	result, err := d.sql0.ExecContext(ctx, query, args...)
 	if err != nil {
@@ -196,6 +197,8 @@ func (d *userRepository) deleteSQLUser(ctx context.Context, id string) error {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("build_delete_user_query_err")
 		return x.WrapWithCode(err, x.CodeSQLQueryBuild, "build_delete_user_query_err")
 	}
+
+	zerolog.Ctx(ctx).Debug().Str("query", query).Any("args", args).Msg("compiled_query")
 
 	result, err := d.sql0.ExecContext(ctx, query, args...)
 	if err != nil {

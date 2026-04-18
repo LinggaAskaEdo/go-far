@@ -1,6 +1,7 @@
 package scheduler
 
 import (
+	"net/http"
 	"sync"
 
 	cfg "go-far/src/config/scheduler"
@@ -12,21 +13,25 @@ import (
 var onceSchedulerHandler = &sync.Once{}
 
 type schedulerHandler struct {
-	log  zerolog.Logger
-	sch  *cfg.Scheduler
-	svc  *service.Service
-	jobs cfg.SchedulerJobsOptions
+	log        zerolog.Logger
+	sch        *cfg.Scheduler
+	svc        *service.Service
+	jobs       cfg.SchedulerJobsOptions
+	httpClient *http.Client
+	enabled    bool
 }
 
-func InitSchedulerHandler(log zerolog.Logger, sch *cfg.Scheduler, svc *service.Service, jobs cfg.SchedulerJobsOptions) {
+func InitSchedulerHandler(log zerolog.Logger, sch *cfg.Scheduler, svc *service.Service, jobs cfg.SchedulerJobsOptions, httpClient *http.Client, enabled bool) {
 	var s *schedulerHandler
 
 	onceSchedulerHandler.Do(func() {
 		s = &schedulerHandler{
-			log:  log,
-			sch:  sch,
-			svc:  svc,
-			jobs: jobs,
+			log:        log,
+			sch:        sch,
+			svc:        svc,
+			jobs:       jobs,
+			httpClient: httpClient,
+			enabled:    enabled,
 		}
 
 		s.Serve()
@@ -34,14 +39,14 @@ func InitSchedulerHandler(log zerolog.Logger, sch *cfg.Scheduler, svc *service.S
 }
 
 func (s *schedulerHandler) Serve() *cfg.Scheduler {
-	if s.sch == nil {
+	if !s.enabled || s.sch == nil {
 		s.log.Debug().Msg("Scheduler is disabled, skipping")
 		return nil
 	}
 
 	// User Generator
 	if s.jobs.UserGeneratorJob.Enabled {
-		userJob := InitUserGeneratorJob(s.log, s.svc.User, s.jobs.UserGeneratorJob)
+		userJob := InitUserGeneratorJob(s.log, s.svc.User, s.jobs.UserGeneratorJob, s.httpClient)
 		if err := s.sch.AddJob(userJob); err != nil {
 			s.log.Error().Err(err).Msg("Failed to add UserGeneratorJob to scheduler")
 		}
@@ -49,7 +54,7 @@ func (s *schedulerHandler) Serve() *cfg.Scheduler {
 
 	// Car Generator
 	if s.jobs.CarGeneratorJob.Enabled {
-		carJob := InitCarGeneratorJob(s.log, s.svc.Car, s.svc.User, s.jobs.CarGeneratorJob)
+		carJob := InitCarGeneratorJob(s.log, s.svc.Car, s.svc.User, s.jobs.CarGeneratorJob, s.httpClient, s.jobs.CarGeneratorJob.NHTSAAPIURL)
 		if err := s.sch.AddJob(carJob); err != nil {
 			s.log.Error().Err(err).Msg("Failed to add CarGeneratorJob to scheduler")
 		}

@@ -2,8 +2,10 @@ package scheduler
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"math/rand"
+	"net/http"
 	"strings"
 	"sync"
 	"time"
@@ -16,20 +18,73 @@ import (
 	"github.com/rs/zerolog"
 )
 
+const defaultPassword = "UserPass123!"
+
+var (
+	fallbackFirstNames = []string{
+		"James", "Mary", "John", "Patricia", "Robert", "Jennifer", "Michael", "Linda",
+		"William", "Barbara", "David", "Elizabeth", "Richard", "Susan", "Joseph", "Jessica",
+		"Thomas", "Sarah", "Charles", "Karen", "Christopher", "Nancy", "Daniel", "Lisa",
+		"Matthew", "Betty", "Anthony", "Margaret", "Mark", "Sandra", "Donald", "Ashley",
+		"Steven", "Kimberly", "Paul", "Emily", "Andrew", "Donna", "Joshua", "Michelle",
+		"Kenneth", "Dorothy", "Kevin", "Carol", "Brian", "Amanda", "George", "Melissa",
+		"Edward", "Deborah", "Ronald", "Stephanie", "Timothy", "Rebecca", "Jason", "Sharon",
+	}
+
+	fallbackLastNames = []string{
+		"Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis",
+		"Rodriguez", "Martinez", "Hernandez", "Lopez", "Gonzalez", "Wilson", "Anderson", "Thomas",
+		"Taylor", "Moore", "Jackson", "Martin", "Lee", "Perez", "Thompson", "White",
+		"Harris", "Sanchez", "Clark", "Ramirez", "Lewis", "Robinson", "Walker", "Young",
+		"Allen", "King", "Wright", "Scott", "Torres", "Nguyen", "Hill", "Flores",
+		"Green", "Adams", "Nelson", "Baker", "Hall", "Rivera", "Campbell", "Mitchell",
+		"Carter", "Roberts", "Gomez", "Phillips", "Evans", "Turner", "Diaz", "Parker",
+	}
+)
+
 type UserGeneratorJob struct {
 	log         zerolog.Logger
 	userService user.UserServiceItf
 	config      cfg.UserGeneratorJobOptions
 	rng         *rand.Rand
 	mu          sync.Mutex
+	httpClient  *http.Client
 }
 
-func InitUserGeneratorJob(log zerolog.Logger, userService user.UserServiceItf, cfg cfg.UserGeneratorJobOptions) *UserGeneratorJob {
+type randomUserResp struct {
+	Results []struct {
+		Name struct {
+			First string `json:"first"`
+			Last  string `json:"last"`
+		} `json:"name"`
+		Email string `json:"email"`
+		DOB   struct {
+			Age int `json:"age"`
+		} `json:"dob"`
+		Login struct {
+			Password string `json:"password"`
+		} `json:"login"`
+	} `json:"results"`
+}
+
+type randomUser struct {
+	Name struct {
+		First string
+		Last  string
+	}
+	Email string
+	DOB   struct {
+		Age int
+	}
+}
+
+func InitUserGeneratorJob(log zerolog.Logger, userService user.UserServiceItf, cfg cfg.UserGeneratorJobOptions, httpClient *http.Client) *UserGeneratorJob {
 	return &UserGeneratorJob{
 		log:         log,
 		userService: userService,
 		config:      cfg,
 		rng:         rand.New(rand.NewSource(time.Now().UnixNano())),
+		httpClient:  httpClient,
 	}
 }
 
@@ -51,15 +106,19 @@ func (j *UserGeneratorJob) Run(ctx context.Context) error {
 		Int("batch_size", j.config.BatchSize).
 		Msg("Generating random users")
 
-	successCount := 0
-	for i := 0; i < j.config.BatchSize; i++ {
-		user := j.generateRandomUser()
+	users, err := j.fetchRandomUsersFromAPI(ctx, j.config.BatchSize)
+	if err != nil {
+		j.log.Warn().Err(err).Msg("Failed to fetch from randomuser.me API, using fallback")
+		return j.runWithFallback(ctx)
+	}
 
+	successCount := 0
+	for _, u := range users {
 		req := dto.CreateUserRequest{
-			Name:     user.Name,
-			Email:    user.Email,
-			Password: user.Password,
-			Age:      user.Age,
+			Name:     fmt.Sprintf("%s %s", u.Name.First, u.Name.Last),
+			Email:    strings.ToLower(u.Email),
+			Password: defaultPassword,
+			Age:      u.DOB.Age,
 			Role:     entity.RoleUser,
 		}
 
@@ -67,16 +126,16 @@ func (j *UserGeneratorJob) Run(ctx context.Context) error {
 		if err != nil {
 			j.log.Warn().
 				Err(err).
-				Str("email", user.Email).
+				Str("email", u.Email).
 				Msg("Failed to create user")
 			continue
 		}
 
 		successCount++
 		j.log.Debug().
-			Str("name", user.Name).
-			Str("email", user.Email).
-			Int("age", user.Age).
+			Str("name", req.Name).
+			Str("email", u.Email).
+			Int("age", u.DOB.Age).
 			Msg("User created successfully")
 	}
 
@@ -88,63 +147,93 @@ func (j *UserGeneratorJob) Run(ctx context.Context) error {
 	return nil
 }
 
-func (j *UserGeneratorJob) generateRandomUser() *entity.User {
-	firstName := j.randomFirstName()
-	lastName := j.randomLastName()
-	name := fmt.Sprintf("%s %s", firstName, lastName)
+func (j *UserGeneratorJob) fetchRandomUsersFromAPI(ctx context.Context, count int) ([]randomUser, error) {
+	url := fmt.Sprintf("%s?results=%d&format=json", j.config.RandomUserURL, count)
 
-	j.mu.Lock()
-	timestamp := time.Now().Unix()
-	email := fmt.Sprintf("%s.%s.%d@gofar.com",
-		firstName,
-		lastName,
-		timestamp+int64(j.rng.Intn(1000)))
-	age := j.config.MinAge + j.rng.Intn(j.config.MaxAge-j.config.MinAge+1)
-	j.mu.Unlock()
-
-	// All generated users use the default test password
-	password := "UserPass123!"
-
-	return &entity.User{
-		Name:     name,
-		Email:    strings.ToLower(email),
-		Password: password,
-		Age:      age,
-		Role:     entity.RoleUser,
-		IsActive: true,
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		return nil, err
 	}
+
+	resp, err := j.httpClient.Do(req)
+	if err != nil {
+		return nil, err
+	}
+	defer resp.Body.Close()
+
+	if resp.StatusCode != http.StatusOK {
+		return nil, fmt.Errorf("API returned status: %d", resp.StatusCode)
+	}
+
+	var apiResp randomUserResp
+	if err := json.NewDecoder(resp.Body).Decode(&apiResp); err != nil {
+		return nil, err
+	}
+
+	if len(apiResp.Results) == 0 {
+		return nil, fmt.Errorf("no results from API")
+	}
+
+	users := make([]randomUser, len(apiResp.Results))
+
+	for i, r := range apiResp.Results {
+		users[i] = randomUser{
+			Name:  struct{ First, Last string }{First: r.Name.First, Last: r.Name.Last},
+			Email: r.Email,
+			DOB:   struct{ Age int }{Age: r.DOB.Age},
+		}
+	}
+
+	return users, nil
 }
 
-func (j *UserGeneratorJob) randomFirstName() string {
-	firstNames := []string{
-		"James", "Mary", "John", "Patricia", "Robert", "Jennifer", "Michael", "Linda",
-		"William", "Barbara", "David", "Elizabeth", "Richard", "Susan", "Joseph", "Jessica",
-		"Thomas", "Sarah", "Charles", "Karen", "Christopher", "Nancy", "Daniel", "Lisa",
-		"Matthew", "Betty", "Anthony", "Margaret", "Mark", "Sandra", "Donald", "Ashley",
-		"Steven", "Kimberly", "Paul", "Emily", "Andrew", "Donna", "Joshua", "Michelle",
-		"Kenneth", "Dorothy", "Kevin", "Carol", "Brian", "Amanda", "George", "Melissa",
-		"Edward", "Deborah", "Ronald", "Stephanie", "Timothy", "Rebecca", "Jason", "Sharon",
-	}
+func (j *UserGeneratorJob) runWithFallback(ctx context.Context) error {
+	j.log.Info().
+		Int("batch_size", j.config.BatchSize).
+		Msg("Generating random users (fallback)")
 
 	j.mu.Lock()
 	defer j.mu.Unlock()
 
-	return firstNames[j.rng.Intn(len(firstNames))]
-}
+	successCount := 0
+	for i := 0; i < j.config.BatchSize; i++ {
+		firstName := fallbackFirstNames[j.rng.Intn(len(fallbackFirstNames))]
+		lastName := fallbackLastNames[j.rng.Intn(len(fallbackLastNames))]
+		name := fmt.Sprintf("%s %s", firstName, lastName)
 
-func (j *UserGeneratorJob) randomLastName() string {
-	lastNames := []string{
-		"Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis",
-		"Rodriguez", "Martinez", "Hernandez", "Lopez", "Gonzalez", "Wilson", "Anderson", "Thomas",
-		"Taylor", "Moore", "Jackson", "Martin", "Lee", "Perez", "Thompson", "White",
-		"Harris", "Sanchez", "Clark", "Ramirez", "Lewis", "Robinson", "Walker", "Young",
-		"Allen", "King", "Wright", "Scott", "Torres", "Nguyen", "Hill", "Flores",
-		"Green", "Adams", "Nelson", "Baker", "Hall", "Rivera", "Campbell", "Mitchell",
-		"Carter", "Roberts", "Gomez", "Phillips", "Evans", "Turner", "Diaz", "Parker",
+		timestamp := time.Now().Unix()
+		email := fmt.Sprintf("%s.%s.%d@gofar.com", firstName, lastName, timestamp+int64(j.rng.Intn(1000)))
+		age := j.config.MinAge + j.rng.Intn(j.config.MaxAge-j.config.MinAge+1)
+
+		req := dto.CreateUserRequest{
+			Name:     name,
+			Email:    strings.ToLower(email),
+			Password: defaultPassword,
+			Age:      age,
+			Role:     entity.RoleUser,
+		}
+
+		_, err := j.userService.CreateUser(ctx, req)
+		if err != nil {
+			j.log.Warn().
+				Err(err).
+				Str("email", email).
+				Msg("Failed to create user")
+			continue
+		}
+
+		successCount++
+		j.log.Debug().
+			Str("name", name).
+			Str("email", email).
+			Int("age", age).
+			Msg("User created successfully")
 	}
 
-	j.mu.Lock()
-	defer j.mu.Unlock()
+	j.log.Info().
+		Int("success", successCount).
+		Int("total", j.config.BatchSize).
+		Msg("User generation batch completed (fallback)")
 
-	return lastNames[j.rng.Intn(len(lastNames))]
+	return nil
 }

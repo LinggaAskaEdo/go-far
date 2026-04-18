@@ -19,7 +19,30 @@ import (
 	"github.com/segmentio/ksuid"
 )
 
-const jwtSecretEnv = "JWT_SECRET_GO_FAR"
+const (
+	jwtSecretEnv         = "JWT_SECRET_GO_FAR"
+	refreshTokenRotation = true
+	minSecretLength      = 32
+	redisTimeout         = 3 * time.Second
+)
+
+const (
+	RefreshTokenUsedPrefix    = "rt_used:"
+	RefreshTokenRevokedPrefix = "rt_revoked:"
+)
+
+type token struct {
+	log                 zerolog.Logger
+	redis               *redis.Client
+	secret              []byte
+	expiredToken        time.Duration
+	expiredRefreshToken time.Duration
+}
+
+var (
+	onceToken = &sync.Once{}
+	tokenInst *token
+)
 
 // Token defines the token management interface
 type Token interface {
@@ -28,23 +51,10 @@ type Token interface {
 	ValidateRefreshToken(r *http.Request, token string) (*AccessDetails, error)
 }
 
-var (
-	onceToken = &sync.Once{}
-	tokenInst *token
-)
-
 // TokenOptions holds token configuration
 type TokenOptions struct {
 	ExpiredToken        time.Duration `yaml:"expired_token"`
 	ExpiredRefreshToken time.Duration `yaml:"expired_refresh_token"`
-}
-
-type token struct {
-	log                 zerolog.Logger
-	redis               *redis.Client
-	secret              []byte
-	expiredToken        time.Duration
-	expiredRefreshToken time.Duration
 }
 
 // TokenDetails holds token information
@@ -72,6 +82,10 @@ func InitToken(log zerolog.Logger, opt TokenOptions, redis *redis.Client) Token 
 		secret := os.Getenv(jwtSecretEnv)
 		if secret == "" {
 			log.Panic().Msgf("Environment variable %s is not set", jwtSecretEnv)
+		}
+
+		if len(secret) < minSecretLength {
+			log.Panic().Msgf("JWT secret must be at least %d characters", minSecretLength)
 		}
 
 		tokenInst = &token{
@@ -120,7 +134,7 @@ func (a *token) GenerateToken(r *http.Request, data any) (*TokenDetails, error) 
 	td.AccessUUID = ksuid.New().String()
 
 	td.ExpiresRt = time.Now().Add(a.expiredRefreshToken).Unix()
-	td.RefreshUUID = td.AccessUUID + "++" + publicID
+	td.RefreshUUID = td.AccessUUID + preference.TokenSeparator + publicID
 
 	at := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
 		"exp":         td.ExpiresAt,
@@ -158,14 +172,17 @@ func (a *token) GenerateToken(r *http.Request, data any) (*TokenDetails, error) 
 }
 
 func (a *token) saveToRedis(ctx context.Context, publicID string, td *TokenDetails) error {
+	ctx, cancel := context.WithTimeout(ctx, redisTimeout)
+	defer cancel()
+
 	respAccess := a.redis.Set(ctx, td.AccessUUID, publicID, a.expiredToken)
 	if respAccess.Err() != nil {
-		return x.WrapWithCode(respAccess.Err(), x.CodeHTTPInternalServerError, "Failed to store access token in Redis")
+		return x.WrapWithCode(respAccess.Err(), x.CodeHTTPInternalServerError, "failed to store access token in redis")
 	}
 
 	respRefresh := a.redis.Set(ctx, td.RefreshUUID, publicID, a.expiredRefreshToken)
 	if respRefresh.Err() != nil {
-		return x.WrapWithCode(respRefresh.Err(), x.CodeHTTPInternalServerError, "Failed to store refresh token in Redis")
+		return x.WrapWithCode(respRefresh.Err(), x.CodeHTTPInternalServerError, "failed to store refresh token in redis")
 	}
 
 	return nil
@@ -177,6 +194,8 @@ func (a *token) ValidateToken(r *http.Request) (*AccessDetails, error) {
 
 func (a *token) checkingToken(r *http.Request) (*AccessDetails, error) {
 	ctx := r.Context()
+	ctx, cancel := context.WithTimeout(ctx, redisTimeout)
+	defer cancel()
 
 	tokenStr := a.extractToken(r)
 	token, err := a.verifyToken(tokenStr)
@@ -189,24 +208,37 @@ func (a *token) checkingToken(r *http.Request) (*AccessDetails, error) {
 		return nil, x.NewWithCode(x.CodeHTTPUnauthorized, preference.ErrInvalidToken)
 	}
 
-	userID := claims["user_id"].(string)
-	username := claims["name"].(string)
-	role := claims["role"].(string)
-
-	var accessUUID, redisIDUser string
-
-	accessUUID, ok = claims["access_uuid"].(string)
-	if !ok {
-		return nil, x.NewWithCode(x.CodeHTTPUnauthorized, "Failed claims accessUUID")
+	userID, ok := claims["user_id"].(string)
+	if !ok || userID == "" {
+		return nil, x.NewWithCode(x.CodeHTTPUnauthorized, "invalid user_id in token")
 	}
 
-	redisIDUser, err = a.redis.Get(ctx, accessUUID).Result()
+	username, ok := claims["name"].(string)
+	if !ok || username == "" {
+		return nil, x.NewWithCode(x.CodeHTTPUnauthorized, "invalid name in token")
+	}
+
+	role, ok := claims["role"].(string)
+	if !ok || role == "" {
+		return nil, x.NewWithCode(x.CodeHTTPUnauthorized, "invalid role in token")
+	}
+
+	accessUUID, ok := claims["access_uuid"].(string)
+	if !ok || accessUUID == "" {
+		return nil, x.NewWithCode(x.CodeHTTPUnauthorized, "invalid access_uuid in token")
+	}
+
+	redisIDUser, err := a.redis.Get(ctx, accessUUID).Result()
 	if err != nil {
-		return nil, x.WrapWithCode(err, x.CodeHTTPInternalServerError, "Failed to get token from Redis")
+		if err == redis.Nil {
+			return nil, x.NewWithCode(x.CodeHTTPUnauthorized, "access token expired")
+		}
+
+		return nil, x.WrapWithCode(err, x.CodeHTTPInternalServerError, "failed to get token from redis")
 	}
 
 	if userID != redisIDUser {
-		return nil, x.NewWithCode(x.CodeHTTPUnauthorized, "Authentication failure")
+		return nil, x.NewWithCode(x.CodeHTTPUnauthorized, "authentication failure")
 	}
 
 	return &AccessDetails{
@@ -241,6 +273,7 @@ func (a *token) verifyToken(tokenStr string) (*jwt.Token, error) {
 		if _, ok := jwtToken.Method.(*jwt.SigningMethodHMAC); !ok {
 			return nil, x.WrapWithCode(fmt.Errorf("unexpected signing method: %v", jwtToken.Header["alg"]), x.CodeHTTPUnauthorized, preference.ErrInvalidToken)
 		}
+
 		return a.secret, nil
 	})
 	if err != nil {
@@ -252,6 +285,8 @@ func (a *token) verifyToken(tokenStr string) (*jwt.Token, error) {
 
 func (a *token) ValidateRefreshToken(r *http.Request, tokenStr string) (*AccessDetails, error) {
 	ctx := r.Context()
+	ctx, cancel := context.WithTimeout(ctx, redisTimeout)
+	defer cancel()
 
 	token, err := a.verifyToken(tokenStr)
 	if err != nil {
@@ -263,34 +298,63 @@ func (a *token) ValidateRefreshToken(r *http.Request, tokenStr string) (*AccessD
 		return nil, x.NewWithCode(x.CodeHTTPUnauthorized, preference.ErrInvalidToken)
 	}
 
-	userID := claims["user_id"].(string)
-	username := claims["name"].(string)
-	role := claims["role"].(string)
-
-	var refreshUUID, redisIDUser string
-
-	// Extract access_uuid from claims
-	accessUUID, _ := claims["access_uuid"].(string)
-
-	refreshUUID, ok = claims["refresh_uuid"].(string)
-	if !ok {
-		return nil, x.NewWithCode(x.CodeHTTPUnauthorized, "Failed claims refresh_uuid")
+	userID := getStringClaim(claims, "user_id")
+	if userID == "" {
+		return nil, x.NewWithCode(x.CodeHTTPUnauthorized, "invalid user_id in token")
 	}
 
-	redisIDUser, err = a.redis.Get(ctx, refreshUUID).Result()
+	username := getStringClaim(claims, "name")
+	if username == "" {
+		return nil, x.NewWithCode(x.CodeHTTPUnauthorized, "invalid name in token")
+	}
+
+	role := getStringClaim(claims, "role")
+	if role == "" {
+		return nil, x.NewWithCode(x.CodeHTTPUnauthorized, "invalid role in token")
+	}
+
+	refreshUUID := getStringClaim(claims, "refresh_uuid")
+	if refreshUUID == "" {
+		return nil, x.NewWithCode(x.CodeHTTPUnauthorized, "invalid refresh_uuid in token")
+	}
+
+	usedKey := RefreshTokenUsedPrefix + refreshUUID
+	used, err := a.redis.Exists(ctx, usedKey).Result()
+	if err == nil && used == 1 {
+		a.redis.Del(ctx, a.getAccessTokenKey(userID))
+		return nil, x.NewWithCode(x.CodeHTTPUnauthorized, "refresh token has been used")
+	}
+
+	redisIDUser, err := a.redis.Get(ctx, refreshUUID).Result()
 	if err != nil {
-		return nil, x.WrapWithCode(err, x.CodeHTTPInternalServerError, "Failed to get token from Redis")
+		return nil, x.WrapWithCode(err, x.CodeHTTPUnauthorized, "refresh token not found or expired")
 	}
 
 	if userID != redisIDUser {
-		return nil, x.NewWithCode(x.CodeHTTPUnauthorized, "Authentication failure")
+		return nil, x.NewWithCode(x.CodeHTTPUnauthorized, "authentication failure")
+	}
+
+	if refreshTokenRotation {
+		a.redis.Set(ctx, usedKey, "1", a.expiredRefreshToken)
+		a.redis.Del(ctx, refreshUUID)
 	}
 
 	return &AccessDetails{
-		AccessUUID:  accessUUID,
 		RefreshUUID: refreshUUID,
-		UserID:      redisIDUser,
+		UserID:      userID,
 		Username:    username,
 		Role:        role,
 	}, nil
+}
+
+func getStringClaim(claims jwt.MapClaims, key string) string {
+	if val, ok := claims[key].(string); ok {
+		return val
+	}
+
+	return ""
+}
+
+func (a *token) getAccessTokenKey(userID string) string {
+	return preference.TokenKeyPrefix + userID
 }

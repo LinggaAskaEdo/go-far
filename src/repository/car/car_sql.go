@@ -21,6 +21,8 @@ func (r *carRepository) createSQLCar(ctx context.Context, tx *sqlx.Tx, car *enti
 		return x.WrapWithCode(err, x.CodeSQLQueryBuild, "build_create_car_query_err")
 	}
 
+	zerolog.Ctx(ctx).Debug().Str("query", query).Any("args", args).Msg("compiled_query")
+
 	err = tx.QueryRowContext(ctx, query, args...).Scan(&car.ID, &car.CreatedAt, &car.UpdatedAt)
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("create_car_err")
@@ -46,6 +48,8 @@ func (r *carRepository) createBulkSQLCars(ctx context.Context, tx *sqlx.Tx, cars
 		zerolog.Ctx(ctx).Error().Err(err).Msg("build_create_bulk_cars_query_err")
 		return x.WrapWithCode(err, x.CodeSQLQueryBuild, "build_create_bulk_cars_query_err")
 	}
+
+	zerolog.Ctx(ctx).Debug().Str("query", query).Any("args", args).Msg("compiled_query")
 
 	_, err = tx.ExecContext(ctx, query, args...)
 	if err != nil {
@@ -74,6 +78,8 @@ func (r *carRepository) updateSQLCar(ctx context.Context, id uuid.UUID, car *ent
 		return x.WrapWithCode(err, x.CodeSQLQueryBuild, "build_update_car_query_err")
 	}
 
+	zerolog.Ctx(ctx).Debug().Str("query", query).Any("args", args).Msg("compiled_query")
+
 	var updatedAt time.Time
 	err = r.sql0.QueryRowContext(ctx, query, args...).Scan(&updatedAt)
 	if err != nil {
@@ -97,6 +103,8 @@ func (r *carRepository) deleteSQLCar(ctx context.Context, id uuid.UUID) error {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("build_delete_car_query_err")
 		return x.WrapWithCode(err, x.CodeSQLQueryBuild, "build_delete_car_query_err")
 	}
+
+	zerolog.Ctx(ctx).Debug().Str("query", query).Any("args", args).Msg("compiled_query")
 
 	result, err := r.sql0.ExecContext(ctx, query, args...)
 	if err != nil {

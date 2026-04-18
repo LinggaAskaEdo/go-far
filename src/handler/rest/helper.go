@@ -23,8 +23,8 @@ func (e *rest) Health(w http.ResponseWriter, r *http.Request) {
 	status := dto.HealthStatus{
 		Status:    "healthy",
 		Timestamp: time.Now().Format(time.RFC3339),
-		Service:   "go-far-app",
-		Version:   "1.0.0",
+		Service:   "go-far",
+		Version:   "1.5.0",
 	}
 
 	e.httpRespSuccess(w, r, http.StatusOK, status, nil)

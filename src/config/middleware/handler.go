@@ -2,6 +2,7 @@ package middleware
 
 import (
 	"context"
+	"encoding/json"
 	"net/http"
 	"strings"
 	"time"
@@ -11,6 +12,10 @@ import (
 	"github.com/rs/xid"
 	"go.opentelemetry.io/otel/trace"
 )
+
+type errorResp struct {
+	Error string `json:"error"`
+}
 
 // contextKey is a custom type for context keys
 type contextKey string
@@ -54,8 +59,12 @@ func GetAuthUser(ctx context.Context) (*AuthUser, bool) {
 
 // isPublicPath checks if a path is exempt from authentication
 func (mw *middleware) isPublicPath(path string) bool {
-	for _, pub := range mw.publicPaths {
-		if pub == path || (strings.HasSuffix(pub, "/") && strings.HasPrefix(path, pub)) {
+	if mw.publicPaths[path] {
+		return true
+	}
+
+	for pub := range mw.publicPaths {
+		if strings.HasSuffix(pub, "/") && strings.HasPrefix(path, pub) {
 			return true
 		}
 	}
@@ -74,13 +83,13 @@ func (mw *middleware) Handler() func(http.Handler) http.Handler {
 			if !isPublic {
 				authHeader := r.Header.Get(preference.HeaderAuthorization)
 				if authHeader == "" {
-					http.Error(w, `{"error":"missing authorization header"}`, http.StatusUnauthorized)
+					mw.writeJSONError(w, http.StatusUnauthorized, "missing authorization header")
 					return
 				}
 
 				accessDetails, err := mw.tkn.ValidateToken(r)
 				if err != nil {
-					http.Error(w, `{"error":"invalid token"}`, http.StatusUnauthorized)
+					mw.writeJSONError(w, http.StatusUnauthorized, "invalid token")
 					return
 				}
 
@@ -180,4 +189,12 @@ func (mw *middleware) attachLogger(ctx context.Context) context.Context {
 		Str(string(preference.CONTEXT_KEY_LOG_SPAN_ID), spanID).
 		Logger().
 		WithContext(ctx)
+}
+
+func (mw *middleware) writeJSONError(w http.ResponseWriter, status int, msg string) {
+	w.Header().Set(preference.HeaderContentType, preference.ContentTypeJSON)
+	w.WriteHeader(status)
+	if data, err := json.Marshal(errorResp{Error: msg}); err == nil {
+		_, _ = w.Write(data)
+	}
 }

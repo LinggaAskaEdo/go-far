@@ -14,10 +14,7 @@ import (
 	"github.com/rs/zerolog"
 )
 
-var (
-	onceGrace = &sync.Once{}
-	wg        sync.WaitGroup
-)
+var onceGrace = &sync.Once{}
 
 // App defines the application interface
 type App interface {
@@ -48,51 +45,34 @@ func InitGrace(log zerolog.Logger, httpServer *http.Server, tracer tracer.Tracer
 }
 
 func (g *app) Serve() {
-	ctx, cancel := context.WithCancel(context.Background())
-
 	signalCh := make(chan os.Signal, 1)
 	signal.Notify(signalCh, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 
+	var wg sync.WaitGroup
 	wg.Add(1)
-	go startHTTPServer(ctx, &wg, g.log, g.httpServer, g.tracer, g.shutdownTimeout)
-
-	<-signalCh
-
-	g.log.Debug().Msg("Gracefully shutting down HTTP server...")
-	cancel()
-	wg.Wait()
-	g.log.Debug().Msg("Shutdown complete...")
-}
-
-func startHTTPServer(ctx context.Context, wg *sync.WaitGroup, log zerolog.Logger, httpServer *http.Server, tracer tracer.Tracer, shutdownTimeout time.Duration) {
-	defer wg.Done()
 
 	go func() {
-		log.Debug().Msg("Starting HTTP server...")
-		log.Debug().Msg("HTTP server start on " + httpServer.Addr)
-
-		err := httpServer.ListenAndServe()
-		if err != nil && err != http.ErrServerClosed {
-			log.Error().AnErr("HTTP server error", err)
+		defer wg.Done()
+		g.log.Info().Str("addr", g.httpServer.Addr).Msg("Starting HTTP server")
+		if err := g.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
+			g.log.Error().Err(err).Msg("HTTP server error")
 		}
 	}()
 
-	<-ctx.Done()
-	log.Debug().Msg("HTTP server started...")
+	<-signalCh
+	g.log.Info().Msg("Received shutdown signal, gracefully shutting down...")
 
-	log.Debug().Msg("Shutting down HTTP server gracefully...")
-	shutdownCtx, cancelShutdown := context.WithTimeout(ctx, shutdownTimeout)
+	shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), g.shutdownTimeout)
 	defer cancelShutdown()
 
-	err := httpServer.Shutdown(shutdownCtx)
-	if err != nil {
-		log.Debug().AnErr("HTTP server shutdown error", err)
+	if err := g.httpServer.Shutdown(shutdownCtx); err != nil {
+		g.log.Error().Err(err).Msg("HTTP server shutdown error")
 	}
 
-	err = tracer.Stop(shutdownCtx)
-	if err != nil {
-		log.Debug().AnErr("Tracer shutdown error", err)
+	if err := g.tracer.Stop(shutdownCtx); err != nil {
+		g.log.Error().Err(err).Msg("Tracer shutdown error")
 	}
 
-	log.Debug().Msg("HTTP server stopped...")
+	wg.Wait()
+	g.log.Info().Msg("Shutdown complete")
 }

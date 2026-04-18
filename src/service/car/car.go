@@ -11,16 +11,16 @@ import (
 )
 
 type CarServiceItf interface {
-	CreateCar(ctx context.Context, req dto.CreateCarRequest) (*entity.Car, error)
-	CreateBulkCars(ctx context.Context, req dto.BulkCreateCarsRequest) ([]*entity.Car, error)
+	CreateCar(ctx context.Context, req dto.CreateCarRequest, ownerUserID string) (*entity.Car, error)
+	CreateBulkCars(ctx context.Context, req dto.BulkCreateCarsRequest, ownerUserID string) ([]*entity.Car, error)
 	GetCar(ctx context.Context, id uuid.UUID) (*entity.Car, error)
 	GetCarWithOwner(ctx context.Context, id uuid.UUID) (*entity.CarWithOwner, error)
 	ListCarsByUser(ctx context.Context, userID uuid.UUID) ([]*entity.Car, error)
 	CountCarsByUser(ctx context.Context, userID uuid.UUID) (int, error)
-	UpdateCar(ctx context.Context, id uuid.UUID, req dto.UpdateCarRequest) (*entity.Car, error)
-	DeleteCar(ctx context.Context, id uuid.UUID) error
-	TransferCarOwnership(ctx context.Context, carID, newUserID uuid.UUID) error
-	BulkUpdateAvailability(ctx context.Context, req dto.BulkUpdateAvailabilityRequest) error
+	UpdateCar(ctx context.Context, id uuid.UUID, req dto.UpdateCarRequest, userID string) (*entity.Car, error)
+	DeleteCar(ctx context.Context, id uuid.UUID, userID string) error
+	TransferCarOwnership(ctx context.Context, carID, newUserID uuid.UUID, userID string) error
+	BulkUpdateAvailability(ctx context.Context, req dto.BulkUpdateAvailabilityRequest, userID string) error
 }
 
 type carService struct {

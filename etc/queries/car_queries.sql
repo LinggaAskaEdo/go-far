@@ -75,3 +75,13 @@ WHERE car_id = {{ .CarID }};
 UPDATE cars
 SET is_available = {{ .IsAvailable }}, updated_at = {{ .UpdatedAt }}
 WHERE id = ANY(ARRAY[{{ range $i, $id := .CarIDs }}{{ if $i }},{{ end }}{{ $id }}{{ end }}]);
+
+-- name: CheckCarOwnership
+SELECT COUNT(*)
+FROM users_cars
+WHERE car_id = {{ .CarID }} AND user_id = {{ .UserID }};
+
+-- name: CheckCarsOwnership
+SELECT car_id
+FROM users_cars
+WHERE car_id = ANY(ARRAY[{{ range $i, $id := .CarIDs }}{{ if $i }},{{ end }}{{ $id }}{{ end }}]) AND user_id = {{ .UserID }};

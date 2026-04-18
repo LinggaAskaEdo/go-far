@@ -62,12 +62,14 @@ scheduler:
   jobs:
     user_generator:
       enabled: true
+      random_user_url: "https://randomuser.me/api/"
       cron: "0 0 */1 * * *" # Every 1 hour
       batch_size: 5
       min_age: 18
       max_age: 80
     car_generator:
       enabled: true
+      nhtsa_api_url: "https://vpic.nhtsa.dot.gov/api/vehicles"
       cron: "0 */30 * * * *" # Every 30 minutes
       batch_size: 3
       min_year: 2015
@@ -100,3 +102,17 @@ middleware:
 
 http:
   app_name: go-far-app
+
+http_client:
+  enabled: true
+  max_idle_conns: 100
+  max_idle_conns_per_host: 10
+  max_conns_per_host: 20
+  idle_conn_timeout: 90s
+  dial_timeout: 30s
+  keep_alive: 30s
+  tls_handshake_timeout: 10s
+  response_header_timeout: 10s
+  expect_continue_timeout: 1s
+  disable_compression: false
+  timeout: 10s

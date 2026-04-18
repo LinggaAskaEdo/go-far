@@ -28,6 +28,12 @@ import (
 func (e *rest) CreateCar(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
+	authUser, ok := middleware.GetAuthUser(ctx)
+	if !ok {
+		e.httpRespError(w, r, x.NewWithCode(x.CodeHTTPUnauthorized, "unauthenticated"))
+		return
+	}
+
 	var req dto.CreateCarRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("invalid_request_body")
@@ -41,7 +47,7 @@ func (e *rest) CreateCar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	car, err := e.svc.Car.CreateCar(ctx, req)
+	car, err := e.svc.Car.CreateCar(ctx, req, authUser.UserID)
 	if err != nil {
 		e.httpRespError(w, r, err)
 		return
@@ -65,6 +71,12 @@ func (e *rest) CreateCar(w http.ResponseWriter, r *http.Request) {
 func (e *rest) CreateBulkCars(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
+	authUser, ok := middleware.GetAuthUser(ctx)
+	if !ok {
+		e.httpRespError(w, r, x.NewWithCode(x.CodeHTTPUnauthorized, "unauthenticated"))
+		return
+	}
+
 	var req dto.BulkCreateCarsRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("invalid_request_body")
@@ -72,7 +84,13 @@ func (e *rest) CreateBulkCars(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	cars, err := e.svc.Car.CreateBulkCars(ctx, req)
+	if err := dto.ValidateRequest(&req); err != nil {
+		zerolog.Ctx(ctx).Warn().Err(err).Msg("validation_failed_create_bulk_cars")
+		e.httpRespError(w, r, err)
+		return
+	}
+
+	cars, err := e.svc.Car.CreateBulkCars(ctx, req, authUser.UserID)
 	if err != nil {
 		e.httpRespError(w, r, err)
 		return
@@ -244,6 +262,12 @@ func (e *rest) CountCarsByUser(w http.ResponseWriter, r *http.Request) {
 func (e *rest) UpdateCar(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
+	authUser, ok := middleware.GetAuthUser(ctx)
+	if !ok {
+		e.httpRespError(w, r, x.NewWithCode(x.CodeHTTPUnauthorized, "unauthenticated"))
+		return
+	}
+
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("invalid_car_id")
@@ -264,7 +288,7 @@ func (e *rest) UpdateCar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	car, err := e.svc.Car.UpdateCar(ctx, id, req)
+	car, err := e.svc.Car.UpdateCar(ctx, id, req, authUser.UserID)
 	if err != nil {
 		e.httpRespError(w, r, err)
 		return
@@ -287,6 +311,12 @@ func (e *rest) UpdateCar(w http.ResponseWriter, r *http.Request) {
 func (e *rest) DeleteCar(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
+	authUser, ok := middleware.GetAuthUser(ctx)
+	if !ok {
+		e.httpRespError(w, r, x.NewWithCode(x.CodeHTTPUnauthorized, "unauthenticated"))
+		return
+	}
+
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("invalid_car_id")
@@ -294,7 +324,7 @@ func (e *rest) DeleteCar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := e.svc.Car.DeleteCar(ctx, id); err != nil {
+	if err := e.svc.Car.DeleteCar(ctx, id, authUser.UserID); err != nil {
 		e.httpRespError(w, r, err)
 		return
 	}
@@ -319,6 +349,12 @@ func (e *rest) DeleteCar(w http.ResponseWriter, r *http.Request) {
 func (e *rest) TransferCarOwnership(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
+	authUser, ok := middleware.GetAuthUser(ctx)
+	if !ok {
+		e.httpRespError(w, r, x.NewWithCode(x.CodeHTTPUnauthorized, "unauthenticated"))
+		return
+	}
+
 	carID, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("invalid_car_id")
@@ -333,7 +369,7 @@ func (e *rest) TransferCarOwnership(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := e.svc.Car.TransferCarOwnership(ctx, carID, req.NewUserID); err != nil {
+	if err := e.svc.Car.TransferCarOwnership(ctx, carID, req.NewUserID, authUser.UserID); err != nil {
 		e.httpRespError(w, r, err)
 		return
 	}
@@ -356,6 +392,12 @@ func (e *rest) TransferCarOwnership(w http.ResponseWriter, r *http.Request) {
 func (e *rest) BulkUpdateAvailability(w http.ResponseWriter, r *http.Request) {
 	ctx := r.Context()
 
+	authUser, ok := middleware.GetAuthUser(ctx)
+	if !ok {
+		e.httpRespError(w, r, x.NewWithCode(x.CodeHTTPUnauthorized, "unauthenticated"))
+		return
+	}
+
 	var req dto.BulkUpdateAvailabilityRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("invalid_request_body")
@@ -363,7 +405,7 @@ func (e *rest) BulkUpdateAvailability(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := e.svc.Car.BulkUpdateAvailability(ctx, req); err != nil {
+	if err := e.svc.Car.BulkUpdateAvailability(ctx, req, authUser.UserID); err != nil {
 		e.httpRespError(w, r, err)
 		return
 	}

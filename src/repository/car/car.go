@@ -25,6 +25,8 @@ type CarRepositoryItf interface {
 	Delete(ctx context.Context, id uuid.UUID) error
 	TransferOwnership(ctx context.Context, carID, newUserID uuid.UUID) error
 	BulkUpdateAvailability(ctx context.Context, carIDs []uuid.UUID, isAvailable bool) error
+	IsCarOwnedByUser(ctx context.Context, carID uuid.UUID, userID string) (bool, error)
+	AreCarsOwnedByUser(ctx context.Context, carIDs []uuid.UUID, userID string) (map[uuid.UUID]bool, error)
 }
 
 type carRepository struct {

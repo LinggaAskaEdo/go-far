@@ -38,20 +38,22 @@ type SchedulerJobsOptions struct {
 
 // UserGeneratorJobOptions holds user generator job configuration
 type UserGeneratorJobOptions struct {
-	Enabled   bool   `yaml:"enabled"`
-	Cron      string `yaml:"cron"`
-	BatchSize int    `yaml:"batch_size"`
-	MinAge    int    `yaml:"min_age"`
-	MaxAge    int    `yaml:"max_age"`
+	Enabled       bool   `yaml:"enabled"`
+	RandomUserURL string `yaml:"random_user_url"`
+	Cron          string `yaml:"cron"`
+	BatchSize     int    `yaml:"batch_size"`
+	MinAge        int    `yaml:"min_age"`
+	MaxAge        int    `yaml:"max_age"`
 }
 
 // CarGeneratorJobOptions holds car generator job configuration
 type CarGeneratorJobOptions struct {
-	Enabled   bool   `yaml:"enabled"`
-	Cron      string `yaml:"cron"`
-	BatchSize int    `yaml:"batch_size"`
-	MinYear   int    `yaml:"min_year"`
-	MaxYear   int    `yaml:"max_year"`
+	Enabled     bool   `yaml:"enabled"`
+	NHTSAAPIURL string `yaml:"nhtsa_api_url"`
+	Cron        string `yaml:"cron"`
+	BatchSize   int    `yaml:"batch_size"`
+	MinYear     int    `yaml:"min_year"`
+	MaxYear     int    `yaml:"max_year"`
 }
 
 // InitScheduler initializes the scheduler

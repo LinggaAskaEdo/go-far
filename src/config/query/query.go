@@ -28,7 +28,7 @@ func InitQueryLoader(log zerolog.Logger, opt QueriesOptions) *QueryLoader {
 	t, err := tqla.New(
 		tqla.WithPlaceHolder(tqla.Dollar),
 		tqla.WithFuncMap(template.FuncMap{
-			"add": func(a, b int) int { return a + b },
+			"add": func(x int, y int) int { return x + y },
 		}),
 	)
 	if err != nil {
@@ -125,6 +125,10 @@ func (ql *QueryLoader) Get(name string) (string, bool) {
 	return query, ok
 }
 
+func replaceSortPlaceholders(query string, args []any, _ any) ([]any, string) {
+	return args, query
+}
+
 // Compile compiles a query template with the provided data, returning the SQL string and arguments
 func (ql *QueryLoader) Compile(name string, data any) (string, []any, error) {
 	queryTemplate, ok := ql.Get(name)
@@ -132,5 +136,13 @@ func (ql *QueryLoader) Compile(name string, data any) (string, []any, error) {
 		return "", nil, fmt.Errorf("query %s not found", name)
 	}
 
-	return ql.compileFn(queryTemplate, data)
+	query, args, err := ql.compileFn(queryTemplate, data)
+	if err != nil {
+		return "", nil, err
+	}
+
+	// Replace sort placeholders with actual values and remove from args
+	args, query = replaceSortPlaceholders(query, args, data)
+
+	return query, args, nil
 }

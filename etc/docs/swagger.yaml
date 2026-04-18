@@ -7,11 +7,8 @@ definitions:
         maxItems: 50
         minItems: 1
         type: array
-      user_id:
-        type: string
     required:
     - cars
-    - user_id
     type: object
   dto.BulkUpdateAvailabilityRequest:
     properties:
@@ -42,8 +39,6 @@ definitions:
         maxLength: 100
         minLength: 2
         type: string
-      user_id:
-        type: string
       year:
         maximum: 2100
         minimum: 1900
@@ -52,7 +47,6 @@ definitions:
     - brand
     - license_plate
     - model
-    - user_id
     - year
     type: object
   dto.CreateUserRequest:
@@ -371,7 +365,7 @@ info:
     url: http://www.apache.org/licenses/LICENSE-2.0.html
   termsOfService: http://swagger.io/terms/
   title: Go-Far
-  version: "1.0"
+  version: 1.5.0
 paths:
   /auth/login:
     post:
