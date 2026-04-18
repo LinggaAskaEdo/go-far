@@ -14,7 +14,8 @@ A production-ready RESTful API built with Go following Domain-Driven Design prin
 - **Scheduled Jobs** - Cron-based job scheduler
 - **API Documentation** - Swagger/OpenAPI 2.0
 - **Graceful Shutdown** - Proper cleanup of resources
-- **Many-to-Many Relationships** - Users and cars via junction table
+  - **Many-to-Many Relationships** - Users and cars via junction table
+  - **Generic Query Decoder** - Reflection-based HTTP query decoder for reusable filter handling
 
 ## 📁 Project Structure
 
@@ -85,6 +86,7 @@ go-far/
 | Validation      | go-playground/validator      |
 | Docs            | Swagger (swaggo)             |
 | SQL Templating  | tqla                         |
+| Query Decoder   | Custom reflection-based      |
 
 ## 📋 API Endpoints
 
@@ -426,6 +428,29 @@ curl -X POST http://localhost:8181/cars \
 ```bash
 curl -X GET "http://localhost:8181/users?page=1&page_size=10&sort_by=name&sort_dir=asc"
 ```
+
+### Generic Query Decoder Usage
+
+The `util.DecodeQuery` function automatically decodes HTTP query parameters to DTOs using struct tags:
+
+```go
+// DTO with param or form tags
+type UserFilter struct {
+    Name     string `param:"name"`
+    Email    string `param:"email"`
+    MinAge   int    `param:"min_age"`
+    MaxAge   int    `param:"max_age"`
+    Page     int64  `param:"page"`
+    PageSize int64  `param:"page_size"`
+    SortBy   string `param:"sort_by"`
+    SortDir  string `param:"sort_dir"`
+}
+
+// Handler usage - single line instead of 30+ lines
+filter := util.DecodeQuery[dto.UserFilter](r.URL.Query())
+```
+
+Supports: `string`, `int`, `int64`, `float64`, `bool`, `time.Time`, `[]string`
 
 ## 🔒 Authentication
 

@@ -45,6 +45,7 @@ const (
 	RouteAuthLogin        string = "/auth/login"
 	RouteAuthRefresh      string = "/auth/refresh"
 	RouteUsers            string = "/users"
+	RouteUsersV2          string = "/v2/users"
 	RouteUsersByID        string = "/users/{id}"
 	RouteHealth           string = "/health"
 	RouteReady            string = "/ready"

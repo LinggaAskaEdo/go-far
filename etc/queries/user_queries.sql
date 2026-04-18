@@ -79,3 +79,7 @@ VALUES
 {{- range $i, $user := . }}
   {{ if $i }},{{ end }} ({{ $user.Email }}, {{ $user.Name }}, {{ $user.Age }}, {{ $user.Role }}, {{ $user.CreatedAt }}, {{ $user.UpdatedAt }})
 {{- end }};
+
+-- name: FindUsersBaseV2
+SELECT id, email, name, age, role, is_active, created_at, updated_at
+FROM users;

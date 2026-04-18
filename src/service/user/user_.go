@@ -61,6 +61,10 @@ func (s *userService) ListUsers(ctx context.Context, cacheControl dto.CacheContr
 	return s.userRepository.FindAll(ctx, cacheControl, filter)
 }
 
+func (s *userService) ListUsersV2(ctx context.Context, filter dto.UserFilterV2) (*[]entity.User, *dto.Pagination, error) {
+	return s.userRepository.FindAllV2(ctx, filter)
+}
+
 func (s *userService) UpdateUser(ctx context.Context, id string, req dto.UpdateUserRequest) (*entity.User, error) {
 	existingUser, err := s.userRepository.FindByID(ctx, id)
 	if err != nil {

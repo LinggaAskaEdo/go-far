@@ -53,6 +53,18 @@ type UserFilter struct {
 	SortDir  string `form:"sort_dir" binding:"omitempty,oneof=asc desc"`
 }
 
+type UserFilterV2 struct {
+	ID       string `param:"id" db:"id"`
+	Name     string `param:"name" db:"name"`
+	Email    string `param:"email" db:"email"`
+	MinAge   int    `param:"min_age__gte" db:"age"`
+	MaxAge   int    `param:"max_age__lte" db:"age"`
+	Page     int64  `param:"-"`
+	PageSize int64  `param:"-"`
+	SortBy   string `param:"-"`
+	SortDir  string `param:"-"`
+}
+
 type CreateCarRequest struct {
 	Brand        string `json:"brand" binding:"required,min=2,max=100"`
 	Model        string `json:"model" binding:"required,min=2,max=100"`

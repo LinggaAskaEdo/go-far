@@ -74,6 +74,7 @@ func (e *rest) Serve() {
 	e.mux.Handle("POST "+preference.RouteUsers, limiter(http.HandlerFunc(e.CreateUser)))
 	e.mux.Handle("GET "+preference.RouteUsersByID, limiter(http.HandlerFunc(e.GetUser)))
 	e.mux.Handle("GET "+preference.RouteUsers, limiter(http.HandlerFunc(e.ListUsers)))
+	e.mux.Handle("GET "+preference.RouteUsersV2, limiter(http.HandlerFunc(e.ListUsersV2)))
 	e.mux.Handle("PUT "+preference.RouteUsersByID, limiter(http.HandlerFunc(e.UpdateUser)))
 	e.mux.Handle("DELETE "+preference.RouteUsersByID, limiter(http.HandlerFunc(e.DeleteUser)))
 }

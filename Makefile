@@ -25,7 +25,7 @@ WHITE          := \033[37m
 RESET          := \033[0m
 COMMA          := ,
 
-.PHONY: all help build run clean swagger migrate deps fmt vet lint test check install-tools update sql-postgres-create sql-postgres-up sql-mysql-create sql-mysql-up monitoring-start monitoring-stop
+.PHONY: all help build run clean swagger migrate deps fmt vet lint test check install-tools update sql-postgres-create sql-postgres-up sql-mysql-create sql-mysql-up monitoring-start monitoring-stop kill
 
 ## Show this help message
 help:
@@ -43,6 +43,7 @@ help:
 	@printf "  $(GREEN)make build$(RESET)                 Build application with optimizations\n"
 	@printf "  $(GREEN)make run$(RESET)                   Run the built application\n"
 	@printf "  $(GREEN)make clean$(RESET)                 Remove build artifacts\n"
+	@printf "  $(GREEN)make kill$(RESET)                  Kill app running on port 8181\n"
 	@echo ""
 	@printf "$(YELLOW)Code Quality:$(RESET)\n"
 	@printf "  $(GREEN)make check$(RESET)                 Run all checks (fmt, vet, lint)\n"
@@ -139,6 +140,12 @@ build: clean check swagger
 run:
 	@echo "Starting application..."
 	@$(BIN_DIR)/$(BINARY_NAME)
+
+## Kill app running on port 8181
+kill:
+	@echo "Killing app on port 8181..."
+	@pkill -f "./bin/app" || true
+	@echo "Done"
 
 ## Download and tidy dependencies
 deps:

@@ -41,9 +41,16 @@ func InitQueryLoader(log zerolog.Logger, opt QueriesOptions) *QueryLoader {
 
 	ql := &QueryLoader{
 		compileFn: func(templateStr string, data any) (string, []any, error) {
+			var dataValue reflect.Value
+			if data != nil {
+				dataValue = reflect.ValueOf(data)
+			} else {
+				dataValue = reflect.Zero(reflect.TypeOf((*interface{})(nil)).Elem())
+			}
+
 			results := compileMethod.Call([]reflect.Value{
 				reflect.ValueOf(templateStr),
-				reflect.ValueOf(data),
+				dataValue,
 			})
 
 			sql := results[0].Interface().(string)

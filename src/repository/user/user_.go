@@ -144,3 +144,12 @@ func (d *userRepository) Update(ctx context.Context, id string, user *entity.Use
 func (d *userRepository) Delete(ctx context.Context, id string) error {
 	return d.deleteSQLUser(ctx, id)
 }
+
+func (d *userRepository) FindAllV2(ctx context.Context, filter dto.UserFilterV2) (*[]entity.User, *dto.Pagination, error) {
+	result, pagination, err := d.findAllSQLUserV2(ctx, filter)
+	if err != nil {
+		return nil, pagination, err
+	}
+
+	return result, pagination, nil
+}
