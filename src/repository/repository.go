@@ -7,7 +7,7 @@ import (
 	"go-far/src/repository/car"
 	"go-far/src/repository/user"
 
-	"github.com/jmoiron/sqlx"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -16,7 +16,7 @@ type Repository struct {
 	Car  car.CarRepositoryItf
 }
 
-func InitRepository(sql0 *sqlx.DB, redis0 *redis.Client, queryLoader *query.QueryLoader, cacheTTL time.Duration) *Repository {
+func InitRepository(sql0 *pgxpool.Pool, redis0 *redis.Client, queryLoader *query.QueryLoader, cacheTTL time.Duration) *Repository {
 	return &Repository{
 		User: user.InitUserRepository(
 			sql0,

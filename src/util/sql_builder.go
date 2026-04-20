@@ -9,7 +9,6 @@ import (
 	"strings"
 	"time"
 
-	_ "github.com/jmoiron/sqlx"
 	_ "github.com/lib/pq"
 )
 

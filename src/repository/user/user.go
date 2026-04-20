@@ -8,7 +8,7 @@ import (
 	"go-far/src/model/dto"
 	"go-far/src/model/entity"
 
-	"github.com/jmoiron/sqlx"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -23,13 +23,13 @@ type UserRepositoryItf interface {
 }
 
 type userRepository struct {
-	sql0        *sqlx.DB
+	sql0        *pgxpool.Pool
 	redis0      *redis.Client
 	queryLoader *query.QueryLoader
 	cacheTTL    time.Duration
 }
 
-func InitUserRepository(sql0 *sqlx.DB, redis0 *redis.Client, queryLoader *query.QueryLoader, cacheTTL time.Duration) UserRepositoryItf {
+func InitUserRepository(sql0 *pgxpool.Pool, redis0 *redis.Client, queryLoader *query.QueryLoader, cacheTTL time.Duration) UserRepositoryItf {
 	return &userRepository{
 		sql0:        sql0,
 		redis0:      redis0,

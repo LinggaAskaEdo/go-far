@@ -10,7 +10,7 @@ import (
 	"go-far/src/service"
 	"go-far/src/service/user"
 
-	"github.com/jmoiron/sqlx"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -22,11 +22,11 @@ type rest struct {
 	mw    middleware.Middleware
 	svc   *service.Service
 	usvc  user.UserServiceItf
-	sql0  *sqlx.DB
+	sql0  *pgxpool.Pool
 	redis *redis.Client
 }
 
-func InitRestHandler(mux *http.ServeMux, auth token.Token, mw middleware.Middleware, svc *service.Service, usvc user.UserServiceItf, sql0 *sqlx.DB, redis *redis.Client) {
+func InitRestHandler(mux *http.ServeMux, auth token.Token, mw middleware.Middleware, svc *service.Service, usvc user.UserServiceItf, sql0 *pgxpool.Pool, redis *redis.Client) {
 	var e *rest
 
 	onceRestHandler.Do(func() {

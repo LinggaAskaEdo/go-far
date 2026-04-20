@@ -2,7 +2,6 @@ package car
 
 import (
 	"context"
-	"database/sql"
 	"time"
 
 	"go-far/src/model/entity"
@@ -10,11 +9,11 @@ import (
 	"go-far/src/util"
 
 	"github.com/google/uuid"
-	"github.com/jmoiron/sqlx"
+	"github.com/jackc/pgx/v5"
 	"github.com/rs/zerolog"
 )
 
-func (r *carRepository) createSQLCar(ctx context.Context, tx *sqlx.Tx, car *entity.Car) error {
+func (r *carRepository) createSQLCar(ctx context.Context, tx pgx.Tx, car *entity.Car) error {
 	query, args, err := r.queryLoader.Compile("CreateCar", car)
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("build_create_car_query_err")
@@ -23,7 +22,7 @@ func (r *carRepository) createSQLCar(ctx context.Context, tx *sqlx.Tx, car *enti
 
 	zerolog.Ctx(ctx).Debug().Str("query", util.CleanQuery(query)).Any("args", args).Msg("compiled_query")
 
-	err = tx.QueryRowContext(ctx, query, args...).Scan(&car.ID, &car.CreatedAt, &car.UpdatedAt)
+	err = tx.QueryRow(ctx, query, args...).Scan(&car.ID, &car.Brand, &car.Model, &car.Year, &car.Color, &car.LicensePlate, &car.IsAvailable, &car.CreatedAt, &car.UpdatedAt)
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("create_car_err")
 		return x.Wrap(err, "create_car_err")
@@ -32,7 +31,7 @@ func (r *carRepository) createSQLCar(ctx context.Context, tx *sqlx.Tx, car *enti
 	return nil
 }
 
-func (r *carRepository) createBulkSQLCars(ctx context.Context, tx *sqlx.Tx, cars []*entity.Car) error {
+func (r *carRepository) createBulkSQLCars(ctx context.Context, tx pgx.Tx, cars []*entity.Car) error {
 	if len(cars) == 0 {
 		return x.NewWithCode(x.CodeHTTPBadRequest, "no cars to create")
 	}
@@ -51,7 +50,7 @@ func (r *carRepository) createBulkSQLCars(ctx context.Context, tx *sqlx.Tx, cars
 
 	zerolog.Ctx(ctx).Debug().Str("query", util.CleanQuery(query)).Any("args", args).Msg("compiled_query")
 
-	_, err = tx.ExecContext(ctx, query, args...)
+	_, err = tx.Exec(ctx, query, args...)
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("create_bulk_cars_err")
 		return x.Wrap(err, "create_bulk_cars_err")
@@ -81,9 +80,9 @@ func (r *carRepository) updateSQLCar(ctx context.Context, id uuid.UUID, car *ent
 	zerolog.Ctx(ctx).Debug().Str("query", util.CleanQuery(query)).Any("args", args).Msg("compiled_query")
 
 	var updatedAt time.Time
-	err = r.sql0.QueryRowContext(ctx, query, args...).Scan(&updatedAt)
+	err = r.sql0.QueryRow(ctx, query, args...).Scan(&updatedAt)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if err == pgx.ErrNoRows {
 			zerolog.Ctx(ctx).Debug().Str("id", id.String()).Msg("car_not_found_for_update")
 			return x.NewWithCode(x.CodeSQLEmptyRow, "car_not_found_for_update")
 		}
@@ -103,17 +102,13 @@ func (r *carRepository) deleteSQLCar(ctx context.Context, id uuid.UUID) error {
 
 	zerolog.Ctx(ctx).Debug().Str("query", util.CleanQuery(query)).Any("args", args).Msg("compiled_query")
 
-	result, err := r.sql0.ExecContext(ctx, query, args...)
+	result, err := r.sql0.Exec(ctx, query, args...)
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Str("id", id.String()).Msg("delete_car_err")
 		return x.WrapWithCode(err, x.CodeSQLDelete, "delete_car_err")
 	}
 
-	rows, err := result.RowsAffected()
-	if err != nil {
-		zerolog.Ctx(ctx).Error().Err(err).Str("id", id.String()).Msg("failed_to_get_rows_affected")
-		return x.WrapWithCode(err, x.CodeSQLDelete, "failed_to_get_rows_affected")
-	}
+	rows := result.RowsAffected()
 
 	if rows == 0 {
 		zerolog.Ctx(ctx).Debug().Str("id", id.String()).Msg("car_not_found_for_deletion")
@@ -124,8 +119,6 @@ func (r *carRepository) deleteSQLCar(ctx context.Context, id uuid.UUID) error {
 }
 
 func (r *carRepository) findCarSQLByID(ctx context.Context, id uuid.UUID) (*entity.Car, error) {
-	var car entity.Car
-
 	query, args, err := r.queryLoader.Compile("FindCarByID", map[string]any{"ID": id})
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("build_find_car_query_err")
@@ -134,9 +127,10 @@ func (r *carRepository) findCarSQLByID(ctx context.Context, id uuid.UUID) (*enti
 
 	zerolog.Ctx(ctx).Debug().Str("query", util.CleanQuery(query)).Any("args", args).Msg("compiled_query")
 
-	err = r.sql0.GetContext(ctx, &car, query, args...)
+	var car entity.Car
+	err = r.sql0.QueryRow(ctx, query, args...).Scan(&car)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if err == pgx.ErrNoRows {
 			zerolog.Ctx(ctx).Debug().Str("id", id.String()).Msg("car_not_found")
 			return nil, x.WrapWithCode(err, x.CodeSQLEmptyRow, "car_not_found")
 		}
@@ -149,8 +143,6 @@ func (r *carRepository) findCarSQLByID(ctx context.Context, id uuid.UUID) (*enti
 }
 
 func (r *carRepository) findCarByUserIDSQL(ctx context.Context, userID uuid.UUID) ([]*entity.Car, error) {
-	var cars []*entity.Car
-
 	query, args, err := r.queryLoader.Compile("FindCarsByUserID", map[string]any{"UserID": userID})
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("build_find_cars_query_err")
@@ -159,18 +151,27 @@ func (r *carRepository) findCarByUserIDSQL(ctx context.Context, userID uuid.UUID
 
 	zerolog.Ctx(ctx).Debug().Str("query", util.CleanQuery(query)).Any("args", args).Msg("compiled_query")
 
-	err = r.sql0.SelectContext(ctx, &cars, query, args...)
+	rows, err := r.sql0.Query(ctx, query, args...)
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Str("user_id", userID.String()).Msg("find_cars_by_user_err")
 		return nil, x.WrapWithCode(err, x.CodeSQLRowScan, "find_cars_by_user_err")
+	}
+	defer rows.Close()
+
+	var cars []*entity.Car
+	for rows.Next() {
+		var car entity.Car
+		if err := rows.Scan(&car.ID, &car.Brand, &car.Model, &car.Year, &car.Color, &car.LicensePlate, &car.IsAvailable, &car.CreatedAt, &car.UpdatedAt); err != nil {
+			zerolog.Ctx(ctx).Error().Err(err).Msg("scan_car_err")
+			return nil, x.WrapWithCode(err, x.CodeSQLRowScan, "scan_car_err")
+		}
+		cars = append(cars, &car)
 	}
 
 	return cars, nil
 }
 
 func (r *carRepository) countCarsByUserIDSQL(ctx context.Context, userID uuid.UUID) (int, error) {
-	var count int
-
 	query, args, err := r.queryLoader.Compile("CountCarsByUserID", map[string]any{"UserID": userID})
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("build_count_cars_query_err")
@@ -179,7 +180,8 @@ func (r *carRepository) countCarsByUserIDSQL(ctx context.Context, userID uuid.UU
 
 	zerolog.Ctx(ctx).Debug().Str("query", util.CleanQuery(query)).Any("args", args).Msg("compiled_query")
 
-	err = r.sql0.GetContext(ctx, &count, query, args...)
+	var count int
+	err = r.sql0.QueryRow(ctx, query, args...).Scan(&count)
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Str("user_id", userID.String()).Msg("count_cars_by_user_err")
 		return 0, x.WrapWithCode(err, x.CodeSQLRowScan, "count_cars_by_user_err")
@@ -200,7 +202,7 @@ func (r *carRepository) assignCarToUserSQL(ctx context.Context, userID uuid.UUID
 
 	zerolog.Ctx(ctx).Debug().Str("query", util.CleanQuery(query)).Any("args", args).Msg("compiled_query")
 
-	_, err = r.sql0.ExecContext(ctx, query, args...)
+	_, err = r.sql0.Exec(ctx, query, args...)
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Str("user_id", userID.String()).Str("car_id", carID.String()).Msg("assign_car_to_user_err")
 		return x.Wrap(err, "assign_car_to_user_err")
@@ -223,7 +225,7 @@ func (r *carRepository) assignCarsToUserBulkSQL(ctx context.Context, userID uuid
 
 	zerolog.Ctx(ctx).Debug().Str("query", util.CleanQuery(query)).Any("args", args).Msg("compiled_query")
 
-	_, err = r.sql0.ExecContext(ctx, query, args...)
+	_, err = r.sql0.Exec(ctx, query, args...)
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Str("user_id", userID.String()).Msg("assign_cars_to_user_bulk_err")
 		return x.Wrap(err, "assign_cars_to_user_bulk_err")
@@ -233,8 +235,6 @@ func (r *carRepository) assignCarsToUserBulkSQL(ctx context.Context, userID uuid
 }
 
 func (r *carRepository) findCarByIDWithOwnerSQL(ctx context.Context, id uuid.UUID) (*entity.CarWithOwner, error) {
-	var carWithOwner entity.CarWithOwner
-
 	query, args, err := r.queryLoader.Compile("FindCarByIDWithOwner", map[string]any{"ID": id})
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("build_find_car_with_owner_query_err")
@@ -243,9 +243,10 @@ func (r *carRepository) findCarByIDWithOwnerSQL(ctx context.Context, id uuid.UUI
 
 	zerolog.Ctx(ctx).Debug().Str("query", util.CleanQuery(query)).Any("args", args).Msg("compiled_query")
 
-	err = r.sql0.GetContext(ctx, &carWithOwner, query, args...)
+	var carWithOwner entity.CarWithOwner
+	err = r.sql0.QueryRow(ctx, query, args...).Scan(&carWithOwner)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if err == pgx.ErrNoRows {
 			zerolog.Ctx(ctx).Debug().Str("id", id.String()).Msg("car_not_found")
 			return nil, x.WrapWithCode(err, x.CodeSQLEmptyRow, "car_not_found")
 		}
@@ -271,17 +272,13 @@ func (r *carRepository) transferOwnershipSQL(ctx context.Context, carID, newUser
 
 	zerolog.Ctx(ctx).Debug().Str("query", util.CleanQuery(query)).Any("args", args).Msg("compiled_query")
 
-	result, err := r.sql0.ExecContext(ctx, query, args...)
+	result, err := r.sql0.Exec(ctx, query, args...)
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Str("car_id", carID.String()).Msg("transfer_ownership_err")
 		return x.WrapWithCode(err, x.CodeSQLUpdate, "transfer_ownership_err")
 	}
 
-	rows, err := result.RowsAffected()
-	if err != nil {
-		zerolog.Ctx(ctx).Error().Err(err).Str("car_id", carID.String()).Msg("failed_to_get_rows_affected")
-		return x.WrapWithCode(err, x.CodeSQLUpdate, "failed_to_get_rows_affected")
-	}
+	rows := result.RowsAffected()
 
 	if rows == 0 {
 		zerolog.Ctx(ctx).Debug().Str("car_id", carID.String()).Msg("car_not_found_for_transfer")
@@ -315,17 +312,13 @@ func (r *carRepository) bulkUpdateAvailabilitySQL(ctx context.Context, carIDs []
 
 	zerolog.Ctx(ctx).Debug().Str("query", util.CleanQuery(query)).Any("args", args).Msg("compiled_query")
 
-	result, err := r.sql0.ExecContext(ctx, query, args...)
+	result, err := r.sql0.Exec(ctx, query, args...)
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("bulk_update_availability_err")
 		return x.WrapWithCode(err, x.CodeSQLUpdate, "bulk_update_availability_err")
 	}
 
-	rows, err := result.RowsAffected()
-	if err != nil {
-		zerolog.Ctx(ctx).Error().Err(err).Msg("failed_to_get_rows_affected")
-		return x.WrapWithCode(err, x.CodeSQLUpdate, "failed_to_get_rows_affected")
-	}
+	rows := result.RowsAffected()
 
 	zerolog.Ctx(ctx).Debug().Int64("rows_affected", rows).Msg("bulk_update_availability_success")
 
@@ -345,9 +338,9 @@ func (r *carRepository) checkCarOwnershipSQL(ctx context.Context, carID uuid.UUI
 	zerolog.Ctx(ctx).Debug().Str("query", util.CleanQuery(query)).Any("args", args).Msg("compiled_query")
 
 	var count int
-	err = r.sql0.GetContext(ctx, &count, query, args...)
+	err = r.sql0.QueryRow(ctx, query, args...).Scan(&count)
 	if err != nil {
-		if err == sql.ErrNoRows {
+		if err == pgx.ErrNoRows {
 			return false, nil
 		}
 
@@ -374,15 +367,20 @@ func (r *carRepository) checkCarsOwnershipSQL(ctx context.Context, carIDs []uuid
 
 	zerolog.Ctx(ctx).Debug().Str("query", util.CleanQuery(query)).Any("args", args).Msg("compiled_query")
 
-	var ownedCarIDs []uuid.UUID
-	err = r.sql0.SelectContext(ctx, &ownedCarIDs, query, args...)
+	rows, err := r.sql0.Query(ctx, query, args...)
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("check_cars_ownership_err")
 		return nil, x.WrapWithCode(err, x.CodeSQLRead, "check_cars_ownership_err")
 	}
+	defer rows.Close()
 
-	ownedSet := make(map[uuid.UUID]struct{}, len(ownedCarIDs))
-	for _, id := range ownedCarIDs {
+	ownedSet := make(map[uuid.UUID]struct{})
+	for rows.Next() {
+		var id uuid.UUID
+		if err := rows.Scan(&id); err != nil {
+			zerolog.Ctx(ctx).Error().Err(err).Msg("scan_owned_car_err")
+			return nil, x.WrapWithCode(err, x.CodeSQLRowScan, "scan_owned_car_err")
+		}
 		ownedSet[id] = struct{}{}
 	}
 

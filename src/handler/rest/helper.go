@@ -45,7 +45,7 @@ func (e *rest) Ready(w http.ResponseWriter, r *http.Request) {
 	ready := true
 
 	// Check database
-	if err := e.sql0.PingContext(ctx); err != nil {
+	if err := e.sql0.Ping(ctx); err != nil {
 		depStatus["database"] = preference.StatusNotReady
 		ready = false
 	} else {

@@ -2,7 +2,6 @@ package car
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 
@@ -16,7 +15,7 @@ import (
 const cacheKeyCar = "car:%s"
 
 func (r *carRepository) Create(ctx context.Context, car *entity.Car) error {
-	tx, err := r.sql0.BeginTxx(ctx, &sql.TxOptions{Isolation: sql.LevelDefault})
+	tx, err := r.sql0.Begin(ctx)
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("tx_create_car")
 		return x.Wrap(err, "tx_create_car")
@@ -24,7 +23,7 @@ func (r *carRepository) Create(ctx context.Context, car *entity.Car) error {
 
 	defer func() {
 		if err != nil {
-			if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			if rollbackErr := tx.Rollback(ctx); rollbackErr != nil {
 				zerolog.Ctx(ctx).Error().Err(rollbackErr).Msg("rollback_create_car")
 			}
 		}
@@ -35,7 +34,7 @@ func (r *carRepository) Create(ctx context.Context, car *entity.Car) error {
 		return err
 	}
 
-	if err = tx.Commit(); err != nil {
+	if err = tx.Commit(ctx); err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("commit_create_car")
 		return x.Wrap(err, "commit_create_car")
 	}
@@ -44,7 +43,7 @@ func (r *carRepository) Create(ctx context.Context, car *entity.Car) error {
 }
 
 func (r *carRepository) CreateBulk(ctx context.Context, cars []*entity.Car) error {
-	tx, err := r.sql0.BeginTxx(ctx, &sql.TxOptions{Isolation: sql.LevelDefault})
+	tx, err := r.sql0.Begin(ctx)
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("tx_create_bulk_cars")
 		return x.Wrap(err, "tx_create_bulk_cars")
@@ -52,7 +51,7 @@ func (r *carRepository) CreateBulk(ctx context.Context, cars []*entity.Car) erro
 
 	defer func() {
 		if err != nil {
-			if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			if rollbackErr := tx.Rollback(ctx); rollbackErr != nil {
 				zerolog.Ctx(ctx).Error().Err(rollbackErr).Msg("rollback_create_bulk_cars")
 			}
 		}
@@ -63,7 +62,7 @@ func (r *carRepository) CreateBulk(ctx context.Context, cars []*entity.Car) erro
 		return err
 	}
 
-	if err = tx.Commit(); err != nil {
+	if err = tx.Commit(ctx); err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("commit_create_bulk_cars")
 		return x.Wrap(err, "commit_create_bulk_cars")
 	}
@@ -157,7 +156,7 @@ func (r *carRepository) BulkUpdateAvailability(ctx context.Context, carIDs []uui
 	}
 
 	for _, id := range carIDs {
-		cacheKey := "car:" + id.String()
+		cacheKey := fmt.Sprintf(cacheKeyCar, id.String())
 		r.redis0.Del(ctx, cacheKey)
 	}
 

@@ -23,15 +23,14 @@ import (
 	"go-far/src/repository"
 	"go-far/src/service"
 
-	"github.com/jmoiron/sqlx"
-	_ "github.com/lib/pq"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 )
 
 var (
 	minJitter  int
 	maxJitter  int
-	sql0       *sqlx.DB
+	sql0       *pgxpool.Pool
 	redis0     *redis.Client
 	redis1     *redis.Client
 	redis2     *redis.Client

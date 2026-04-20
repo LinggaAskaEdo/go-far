@@ -8,7 +8,7 @@ import (
 	"go-far/src/model/entity"
 
 	"github.com/google/uuid"
-	"github.com/jmoiron/sqlx"
+	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/redis/go-redis/v9"
 )
 
@@ -30,13 +30,13 @@ type CarRepositoryItf interface {
 }
 
 type carRepository struct {
-	sql0        *sqlx.DB
+	sql0        *pgxpool.Pool
 	redis0      *redis.Client
 	queryLoader *query.QueryLoader
 	cacheTTL    time.Duration
 }
 
-func InitCarRepository(sql0 *sqlx.DB, redis0 *redis.Client, queryLoader *query.QueryLoader, cacheTTL time.Duration) CarRepositoryItf {
+func InitCarRepository(sql0 *pgxpool.Pool, redis0 *redis.Client, queryLoader *query.QueryLoader, cacheTTL time.Duration) CarRepositoryItf {
 	return &carRepository{
 		sql0:        sql0,
 		redis0:      redis0,

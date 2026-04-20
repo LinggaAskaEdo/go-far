@@ -46,10 +46,20 @@ func (d *userRepository) findAllSQLUserV2(ctx context.Context, filter dto.UserFi
 	zerolog.Ctx(ctx).Debug().Str("query", util.CleanQuery(fullQuery)).Any("args", args).Msg("compiled_query")
 
 	var results []entity.User
-	err = d.sql0.SelectContext(ctx, &results, fullQuery, args...)
+	rows, err := d.sql0.Query(ctx, fullQuery, args...)
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("find_users_err")
 		return nil, &pagination, x.WrapWithCode(err, x.CodeSQLRowScan, "find_users_err")
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var user entity.User
+		if err := rows.Scan(&user.ID, &user.Email, &user.Name, &user.Age, &user.Role, &user.IsActive, &user.CreatedAt, &user.UpdatedAt); err != nil {
+			zerolog.Ctx(ctx).Error().Err(err).Msg("scan_user_err")
+			return nil, &pagination, x.WrapWithCode(err, x.CodeSQLRowScan, "scan_user_err")
+		}
+		results = append(results, user)
 	}
 
 	userPtr := &results

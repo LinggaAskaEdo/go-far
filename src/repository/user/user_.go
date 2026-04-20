@@ -2,7 +2,6 @@ package user
 
 import (
 	"context"
-	"database/sql"
 	"encoding/json"
 	"fmt"
 
@@ -15,7 +14,7 @@ import (
 )
 
 func (d *userRepository) Create(ctx context.Context, user *entity.User) (*entity.User, error) {
-	tx, err := d.sql0.BeginTxx(ctx, &sql.TxOptions{Isolation: sql.LevelDefault})
+	tx, err := d.sql0.Begin(ctx)
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("tx_create_user")
 		return user, x.Wrap(err, "tx_create_user")
@@ -23,7 +22,7 @@ func (d *userRepository) Create(ctx context.Context, user *entity.User) (*entity
 
 	defer func() {
 		if err != nil {
-			if rollbackErr := tx.Rollback(); rollbackErr != nil {
+			if rollbackErr := tx.Rollback(ctx); rollbackErr != nil {
 				zerolog.Ctx(ctx).Error().Err(rollbackErr).Msg("rollback_create_user")
 			}
 		}
@@ -35,7 +34,7 @@ func (d *userRepository) Create(ctx context.Context, user *entity.User) (*entity
 		return nil, x.Wrap(err, "sql_create_user")
 	}
 
-	if err = tx.Commit(); err != nil {
+	if err = tx.Commit(ctx); err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("commit_create_user")
 		return nil, x.Wrap(err, "commit_create_user")
 	}

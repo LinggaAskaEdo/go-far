@@ -3,6 +3,7 @@ module go-far
 go 1.25.9
 
 require (
+	github.com/jackc/pgx/v5 v5.9.2
 	github.com/rs/xid v1.6.0
 	github.com/swaggo/swag v1.16.6
 	github.com/yuseferi/envyaml v1.1.0
@@ -18,7 +19,6 @@ require (
 	github.com/felixge/httpsnoop v1.0.4 // indirect
 	github.com/go-logr/logr v1.4.3 // indirect
 	github.com/go-logr/stdr v1.2.2 // indirect
-	github.com/go-sql-driver/mysql v1.9.3 // indirect
 	github.com/grpc-ecosystem/grpc-gateway/v2 v2.29.0 // indirect
 	go.opentelemetry.io/auto/sdk v1.2.1 // indirect
 	go.opentelemetry.io/otel/exporters/otlp/otlptrace v1.43.0 // indirect
@@ -43,6 +43,9 @@ require (
 	github.com/go-openapi/swag/stringutils v0.26.0 // indirect
 	github.com/go-openapi/swag/typeutils v0.26.0 // indirect
 	github.com/go-openapi/swag/yamlutils v0.26.0 // indirect
+	github.com/jackc/pgpassfile v1.0.0 // indirect
+	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
+	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/mod v0.35.0 // indirect
@@ -61,7 +64,6 @@ require (
 	github.com/golang-jwt/jwt/v5 v5.3.1
 	github.com/golang/snappy v1.0.0
 	github.com/google/uuid v1.6.0
-	github.com/jmoiron/sqlx v1.4.0
 	github.com/klauspost/cpuid/v2 v2.3.0 // indirect
 	github.com/leodido/go-urn v1.4.0 // indirect
 	github.com/lib/pq v1.12.3
