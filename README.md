@@ -518,6 +518,11 @@ Apache 2.0 - See [LICENSE](LICENSE) for details.
 - Added UserV2 handler, repository, and service for enhanced user operations
 - Improved security by masking sensitive values in debug logs
 
+### v1.8.1
+
+- Refactor: Move queryLoader.Compile calls from car_.go to car_sql.go
+- Code quality: Define constant for duplicate cache key literal in car repository
+
 ### v1.7.0
 
 - Added generic query decoder for reusable filter handling

@@ -13,6 +13,8 @@ import (
 	"github.com/rs/zerolog"
 )
 
+const cacheKeyCar = "car:%s"
+
 func (r *carRepository) Create(ctx context.Context, car *entity.Car) error {
 	tx, err := r.sql0.BeginTxx(ctx, &sql.TxOptions{Isolation: sql.LevelDefault})
 	if err != nil {
@@ -78,7 +80,7 @@ func (r *carRepository) AssignCarsToUserBulk(ctx context.Context, userID uuid.UU
 }
 
 func (r *carRepository) FindByID(ctx context.Context, id uuid.UUID) (*entity.Car, error) {
-	cacheKey := fmt.Sprintf("car:%s", id.String())
+	cacheKey := fmt.Sprintf(cacheKeyCar, id.String())
 
 	cached, err := r.redis0.Get(ctx, cacheKey).Result()
 	if err == nil {
@@ -113,11 +115,27 @@ func (r *carRepository) CountByUserID(ctx context.Context, userID uuid.UUID) (in
 }
 
 func (r *carRepository) Update(ctx context.Context, id uuid.UUID, car *entity.Car) error {
-	return r.updateSQLCar(ctx, id, car)
+	err := r.updateSQLCar(ctx, id, car)
+	if err != nil {
+		return err
+	}
+
+	cacheKey := fmt.Sprintf(cacheKeyCar, id.String())
+	r.redis0.Del(ctx, cacheKey)
+
+	return nil
 }
 
 func (r *carRepository) Delete(ctx context.Context, id uuid.UUID) error {
-	return r.deleteSQLCar(ctx, id)
+	err := r.deleteSQLCar(ctx, id)
+	if err != nil {
+		return err
+	}
+
+	cacheKey := fmt.Sprintf(cacheKeyCar, id.String())
+	r.redis0.Del(ctx, cacheKey)
+
+	return nil
 }
 
 func (r *carRepository) TransferOwnership(ctx context.Context, carID, newUserID uuid.UUID) error {
@@ -126,7 +144,7 @@ func (r *carRepository) TransferOwnership(ctx context.Context, carID, newUserID 
 		return err
 	}
 
-	cacheKey := fmt.Sprintf("car:%s", carID.String())
+	cacheKey := fmt.Sprintf(cacheKeyCar, carID.String())
 	r.redis0.Del(ctx, cacheKey)
 
 	return nil

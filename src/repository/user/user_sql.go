@@ -2,9 +2,9 @@ package user
 
 import (
 	"context"
+	"database/sql"
 	"fmt"
 	"strings"
-	"time"
 
 	"go-far/src/model/dto"
 	"go-far/src/model/entity"
@@ -54,6 +54,55 @@ func normalizeString(s string) string {
 	return s
 }
 
+func (d *userRepository) findUserSQLByID(ctx context.Context, id string) (*entity.User, error) {
+	var user entity.User
+
+	query, args, err := d.queryLoader.Compile("FindUserByID", map[string]any{"ID": id})
+	if err != nil {
+		zerolog.Ctx(ctx).Error().Err(err).Msg("build_find_user_query_err")
+		return nil, x.WrapWithCode(err, x.CodeSQLQueryBuild, "build_find_user_query_err")
+	}
+
+	zerolog.Ctx(ctx).Debug().Str("query", util.CleanQuery(query)).Any("args", args).Msg("compiled_query")
+
+	err = d.sql0.GetContext(ctx, &user, query, args...)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			zerolog.Ctx(ctx).Debug().Str("id", id).Msg("user_not_found")
+			return nil, x.WrapWithCode(err, x.CodeSQLEmptyRow, "user_not_found")
+		}
+
+		zerolog.Ctx(ctx).Error().Err(err).Str("id", id).Msg("find_user_err")
+		return nil, x.WrapWithCode(err, x.CodeSQLRowScan, "find_user_err")
+	}
+
+	return &user, nil
+}
+
+func (d *userRepository) findUserSQLByEmail(ctx context.Context, email string) (*entity.User, error) {
+	var user entity.User
+
+	query, args, err := d.queryLoader.Compile("FindUserByEmail", map[string]any{"Email": email})
+	if err != nil {
+		zerolog.Ctx(ctx).Error().Err(err).Msg("build_find_user_by_email_query_err")
+		return nil, x.WrapWithCode(err, x.CodeSQLQueryBuild, "build_find_user_by_email_query_err")
+	}
+
+	zerolog.Ctx(ctx).Debug().Str("query", util.CleanQuery(query)).Any("args", args).Msg("compiled_query")
+
+	err = d.sql0.GetContext(ctx, &user, query, args...)
+	if err != nil {
+		if err == sql.ErrNoRows {
+			return nil, x.NewWithCode(x.CodeHTTPUnauthorized, "Invalid credentials")
+		}
+
+		zerolog.Ctx(ctx).Error().Err(err).Str("email", email).Msg("find_user_by_email_err")
+		return nil, x.WrapWithCode(err, x.CodeSQLRowScan, "find_user_by_email_err")
+	}
+
+	return &user, nil
+}
+
 func (d *userRepository) createSQLUser(ctx context.Context, tx *sqlx.Tx, user *entity.User) (*sqlx.Tx, *entity.User, error) {
 	query, args, err := d.queryLoader.Compile("CreateUser", user)
 	if err != nil {
@@ -90,21 +139,7 @@ func (d *userRepository) findAllSQLUser(ctx context.Context, filter dto.UserFilt
 		SortBy:          filter.SortBy,
 	}
 
-	templateData := map[string]any{
-		"ID":           filter.ID,
-		"Name":         filter.Name,
-		"Email":        filter.Email,
-		"NamePattern":  "%" + filter.Name + "%",
-		"EmailPattern": "%" + filter.Email + "%",
-		"MinAge":       filter.MinAge,
-		"MaxAge":       filter.MaxAge,
-		"Limit":        filter.PageSize,
-		"Offset":       (filter.Page - 1) * filter.PageSize,
-		"SortBy":       filter.SortBy,
-		"SortDir":      filter.SortDir,
-	}
-
-	query, args, err := d.queryLoader.Compile("FindAllUsersBase", templateData)
+	query, args, err := d.queryLoader.Compile("FindAllUsersBase", filter)
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("build_find_users_query_err")
 		return nil, &pagination, x.WrapWithCode(err, x.CodeSQLQueryBuild, "build_find_users_query_err")
@@ -118,7 +153,7 @@ func (d *userRepository) findAllSQLUser(ctx context.Context, filter dto.UserFilt
 		return nil, &pagination, x.WrapWithCode(err, x.CodeSQLRowScan, "find_users_err")
 	}
 
-	countQuery, countArgs, err := d.queryLoader.Compile("CountUsersBase", templateData)
+	countQuery, countArgs, err := d.queryLoader.Compile("CountUsersBase", filter)
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("count_users_query_err")
 		return nil, &pagination, x.WrapWithCode(err, x.CodeSQLQueryBuild, "count_users_query_err")
@@ -149,18 +184,8 @@ func (d *userRepository) findAllSQLUser(ctx context.Context, filter dto.UserFilt
 	return &results, &pagination, nil
 }
 
-func (d *userRepository) updateSQLUser(ctx context.Context, id string, user *entity.User) error {
-	data := map[string]any{
-		"ID":        id,
-		"Name":      user.Name,
-		"Email":     user.Email,
-		"Age":       user.Age,
-		"Role":      user.Role,
-		"IsActive":  user.IsActive,
-		"UpdatedAt": time.Now(),
-	}
-
-	query, args, err := d.queryLoader.Compile("UpdateUser", data)
+func (d *userRepository) updateSQLUser(ctx context.Context, user *entity.User) error {
+	query, args, err := d.queryLoader.Compile("UpdateUser", user)
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("build_update_user_query_err")
 		return x.WrapWithCode(err, x.CodeSQLQueryBuild, "build_update_user_query_err")
@@ -170,22 +195,22 @@ func (d *userRepository) updateSQLUser(ctx context.Context, id string, user *ent
 
 	result, err := d.sql0.ExecContext(ctx, query, args...)
 	if err != nil {
-		zerolog.Ctx(ctx).Error().Err(err).Str("id", id).Msg("update_user_err")
+		zerolog.Ctx(ctx).Error().Err(err).Str("id", user.ID).Msg("update_user_err")
 		return x.WrapWithCode(err, x.CodeSQLUpdate, "update_user_err")
 	}
 
 	rows, err := result.RowsAffected()
 	if err != nil {
-		zerolog.Ctx(ctx).Error().Err(err).Str("id", id).Msg("failed_to_get_rows_affected")
+		zerolog.Ctx(ctx).Error().Err(err).Str("id", user.ID).Msg("failed_to_get_rows_affected")
 		return x.WrapWithCode(err, x.CodeSQLUpdate, "failed_to_get_rows_affected")
 	}
 
 	if rows == 0 {
-		zerolog.Ctx(ctx).Debug().Str("id", id).Msg("user_not_found_for_update")
+		zerolog.Ctx(ctx).Debug().Str("id", user.ID).Msg("user_not_found_for_update")
 		return x.NewWithCode(x.CodeSQLEmptyRow, "user_not_found_for_update")
 	}
 
-	cacheKey := fmt.Sprintf("user:%s", id)
+	cacheKey := fmt.Sprintf("user:%s", user.ID)
 	d.redis0.Del(ctx, cacheKey)
 
 	return nil

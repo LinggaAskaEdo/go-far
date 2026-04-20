@@ -115,12 +115,12 @@ func parseStringSlice(field reflect.Value, typ reflect.Type, val string) {
 	field.Set(reflect.ValueOf(validated))
 }
 
+func isTimeType(typ reflect.Type) bool {
+	return typ == reflect.TypeOf(time.Time{})
+}
+
 func parseTime(field reflect.Value, val string) {
 	if t, err := time.Parse(time.RFC3339, val); err == nil {
 		field.Set(reflect.ValueOf(t))
 	}
-}
-
-func isTimeType(typ reflect.Type) bool {
-	return typ == reflect.TypeOf(time.Time{})
 }

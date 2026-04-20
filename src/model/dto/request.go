@@ -38,31 +38,7 @@ type UpdateUserRequest struct {
 	Email    string      `json:"email" validate:"omitempty,email"`
 	Age      int         `json:"age" validate:"omitempty,min=1,max=150"`
 	Role     entity.Role `json:"role" validate:"omitempty,role_valid"`
-	IsActive *bool       `json:"is_active" validate:"omitempty"`
-}
-
-type UserFilter struct {
-	ID       string `form:"id"`
-	Name     string `form:"name"`
-	Email    string `form:"email"`
-	MinAge   int    `form:"min_age"`
-	MaxAge   int    `form:"max_age"`
-	Page     int64  `form:"page" validate:"min=1"`
-	PageSize int64  `form:"page_size" validate:"min=1,max=100"`
-	SortBy   string `form:"sort_by"`
-	SortDir  string `form:"sort_dir" validate:"omitempty,oneof=asc desc"`
-}
-
-type UserFilterV2 struct {
-	ID       string `param:"id" db:"id"`
-	Name     string `param:"name" db:"name"`
-	Email    string `param:"email" db:"email"`
-	MinAge   int    `param:"min_age__gte" db:"age"`
-	MaxAge   int    `param:"max_age__lte" db:"age"`
-	Page     int64  `param:"-"`
-	PageSize int64  `param:"-"`
-	SortBy   string `param:"-"`
-	SortDir  string `param:"-"`
+	IsActive *bool       `json:"is_active" validate:"omitempty,boolean"`
 }
 
 type CreateCarRequest struct {
@@ -83,14 +59,14 @@ type UpdateCarRequest struct {
 	Year         int    `json:"year" validate:"omitempty,gte=1900,lte=2100"`
 	Color        string `json:"color" validate:"omitempty,max=50"`
 	LicensePlate string `json:"license_plate" validate:"omitempty,min=3,max=20"`
-	IsAvailable  *bool  `json:"is_available" validate:"omitempty"`
+	IsAvailable  *bool  `json:"is_available" validate:"omitempty,boolean"`
 }
 
 type TransferCarRequest struct {
-	NewUserID uuid.UUID `json:"new_user_id" validate:"required"`
+	NewUserID uuid.UUID `json:"new_user_id" validate:"required,uuid"`
 }
 
 type BulkUpdateAvailabilityRequest struct {
 	CarIDs      []uuid.UUID `json:"car_ids" validate:"required,min=1"`
-	IsAvailable bool        `json:"is_available" validate:"required"`
+	IsAvailable bool        `json:"is_available" validate:"required,boolean"`
 }

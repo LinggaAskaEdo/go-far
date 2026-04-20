@@ -108,6 +108,7 @@ func (s *carService) UpdateCar(ctx context.Context, id uuid.UUID, req dto.Update
 	if err != nil {
 		return nil, err
 	}
+
 	if !isOwner {
 		return nil, x.NewWithCode(x.CodeHTTPForbidden, "you do not have permission to update this car")
 	}

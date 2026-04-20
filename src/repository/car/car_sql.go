@@ -3,7 +3,6 @@ package car
 import (
 	"context"
 	"database/sql"
-	"fmt"
 	"time"
 
 	"go-far/src/model/entity"
@@ -92,9 +91,6 @@ func (r *carRepository) updateSQLCar(ctx context.Context, id uuid.UUID, car *ent
 		return x.WrapWithCode(err, x.CodeSQLUpdate, "update_car_err")
 	}
 
-	cacheKey := fmt.Sprintf("car:%s", id.String())
-	r.redis0.Del(ctx, cacheKey)
-
 	return nil
 }
 
@@ -123,9 +119,6 @@ func (r *carRepository) deleteSQLCar(ctx context.Context, id uuid.UUID) error {
 		zerolog.Ctx(ctx).Debug().Str("id", id.String()).Msg("car_not_found_for_deletion")
 		return x.NewWithCode(x.CodeSQLEmptyRow, "car_not_found_for_deletion")
 	}
-
-	cacheKey := fmt.Sprintf("car:%s", id.String())
-	r.redis0.Del(ctx, cacheKey)
 
 	return nil
 }

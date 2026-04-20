@@ -87,7 +87,7 @@ func (s *userService) UpdateUser(ctx context.Context, id string, req dto.UpdateU
 		existingUser.IsActive = *req.IsActive
 	}
 
-	if err := s.userRepository.Update(ctx, id, existingUser); err != nil {
+	if err := s.userRepository.Update(ctx, existingUser); err != nil {
 		return nil, err
 	}
 

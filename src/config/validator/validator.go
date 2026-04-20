@@ -69,8 +69,12 @@ func formatValidationError(fe validator.FieldError) string {
 		return fe.Field() + " must be at least " + fe.Param() + " characters"
 	case "max":
 		return fe.Field() + " must be at most " + fe.Param() + " characters"
+	case "gt":
+		return fe.Field() + " must be > " + fe.Param()
 	case "gte":
 		return fe.Field() + " must be >= " + fe.Param()
+	case "lt":
+		return fe.Field() + " must be < " + fe.Param()
 	case "lte":
 		return fe.Field() + " must be <= " + fe.Param()
 	case "oneof":

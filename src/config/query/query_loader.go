@@ -2,12 +2,13 @@ package query
 
 import (
 	"fmt"
-	x "go-far/src/model/errors"
 	"os"
 	"path/filepath"
 	"reflect"
 	"strings"
 	"text/template"
+
+	x "go-far/src/model/errors"
 )
 
 func (ql *QueryLoader) load(path string) error {

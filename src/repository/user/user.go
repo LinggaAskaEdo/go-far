@@ -18,7 +18,7 @@ type UserRepositoryItf interface {
 	FindByEmail(ctx context.Context, email string) (*entity.User, error)
 	FindAll(ctx context.Context, cacheControl dto.CacheControl, filter dto.UserFilter) (*[]entity.User, *dto.Pagination, error)
 	FindAllV2(ctx context.Context, filter dto.UserFilterV2) (*[]entity.User, *dto.Pagination, error)
-	Update(ctx context.Context, id string, user *entity.User) error
+	Update(ctx context.Context, user *entity.User) error
 	Delete(ctx context.Context, id string) error
 }
 
