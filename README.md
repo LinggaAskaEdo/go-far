@@ -81,7 +81,7 @@ go-far/
 | --------------- | ---------------------------- |
 | Framework       | Go 1.22+ `net/http`          |
 | Database        | PostgreSQL (MySQL supported) |
-| ORM             | sqlx                         |
+| DB Driver       | pgx (jackc/pgx)              |
 | Cache           | Redis                        |
 | Auth            | JWT (HS-256) + bcrypt        |
 | Logging         | Zerolog                      |
@@ -522,6 +522,7 @@ Apache 2.0 - See [LICENSE](LICENSE) for details.
 
 - Refactor: Move queryLoader.Compile calls from car_.go to car_sql.go
 - Code quality: Define constant for duplicate cache key literal in car repository
+- Migration: Replace sqlx with pgx (jackc/pgx/v5) for PostgreSQL driver
 
 ### v1.7.0
 
