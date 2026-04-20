@@ -58,7 +58,7 @@ token:
   expired_refresh_token: 15m
 
 scheduler:
-  enabled: true
+  enabled: false
   jobs:
     user_generator:
       enabled: true
@@ -92,7 +92,7 @@ middleware:
   role_rate_limit:
     admin:
       command: "1-M"
-      limit: 10
+      limit: 10000000
     user:
       command: "1-M"
       limit: 5

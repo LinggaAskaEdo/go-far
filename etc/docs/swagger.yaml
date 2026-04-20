@@ -21,6 +21,7 @@ definitions:
         type: boolean
     required:
     - car_ids
+    - is_available
     type: object
   dto.CreateCarRequest:
     properties:
@@ -66,12 +67,7 @@ definitions:
         minLength: 8
         type: string
       role:
-        allOf:
-        - $ref: '#/definitions/entity.Role'
-        enum:
-        - admin
-        - user
-        - guest
+        $ref: '#/definitions/entity.Role'
     required:
     - age
     - email
@@ -201,12 +197,7 @@ definitions:
         minLength: 8
         type: string
       role:
-        allOf:
-        - $ref: '#/definitions/entity.Role'
-        enum:
-        - admin
-        - user
-        - guest
+        $ref: '#/definitions/entity.Role'
     required:
     - age
     - email
@@ -269,12 +260,7 @@ definitions:
         minLength: 2
         type: string
       role:
-        allOf:
-        - $ref: '#/definitions/entity.Role'
-        enum:
-        - admin
-        - user
-        - guest
+        $ref: '#/definitions/entity.Role'
     type: object
   entity.Car:
     properties:
@@ -365,7 +351,7 @@ info:
     url: http://www.apache.org/licenses/LICENSE-2.0.html
   termsOfService: http://swagger.io/terms/
   title: Go-Far
-  version: 1.6.0
+  version: 1.7.0
 paths:
   /auth/login:
     post:

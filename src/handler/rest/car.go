@@ -5,6 +5,7 @@ import (
 	"net/http"
 
 	"go-far/src/config/middleware"
+	"go-far/src/config/validator"
 	"go-far/src/model/dto"
 	"go-far/src/model/entity"
 	x "go-far/src/model/errors"
@@ -41,7 +42,7 @@ func (e *rest) CreateCar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := dto.ValidateRequest(&req); err != nil {
+	if err := validator.ValidateRequest(&req); err != nil {
 		zerolog.Ctx(ctx).Warn().Err(err).Msg("validation_failed_create_car")
 		e.httpRespError(w, r, err)
 		return
@@ -84,7 +85,7 @@ func (e *rest) CreateBulkCars(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := dto.ValidateRequest(&req); err != nil {
+	if err := validator.ValidateRequest(&req); err != nil {
 		zerolog.Ctx(ctx).Warn().Err(err).Msg("validation_failed_create_bulk_cars")
 		e.httpRespError(w, r, err)
 		return
@@ -282,7 +283,7 @@ func (e *rest) UpdateCar(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := dto.ValidateRequest(&req); err != nil {
+	if err := validator.ValidateRequest(&req); err != nil {
 		zerolog.Ctx(ctx).Warn().Err(err).Msg("validation_failed_update_car")
 		e.httpRespError(w, r, err)
 		return

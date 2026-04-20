@@ -3,7 +3,6 @@ module go-far
 go 1.25.9
 
 require (
-	github.com/VauntDev/tqla v0.0.3
 	github.com/rs/xid v1.6.0
 	github.com/swaggo/swag v1.16.6
 	github.com/yuseferi/envyaml v1.1.0
@@ -34,7 +33,7 @@ require (
 require (
 	github.com/KyleBanks/depth v1.2.1 // indirect
 	github.com/caarlos0/env/v11 v11.4.0 // indirect
-	github.com/go-openapi/jsonpointer v0.23.0 // indirect
+	github.com/go-openapi/jsonpointer v0.23.1 // indirect
 	github.com/go-openapi/jsonreference v0.21.5 // indirect
 	github.com/go-openapi/spec v0.22.4 // indirect
 	github.com/go-openapi/swag/conv v0.26.0 // indirect

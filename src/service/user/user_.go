@@ -11,11 +11,11 @@ import (
 )
 
 func (s *userService) CreateUser(ctx context.Context, req dto.CreateUserRequest) (*entity.User, error) {
-	return s.registerUser(ctx, req.Name, req.Email, req.Password, req.Age, req.Role)
+	return s.registerUser(ctx, req.Name, req.Email, req.Password, req.Age, entity.Role(req.Role))
 }
 
 func (s *userService) RegisterUser(ctx context.Context, req dto.RegisterRequest) (*entity.User, error) {
-	return s.registerUser(ctx, req.Name, req.Email, req.Password, req.Age, req.Role)
+	return s.registerUser(ctx, req.Name, req.Email, req.Password, req.Age, entity.Role(req.Role))
 }
 
 func (s *userService) registerUser(ctx context.Context, name, email, password string, age int, role entity.Role) (*entity.User, error) {
@@ -61,10 +61,6 @@ func (s *userService) ListUsers(ctx context.Context, cacheControl dto.CacheContr
 	return s.userRepository.FindAll(ctx, cacheControl, filter)
 }
 
-func (s *userService) ListUsersV2(ctx context.Context, filter dto.UserFilterV2) (*[]entity.User, *dto.Pagination, error) {
-	return s.userRepository.FindAllV2(ctx, filter)
-}
-
 func (s *userService) UpdateUser(ctx context.Context, id string, req dto.UpdateUserRequest) (*entity.User, error) {
 	existingUser, err := s.userRepository.FindByID(ctx, id)
 	if err != nil {
@@ -84,7 +80,7 @@ func (s *userService) UpdateUser(ctx context.Context, id string, req dto.UpdateU
 	}
 
 	if req.Role != "" {
-		existingUser.Role = req.Role
+		existingUser.Role = entity.Role(req.Role)
 	}
 
 	if req.IsActive != nil {

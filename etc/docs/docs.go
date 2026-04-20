@@ -1193,7 +1193,8 @@ const docTemplate = `{
         "dto.BulkUpdateAvailabilityRequest": {
             "type": "object",
             "required": [
-                "car_ids"
+                "car_ids",
+                "is_available"
             ],
             "properties": {
                 "car_ids": {
@@ -1272,16 +1273,7 @@ const docTemplate = `{
                     "minLength": 8
                 },
                 "role": {
-                    "enum": [
-                        "admin",
-                        "user",
-                        "guest"
-                    ],
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/entity.Role"
-                        }
-                    ]
+                    "$ref": "#/definitions/entity.Role"
                 }
             }
         },
@@ -1472,16 +1464,7 @@ const docTemplate = `{
                     "minLength": 8
                 },
                 "role": {
-                    "enum": [
-                        "admin",
-                        "user",
-                        "guest"
-                    ],
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/entity.Role"
-                        }
-                    ]
+                    "$ref": "#/definitions/entity.Role"
                 }
             }
         },
@@ -1562,16 +1545,7 @@ const docTemplate = `{
                     "minLength": 2
                 },
                 "role": {
-                    "enum": [
-                        "admin",
-                        "user",
-                        "guest"
-                    ],
-                    "allOf": [
-                        {
-                            "$ref": "#/definitions/entity.Role"
-                        }
-                    ]
+                    "$ref": "#/definitions/entity.Role"
                 }
             }
         },

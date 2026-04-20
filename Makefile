@@ -25,7 +25,7 @@ WHITE          := \033[37m
 RESET          := \033[0m
 COMMA          := ,
 
-.PHONY: all help build run clean swagger migrate deps fmt vet lint test check install-tools update sql-postgres-create sql-postgres-up sql-mysql-create sql-mysql-up monitoring-start monitoring-stop kill
+.PHONY: all help build run clean swagger migrate deps fmt vet lint test check install-tools update sql-postgres-create sql-postgres-up sql-mysql-create sql-mysql-up monitoring-start monitoring-stop kill benchmark
 
 ## Show this help message
 help:
@@ -62,6 +62,9 @@ help:
 	@printf "$(YELLOW)Monitoring:$(RESET)\n"
 	@printf "  $(GREEN)make monitoring-start$(RESET)             Start monitoring stack\n"
 	@printf "  $(GREEN)make monitoring-stop$(RESET)              Stop monitoring stack\n"
+	@echo ""
+	@printf "$(YELLOW)Benchmark:$(RESET)\n"
+	@printf "  $(GREEN)make benchmark$(RESET)                Run API benchmark with Apache Bench\n"
 	@echo ""
 
 ## Execute build and run
@@ -191,3 +194,8 @@ sql-postgres-up:
 			echo ; \
 			$(GOOSE) -dir ./etc/migrations postgres "host=localhost user=postgres password=$$pass dbname=go-far sslmode=disable" up ; \
 		}
+
+## Run API benchmark with Apache Bench
+benchmark:
+	@echo "Running API benchmark..."
+	@./etc/benchmark/benchmark.sh

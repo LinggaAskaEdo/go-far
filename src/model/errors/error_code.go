@@ -99,3 +99,14 @@ const (
 	CodeCacheInvalidCastType
 	CodeCacheNotFound
 )
+
+const (
+	// Error on SQL Template File
+	CodeFileNotFound = Code(iota + 500)
+	CodeFileRead
+	CodeDuplicateQuery
+	CodeTemplateParse
+	CodeTemplateExecute
+	CodeSQLQueryNotFound
+	CodeInvalidIdentifier
+)

@@ -8,37 +8,37 @@ import (
 
 // Auth related DTOs
 type RegisterRequest struct {
-	Name     string      `json:"name" binding:"required,min=2,max=100"`
-	Email    string      `json:"email" binding:"required,email"`
-	Password string      `json:"password" binding:"required,min=8,max=100"`
-	Age      int         `json:"age" binding:"required,min=1,max=150"`
-	Role     entity.Role `json:"role" binding:"required,oneof=admin user guest"`
+	Name     string      `json:"name" validate:"required,min=2,max=100"`
+	Email    string      `json:"email" validate:"required,email"`
+	Password string      `json:"password" validate:"required,min=8,max=100"`
+	Age      int         `json:"age" validate:"required,min=1,max=150"`
+	Role     entity.Role `json:"role" validate:"required,role_valid"`
 }
 
 type LoginRequest struct {
-	Email    string `json:"email" binding:"required,email"`
-	Password string `json:"password" binding:"required"`
+	Email    string `json:"email" validate:"required,email"`
+	Password string `json:"password" validate:"required"`
 }
 
 type RefreshTokenRequest struct {
-	RefreshToken string `json:"refreshToken" binding:"required"`
+	RefreshToken string `json:"refreshToken" validate:"required"`
 }
 
 // User related DTOs
 type CreateUserRequest struct {
-	Name     string      `json:"name" binding:"required,min=2,max=100"`
-	Email    string      `json:"email" binding:"required,email"`
-	Password string      `json:"password" binding:"required,min=8,max=100"`
-	Age      int         `json:"age" binding:"required,min=1,max=150"`
-	Role     entity.Role `json:"role" binding:"required,oneof=admin user guest"`
+	Name     string      `json:"name" validate:"required,min=2,max=100"`
+	Email    string      `json:"email" validate:"required,email"`
+	Password string      `json:"password" validate:"required,min=8,max=100"`
+	Age      int         `json:"age" validate:"required,min=1,max=150"`
+	Role     entity.Role `json:"role" validate:"required,role_valid"`
 }
 
 type UpdateUserRequest struct {
-	Name     string      `json:"name" binding:"omitempty,min=2,max=100"`
-	Email    string      `json:"email" binding:"omitempty,email"`
-	Age      int         `json:"age" binding:"omitempty,min=1,max=150"`
-	Role     entity.Role `json:"role" binding:"omitempty,oneof=admin user guest"`
-	IsActive *bool       `json:"is_active" binding:"omitempty"`
+	Name     string      `json:"name" validate:"omitempty,min=2,max=100"`
+	Email    string      `json:"email" validate:"omitempty,email"`
+	Age      int         `json:"age" validate:"omitempty,min=1,max=150"`
+	Role     entity.Role `json:"role" validate:"omitempty,role_valid"`
+	IsActive *bool       `json:"is_active" validate:"omitempty"`
 }
 
 type UserFilter struct {
@@ -47,10 +47,10 @@ type UserFilter struct {
 	Email    string `form:"email"`
 	MinAge   int    `form:"min_age"`
 	MaxAge   int    `form:"max_age"`
-	Page     int64  `form:"page" binding:"min=1"`
-	PageSize int64  `form:"page_size" binding:"min=1,max=100"`
+	Page     int64  `form:"page" validate:"min=1"`
+	PageSize int64  `form:"page_size" validate:"min=1,max=100"`
 	SortBy   string `form:"sort_by"`
-	SortDir  string `form:"sort_dir" binding:"omitempty,oneof=asc desc"`
+	SortDir  string `form:"sort_dir" validate:"omitempty,oneof=asc desc"`
 }
 
 type UserFilterV2 struct {
@@ -66,31 +66,31 @@ type UserFilterV2 struct {
 }
 
 type CreateCarRequest struct {
-	Brand        string `json:"brand" binding:"required,min=2,max=100"`
-	Model        string `json:"model" binding:"required,min=2,max=100"`
-	Year         int    `json:"year" binding:"required,gte=1900,lte=2100"`
-	Color        string `json:"color" binding:"omitempty,max=50"`
-	LicensePlate string `json:"license_plate" binding:"required,min=3,max=20"`
+	Brand        string `json:"brand" validate:"required,min=2,max=100"`
+	Model        string `json:"model" validate:"required,min=2,max=100"`
+	Year         int    `json:"year" validate:"required,gte=1900,lte=2100"`
+	Color        string `json:"color" validate:"omitempty,max=50"`
+	LicensePlate string `json:"license_plate" validate:"required,min=3,max=20"`
 }
 
 type BulkCreateCarsRequest struct {
-	Cars []CreateCarRequest `json:"cars" binding:"required,min=1,max=50,dive"`
+	Cars []CreateCarRequest `json:"cars" validate:"required,min=1,max=50,dive"`
 }
 
 type UpdateCarRequest struct {
-	Brand        string `json:"brand" binding:"omitempty,min=2,max=100"`
-	Model        string `json:"model" binding:"omitempty,min=2,max=100"`
-	Year         int    `json:"year" binding:"omitempty,gte=1900,lte=2100"`
-	Color        string `json:"color" binding:"omitempty,max=50"`
-	LicensePlate string `json:"license_plate" binding:"omitempty,min=3,max=20"`
-	IsAvailable  *bool  `json:"is_available" binding:"omitempty"`
+	Brand        string `json:"brand" validate:"omitempty,min=2,max=100"`
+	Model        string `json:"model" validate:"omitempty,min=2,max=100"`
+	Year         int    `json:"year" validate:"omitempty,gte=1900,lte=2100"`
+	Color        string `json:"color" validate:"omitempty,max=50"`
+	LicensePlate string `json:"license_plate" validate:"omitempty,min=3,max=20"`
+	IsAvailable  *bool  `json:"is_available" validate:"omitempty"`
 }
 
 type TransferCarRequest struct {
-	NewUserID uuid.UUID `json:"new_user_id" binding:"required"`
+	NewUserID uuid.UUID `json:"new_user_id" validate:"required"`
 }
 
 type BulkUpdateAvailabilityRequest struct {
-	CarIDs      []uuid.UUID `json:"car_ids" binding:"required,min=1"`
-	IsAvailable bool        `json:"is_available"`
+	CarIDs      []uuid.UUID `json:"car_ids" validate:"required,min=1"`
+	IsAvailable bool        `json:"is_available" validate:"required"`
 }

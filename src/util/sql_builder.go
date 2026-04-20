@@ -54,11 +54,11 @@ func NewSQLBuilder(paramTag, colTag string, suffix string, page, limit int64) *S
 	}
 }
 
-func (qb *SQLBuilder) AliasPrefix(alias string, ptr interface{}) *SQLBuilder {
+func (qb *SQLBuilder) AliasPrefix(alias string, ptr any) *SQLBuilder {
 	p := reflect.ValueOf(ptr)
 
 	if p.Kind() != reflect.Ptr {
-		panic(errors.New("passed interface{} should be a pointer"))
+		panic(errors.New("passed any should be a pointer"))
 	}
 
 	v := p.Elem()
@@ -67,8 +67,8 @@ func (qb *SQLBuilder) AliasPrefix(alias string, ptr interface{}) *SQLBuilder {
 	return qb
 }
 
-func (qb *SQLBuilder) Build() (string, []string, []interface{}, error) {
-	args := []interface{}{}
+func (qb *SQLBuilder) Build() (string, []string, []any, error) {
+	args := []any{}
 	sortBy := []string{}
 	sortByDisplay := []string{}
 	mapDBcolsByParam := make(map[string]string)
@@ -142,7 +142,7 @@ func (qb *SQLBuilder) buildWhereClause() string {
 	return buff.String()
 }
 
-func (qb *SQLBuilder) processField(v reflect.Value, i int) (interface{}, string, int) {
+func (qb *SQLBuilder) processField(v reflect.Value, i int) (any, string, int) {
 	tag := v.Type().Field(i).Tag
 	colTag := tag.Get(qb.colTag)
 	paramTag := tag.Get(qb.paramTag)
@@ -161,7 +161,7 @@ func (qb *SQLBuilder) processField(v reflect.Value, i int) (interface{}, string,
 	return arg, colTag, qType
 }
 
-func (qb *SQLBuilder) extractValue(vFieldItf interface{}, paramTag string, qType *int) (interface{}, bool) {
+func (qb *SQLBuilder) extractValue(vFieldItf any, paramTag string, qType *int) (any, bool) {
 	if qb.isSliceType(vFieldItf) {
 		return qb.extractSliceValue(vFieldItf, paramTag, qType)
 	}
@@ -173,7 +173,7 @@ func (qb *SQLBuilder) extractValue(vFieldItf interface{}, paramTag string, qType
 	return nil, true
 }
 
-func (qb *SQLBuilder) isSliceType(v interface{}) bool {
+func (qb *SQLBuilder) isSliceType(v any) bool {
 	switch v.(type) {
 	case []int64, []string, []float64, []bool, []time.Time:
 		return true
@@ -182,7 +182,7 @@ func (qb *SQLBuilder) isSliceType(v interface{}) bool {
 	return false
 }
 
-func (qb *SQLBuilder) isScalarType(v interface{}) bool {
+func (qb *SQLBuilder) isScalarType(v any) bool {
 	switch v.(type) {
 	case int, int64, string, float64, bool, time.Time:
 		return true
@@ -191,7 +191,7 @@ func (qb *SQLBuilder) isScalarType(v interface{}) bool {
 	return false
 }
 
-func (qb *SQLBuilder) extractSliceValue(vFieldItf interface{}, paramTag string, qType *int) (interface{}, bool) {
+func (qb *SQLBuilder) extractSliceValue(vFieldItf any, paramTag string, qType *int) (any, bool) {
 	*qType = qb.getOperator(many, paramTag)
 	switch f := vFieldItf.(type) {
 	case []int64:
@@ -219,7 +219,7 @@ func (qb *SQLBuilder) extractSliceValue(vFieldItf interface{}, paramTag string, 
 	return nil, true
 }
 
-func (qb *SQLBuilder) extractScalarValue(vFieldItf interface{}, paramTag string, qType *int) (interface{}, bool) {
+func (qb *SQLBuilder) extractScalarValue(vFieldItf any, paramTag string, qType *int) (any, bool) {
 	*qType = qb.getOperator(one, paramTag)
 	switch f := vFieldItf.(type) {
 	case int:
@@ -281,7 +281,7 @@ func (qb *SQLBuilder) isPaginationField(colTag string) bool {
 	return false
 }
 
-func (qb *SQLBuilder) processSortBy(arg interface{}, alias string, mapDBcolsByParam map[string]string) ([]string, []string) {
+func (qb *SQLBuilder) processSortBy(arg any, alias string, mapDBcolsByParam map[string]string) ([]string, []string) {
 	v, ok := arg.(string)
 	if !ok || v == "" {
 		return nil, nil
@@ -367,7 +367,7 @@ func (qb *SQLBuilder) appendOrderBy(buff *bytes.Buffer, sortBy []string) {
 	}
 }
 
-func (qb *SQLBuilder) appendLimitOffset(buff *bytes.Buffer, args *[]interface{}, argIdx *int) {
+func (qb *SQLBuilder) appendLimitOffset(buff *bytes.Buffer, args *[]any, argIdx *int) {
 	qb.limit = ValidateLimit(qb.limit)
 	qb.page = ValidatePage(qb.page)
 

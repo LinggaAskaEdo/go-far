@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 
+	"go-far/src/config/validator"
 	"go-far/src/model/dto"
 	"go-far/src/model/entity"
 	x "go-far/src/model/errors"
@@ -34,7 +35,7 @@ func (e *rest) Register(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := dto.ValidateRequest(&req); err != nil {
+	if err := validator.ValidateRequest(&req); err != nil {
 		zerolog.Ctx(ctx).Warn().Err(err).Msg("validation_failed_register")
 		e.httpRespError(w, r, err)
 		return
@@ -72,7 +73,7 @@ func (e *rest) Login(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	if err := dto.ValidateRequest(&req); err != nil {
+	if err := validator.ValidateRequest(&req); err != nil {
 		zerolog.Ctx(ctx).Warn().Err(err).Msg("validation_failed_login")
 		e.httpRespError(w, r, err)
 		return
@@ -115,6 +116,12 @@ func (e *rest) RefreshToken(w http.ResponseWriter, r *http.Request) {
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("invalid_request_body")
 		e.httpRespError(w, r, x.WrapWithCode(err, x.CodeHTTPUnmarshal, "invalid_request_body"))
+		return
+	}
+
+	if err := validator.ValidateRequest(&req); err != nil {
+		zerolog.Ctx(ctx).Warn().Err(err).Msg("validation_failed_refresh_token")
+		e.httpRespError(w, r, err)
 		return
 	}
 

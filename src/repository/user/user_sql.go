@@ -61,7 +61,7 @@ func (d *userRepository) createSQLUser(ctx context.Context, tx *sqlx.Tx, user *e
 		return tx, user, x.WrapWithCode(err, x.CodeSQLQueryBuild, "build_create_user_query_err")
 	}
 
-	zerolog.Ctx(ctx).Debug().Str("query", query).Any("args", args).Msg("compiled_query")
+	zerolog.Ctx(ctx).Debug().Str("query", util.CleanQuery(query)).Any("args", args).Msg("compiled_query")
 
 	row := tx.QueryRowContext(ctx, query, args...).Scan(&user.ID, &user.CreatedAt, &user.UpdatedAt)
 	if err := row; err != nil {
@@ -110,7 +110,7 @@ func (d *userRepository) findAllSQLUser(ctx context.Context, filter dto.UserFilt
 		return nil, &pagination, x.WrapWithCode(err, x.CodeSQLQueryBuild, "build_find_users_query_err")
 	}
 
-	zerolog.Ctx(ctx).Debug().Str("query", query).Any("args", args).Msg("compiled_query")
+	zerolog.Ctx(ctx).Debug().Str("query", util.CleanQuery(query)).Any("args", args).Msg("compiled_query")
 
 	err = d.sql0.SelectContext(ctx, &results, query, args...)
 	if err != nil {
@@ -124,7 +124,7 @@ func (d *userRepository) findAllSQLUser(ctx context.Context, filter dto.UserFilt
 		return nil, &pagination, x.WrapWithCode(err, x.CodeSQLQueryBuild, "count_users_query_err")
 	}
 
-	zerolog.Ctx(ctx).Debug().Str("query", countQuery).Any("args", countArgs).Msg("compiled_query")
+	zerolog.Ctx(ctx).Debug().Str("query", util.CleanQuery(countQuery)).Any("args", countArgs).Msg("compiled_query")
 
 	err = d.sql0.GetContext(ctx, &totalRecords, countQuery, countArgs...)
 	if err != nil {
@@ -166,7 +166,7 @@ func (d *userRepository) updateSQLUser(ctx context.Context, id string, user *ent
 		return x.WrapWithCode(err, x.CodeSQLQueryBuild, "build_update_user_query_err")
 	}
 
-	zerolog.Ctx(ctx).Debug().Str("query", query).Any("args", args).Msg("compiled_query")
+	zerolog.Ctx(ctx).Debug().Str("query", util.CleanQuery(query)).Any("args", args).Msg("compiled_query")
 
 	result, err := d.sql0.ExecContext(ctx, query, args...)
 	if err != nil {
@@ -198,7 +198,7 @@ func (d *userRepository) deleteSQLUser(ctx context.Context, id string) error {
 		return x.WrapWithCode(err, x.CodeSQLQueryBuild, "build_delete_user_query_err")
 	}
 
-	zerolog.Ctx(ctx).Debug().Str("query", query).Any("args", args).Msg("compiled_query")
+	zerolog.Ctx(ctx).Debug().Str("query", util.CleanQuery(query)).Any("args", args).Msg("compiled_query")
 
 	result, err := d.sql0.ExecContext(ctx, query, args...)
 	if err != nil {

@@ -6,79 +6,75 @@ RETURNING id, created_at, updated_at;
 -- name: FindUserByID
 SELECT id, email, name, password, age, role, is_active, created_at, updated_at
 FROM users
-WHERE id = {{ .ID }};
+WHERE id = {{ arg .ID }};
 
 -- name: FindUserByEmail
 SELECT id, email, name, password, age, role, is_active, created_at, updated_at
 FROM users
-WHERE email = {{ .Email }};
+WHERE email = {{ arg .Email }};
 
 -- name: FindAllUsersBase
 SELECT id, email, name, age, role, is_active, created_at, updated_at
 FROM users
 WHERE 1=1
-{{- if .ID }}
-    AND id = {{ .ID }}
-{{- end }}
-{{- if .Name }}
-    AND name ILIKE {{ .NamePattern }}
-{{- end }}
-{{- if .Email }}
-    AND email ILIKE {{ .EmailPattern }}
-{{- end }}
-{{- if gt .MinAge 0 }}
-    AND age >= {{ .MinAge }}
-{{- end }}
-{{- if gt .MaxAge 0 }}
-    AND age <= {{ .MaxAge }}
-{{- end }}
-{{- if .SortBy }}
-    ORDER BY {{ .SortBy }} 
-    {{- if eq .SortDir "DESC" }}
-        DESC
-    {{ else }}
-        ASC
-    {{ end }}
-{{- end }}
-LIMIT {{ .Limit }} OFFSET {{ .Offset }};
+{{ if .ID }}
+    AND id = {{ arg .ID }}
+{{ end }}
+{{ if .Name }}
+    AND name ILIKE {{ arg .NamePattern }}
+{{ end }}
+{{ if .Email }}
+    AND email ILIKE {{ arg .EmailPattern }}
+{{ end }}
+{{ if gt .MinAge 0 }}
+    AND age >= {{ arg .MinAge }}
+{{ end }}
+{{ if gt .MaxAge 0 }}
+    AND age <= {{ arg .MaxAge }}
+{{ end }}
+{{ if .SortBy }}
+    ORDER BY {{ raw .SortBy }} {{ raw .SortDir }}
+{{ end }}
+LIMIT {{ arg .Limit }} OFFSET {{ arg .Offset }};
 
 -- name: CountUsersBase
 SELECT COUNT(*)
 FROM users
 WHERE 1=1
-{{- if .ID }}
-    AND id = {{ .ID }}
-{{- end }}
-{{- if .Name }}
-    AND name ILIKE {{ .NamePattern }}
-{{- end }}
-{{- if .Email }}
-    AND email ILIKE {{ .EmailPattern }}
-{{- end }}
-{{- if gt .MinAge 0 }}
-    AND age >= {{ .MinAge }}
-{{- end }}
-{{- if gt .MaxAge 0 }}
-    AND age <= {{ .MaxAge }}
-{{- end }};
+{{ if .ID }}
+    AND id = {{ arg .ID }}
+{{ end }}
+{{ if .Name }}
+    AND name ILIKE {{ arg .NamePattern }}
+{{ end }}
+{{ if .Email }}
+    AND email ILIKE {{ arg .EmailPattern }}
+{{ end }}
+{{ if gt .MinAge 0 }}
+    AND age >= {{ arg .MinAge }}
+{{ end }}
+{{ if gt .MaxAge 0 }}
+    AND age <= {{ arg .MaxAge }}
+{{ end }};
 
 -- name: UpdateUser
 UPDATE users
-SET email = {{ .Email }}, name = {{ .Name }}, age = {{ .Age }}, role = {{ .Role }}, is_active = {{ .IsActive }}, updated_at = {{ .UpdatedAt }}
-WHERE id = {{ .ID }};
+SET email = {{ arg .Email }}, name = {{ arg .Name }}, age = {{ arg .Age }}, role = {{ arg .Role }}, is_active = {{ arg .IsActive }}, updated_at = {{ arg .UpdatedAt }}
+WHERE id = {{ arg .ID }};
 
 -- name: DeleteUser
-DELETE FROM users WHERE id = {{ .ID }};
+DELETE FROM users WHERE id = {{ arg .ID }};
 
 -- name: CheckEmailExists
-SELECT COUNT(*) FROM users WHERE email = {{ .Email }} AND id != {{ .ID }};
+SELECT COUNT(*) FROM users WHERE email = {{ arg .Email }} AND id != {{ arg .ID }};
 
 -- name: BulkInsertUsers
-INSERT INTO users (email, name, age, role, created_at, updated_at)
+INSERT INTO users (email, name, age, role)
 VALUES
-{{- range $i, $user := . }}
-  {{ if $i }},{{ end }} ({{ $user.Email }}, {{ $user.Name }}, {{ $user.Age }}, {{ $user.Role }}, {{ $user.CreatedAt }}, {{ $user.UpdatedAt }})
-{{- end }};
+{{ range $i, $user := .Users }}
+  {{ if $i }},{{ end }}
+  ({{ arg $user.Email }}, {{ arg $user.Name }}, {{ arg $user.Age }}, {{ arg $user.Role }})
+{{ end }}
 
 -- name: FindUsersBaseV2
 SELECT id, email, name, age, role, is_active, created_at, updated_at
