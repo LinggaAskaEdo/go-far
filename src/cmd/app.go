@@ -16,6 +16,7 @@ import (
 	"go-far/src/config/server"
 	"go-far/src/config/token"
 	"go-far/src/config/tracer"
+	"go-far/src/config/validator"
 	restHandler "go-far/src/handler/rest"
 	schedHandler "go-far/src/handler/scheduler"
 	"go-far/src/preference"
@@ -76,20 +77,19 @@ func init() {
 	repository := repository.InitRepository(sql0, redis0, queryLoader, conf.Redis.CacheTTL)
 	service := service.InitService(repository)
 
-	// Initialize validator
-	middleware.InitValidator(log)
-
 	// Auth Initialization
-	tokenInst := token.InitToken(log, conf.Token, redis1)
+	authToken := token.InitToken(log, conf.Token, redis1)
 
 	// Middleware Initialization
-	mw := middleware.InitMiddleware(log, conf.Middleware, tokenInst, redis2)
+	mw := middleware.InitMiddleware(log, conf.Middleware, authToken, redis2)
 
 	// HTTP Mux Initialization
 	mux := server.InitHttpMux()
 
+	validator.InitValidator(log)
+
 	// REST Handler Initialization (registers routes on mux)
-	restHandler.InitRestHandler(mux, tokenInst, mw, service, service.User, sql0, redis0)
+	restHandler.InitRestHandler(mux, authToken, mw, service, service.User, sql0, redis0)
 
 	// Build the full handler with middleware chain
 	handler := server.WrapHandler(mux, mw, conf.HTTP, conf.Server)
@@ -109,7 +109,7 @@ func init() {
 }
 
 // @title			Go-Far
-// @version		1.7.0
+// @version		1.8.0
 // @description	A production-ready RESTful API built with Go following Domain-Driven Design principles, featuring PostgreSQL, Redis, JWT authentication, role-based rate limiting, and OpenTelemetry tracing.
 // @termsOfService	http://swagger.io/terms/
 // @contact.name	API Support

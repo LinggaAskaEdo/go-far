@@ -16,6 +16,10 @@ A production-ready RESTful API built with Go following Domain-Driven Design prin
 - **Graceful Shutdown** - Proper cleanup of resources
   - **Many-to-Many Relationships** - Users and cars via junction table
   - **Generic Query Decoder** - Reflection-based HTTP query decoder for reusable filter handling
+- **SQL Query Cleaner** - Utility to clean SQL queries for logging (masks sensitive values like passwords)
+- **Query Loader** - Dynamic SQL query loading from files with tqla template support
+- **Custom Validators** - Separate validator configuration package for reusable validation logic
+- **API Benchmarking** - Built-in Apache Bench integration for performance testing
 
 ## 📁 Project Structure
 
@@ -87,6 +91,7 @@ go-far/
 | Docs            | Swagger (swaggo)             |
 | SQL Templating  | tqla                         |
 | Query Decoder   | Custom reflection-based      |
+| Benchmark       | Apache Bench (ab)            |
 
 ## 📋 API Endpoints
 
@@ -365,6 +370,8 @@ make cert-create     # Generate RSA key pair (4096-bit)
 
 make mon-start       # Start monitoring stack
 make mon-stop        # Stop monitoring stack
+
+make benchmark       # Run API benchmark with Apache Bench
 ```
 
 ## 📝 Example Requests
@@ -499,3 +506,20 @@ Apache 2.0 - See [LICENSE](LICENSE) for details.
 
 - Issues: GitHub Issues
 - Email: <lemp.otis@gmail.com>
+
+## 📋 Changelog
+
+### v1.8.0
+
+- Added dedicated validator package (`src/config/validator`) with configurable validation rules
+- Implemented SQL query cleaning utility for safe logging
+- Added dynamic SQL query loader with tqla template support
+- Added API benchmarking with Apache Bench (`make benchmark`)
+- Added UserV2 handler, repository, and service for enhanced user operations
+- Improved security by masking sensitive values in debug logs
+
+### v1.7.0
+
+- Added generic query decoder for reusable filter handling
+- Added many-to-many relationships (users and cars)
+- Improved IDOR protection on user-scoped endpoints
