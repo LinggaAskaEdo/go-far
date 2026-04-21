@@ -12,6 +12,11 @@ import (
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
+var (
+	onceLogger = sync.Once{}
+	logInst    zerolog.Logger
+)
+
 // LoggerOptions holds logger configuration
 type LoggerOptions struct {
 	Enabled    bool   `yaml:"enabled"`
@@ -25,11 +30,6 @@ type LoggerOptions struct {
 	Compress   bool   `yaml:"compress"`
 }
 
-var (
-	onceLogger = sync.Once{}
-	logInst    zerolog.Logger
-)
-
 // InitLogger initializes the logger
 func InitLogger(opt LoggerOptions) zerolog.Logger {
 	onceLogger.Do(func() {
@@ -38,7 +38,12 @@ func InitLogger(opt LoggerOptions) zerolog.Logger {
 
 		logLevel, err := strconv.Atoi(os.Getenv("LOG_LEVEL"))
 		if err != nil {
-			logLevel = int(zerolog.DebugLevel)
+			parseLevel, err := zerolog.ParseLevel(opt.Level)
+			if err != nil {
+				logLevel = int(zerolog.InfoLevel)
+			} else {
+				logLevel = int(parseLevel)
+			}
 		}
 
 		var output io.Writer = zerolog.ConsoleWriter{

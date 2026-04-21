@@ -5,13 +5,14 @@ A production-ready RESTful API built with Go following Domain-Driven Design prin
 ## 🚀 Features
 
 - **Domain-Driven Design** - Separation of concerns with handlers, services, and repositories
-- **REST API** - Built with Go's native `net/http` (Go 1.22+ pattern matching)
+- **REST API** - Built with Go's native `net/http` (Go 1.25+ pattern matching)
 - **Database** - PostgreSQL with sqlx (MySQL supported)
 - **Caching** - Redis with snappy compression
 - **Authentication** - JWT with HS-256 signing, refresh tokens, and role-based access
 - **Role-Based Rate Limiting** - Per-role sliding window rate limiting via Redis Lua script (atomic, race-condition free)
 - **Observability** - OpenTelemetry tracing with OTLP exporter
 - **Scheduled Jobs** - Cron-based job scheduler
+- **Circuit Breaker** - Per-job circuit breaker using failsafe-go for external API protection
 - **API Documentation** - Swagger/OpenAPI 2.0
 - **Graceful Shutdown** - Proper cleanup of resources
   - **Many-to-Many Relationships** - Users and cars via junction table
@@ -79,7 +80,7 @@ go-far/
 
 | Component       | Technology                   |
 | --------------- | ---------------------------- |
-| Framework       | Go 1.22+ `net/http`          |
+| Framework       | Go 1.25+ `net/http`          |
 | Database        | PostgreSQL (MySQL supported) |
 | DB Driver       | pgx (jackc/pgx)              |
 | Cache           | Redis                        |
@@ -87,6 +88,7 @@ go-far/
 | Logging         | Zerolog                      |
 | Tracing         | OpenTelemetry                |
 | Scheduler       | robfig/cron/v3               |
+| Circuit Breaker | failsafe-go                  |
 | Validation      | go-playground/validator      |
 | Docs            | Swagger (swaggo)             |
 | SQL Templating  | tqla                         |
@@ -280,7 +282,7 @@ POSTGRES_DOCKER_PASSWORD=a5k4CooL
 
 ### Prerequisites
 
-- Go 1.25+
+- Go 1.25
 - PostgreSQL 14+
 - Redis 7+
 - Make
@@ -508,6 +510,14 @@ Apache 2.0 - See [LICENSE](LICENSE) for details.
 - Email: <lemp.otis@gmail.com>
 
 ## 📋 Changelog
+
+### v1.9.0
+
+- Added circuit breaker configuration in httpclient package (`src/config/httpclient`)
+- Integrated failsafe-go for external API protection with retry policy
+- Circuit breaker with 503 status code handling and exponential backoff
+- Per-job circuit breaker configuration in scheduler (user_generator, car_generator)
+- State change logging for circuit breaker monitoring
 
 ### v1.8.0
 

@@ -351,7 +351,7 @@ info:
     url: http://www.apache.org/licenses/LICENSE-2.0.html
   termsOfService: http://swagger.io/terms/
   title: Go-Far
-  version: 1.8.1
+  version: 1.9.0
 paths:
   /auth/login:
     post:

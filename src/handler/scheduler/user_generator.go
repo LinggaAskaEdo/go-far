@@ -148,6 +148,10 @@ func (j *UserGeneratorJob) Run(ctx context.Context) error {
 }
 
 func (j *UserGeneratorJob) fetchRandomUsersFromAPI(ctx context.Context, count int) ([]randomUser, error) {
+	return j.doFetchRandomUsersFromAPI(ctx, count)
+}
+
+func (j *UserGeneratorJob) doFetchRandomUsersFromAPI(ctx context.Context, count int) ([]randomUser, error) {
 	url := fmt.Sprintf("%s?results=%d&format=json", j.config.RandomUserURL, count)
 
 	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)

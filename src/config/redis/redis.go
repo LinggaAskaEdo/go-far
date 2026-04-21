@@ -72,7 +72,7 @@ func InitRedis(log zerolog.Logger, opt RedisOptions, redisType string) *redis.Cl
 		log.Panic().Err(err).Msg(fmt.Sprintf("REDIS %s status: %s", redisType, ping))
 	}
 
-	log.Debug().Msg(fmt.Sprintf("REDIS %s status: %s", redisType, ping))
+	log.Info().Msg(fmt.Sprintf("REDIS %s status: %s", redisType, ping))
 
 	return redisClient
 }

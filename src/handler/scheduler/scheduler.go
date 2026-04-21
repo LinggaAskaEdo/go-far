@@ -38,10 +38,9 @@ func InitSchedulerHandler(log zerolog.Logger, sch *cfg.Scheduler, svc *service.S
 	})
 }
 
-func (s *schedulerHandler) Serve() *cfg.Scheduler {
+func (s *schedulerHandler) Serve() {
 	if !s.enabled || s.sch == nil {
 		s.log.Debug().Msg("Scheduler is disabled, skipping")
-		return nil
 	}
 
 	// User Generator
@@ -62,6 +61,4 @@ func (s *schedulerHandler) Serve() *cfg.Scheduler {
 
 	// Start scheduler
 	s.sch.Start()
-
-	return s.sch
 }

@@ -9,7 +9,7 @@ server:
 
 logger:
   enabled: true
-  level: info # debug, info, warn, error
+  level: debug # debug, info, warn, error
   format: json # json, console
   output: stdout # stdout, file
   path: ./logs/app.log
@@ -58,10 +58,10 @@ token:
   expired_refresh_token: 15m
 
 scheduler:
-  enabled: false
+  enabled: true
   jobs:
     user_generator:
-      enabled: true
+      enabled: false
       random_user_url: "https://randomuser.me/api/"
       cron: "0 0 */1 * * *" # Every 1 hour
       batch_size: 5
@@ -116,3 +116,7 @@ http_client:
   expect_continue_timeout: 1s
   disable_compression: false
   timeout: 10s
+  circuit_breaker:
+    max_retries: 2
+    backoff_min: 100ms
+    backoff_max: 2s

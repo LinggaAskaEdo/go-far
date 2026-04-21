@@ -106,7 +106,7 @@ func (j *CarGeneratorJob) Run(ctx context.Context) error {
 		return nil
 	}
 
-	j.fetchCarDataFromAPI()
+	j.fetchCarDataFromAPI(ctx)
 
 	j.log.Info().
 		Int("batch_size", j.config.BatchSize).
@@ -193,7 +193,7 @@ func (j *CarGeneratorJob) randomCar() *carInfo {
 	return &car
 }
 
-func (j *CarGeneratorJob) fetchCarDataFromAPI() {
+func (j *CarGeneratorJob) fetchCarDataFromAPI(ctx context.Context) {
 	if j.nhtsaURL == "" {
 		j.log.Warn().Msg("NHTSA API URL not configured, skipping")
 		return
@@ -204,10 +204,12 @@ func (j *CarGeneratorJob) fetchCarDataFromAPI() {
 		return
 	}
 
-	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Second)
-	defer cancel()
+	newCars, err := j.fetchMakesFromAPI(ctx)
+	if err != nil {
+		j.log.Warn().Err(err).Msg("failed to fetch car data from NHTSA API")
+		return
+	}
 
-	newCars := j.fetchMakesFromAPI(ctx)
 	if len(newCars) == 0 {
 		j.log.Warn().Msg("no car data fetched from NHTSA API")
 		return
@@ -220,23 +222,27 @@ func (j *CarGeneratorJob) fetchCarDataFromAPI() {
 	j.log.Info().Int("count", len(newCars)).Msg("car data fetched from NHTSA API")
 }
 
-func (j *CarGeneratorJob) fetchMakesFromAPI(ctx context.Context) []carInfo {
+func (j *CarGeneratorJob) fetchMakesFromAPI(ctx context.Context) ([]carInfo, error) {
+	return j.doFetchMakesFromAPI(ctx)
+}
+
+func (j *CarGeneratorJob) doFetchMakesFromAPI(ctx context.Context) ([]carInfo, error) {
 	url := fmt.Sprintf("%s/GetMakeForManufacturer?format=json", j.nhtsaURL)
 	resp, err := j.httpClient.Get(url)
 	if err != nil {
 		j.log.Warn().Err(err).Msg("failed to fetch makes from NHTSA")
-		return nil
+		return nil, err
 	}
 	defer resp.Body.Close()
 
 	var makesResp nhtsaMakesResponse
 	if err := json.NewDecoder(resp.Body).Decode(&makesResp); err != nil {
 		j.log.Warn().Err(err).Msg("failed to decode makes response")
-		return nil
+		return nil, err
 	}
 
 	if len(makesResp.Result) == 0 {
-		return nil
+		return nil, nil
 	}
 
 	rand.Shuffle(len(makesResp.Result), func(i, j int) {
@@ -248,7 +254,8 @@ func (j *CarGeneratorJob) fetchMakesFromAPI(ctx context.Context) []carInfo {
 		makes[i] = makeInfo{MakeID: m.MakeID, MakeName: m.MakeName}
 	}
 
-	return j.fetchModelsForMakes(ctx, makes)
+	result := j.fetchModelsForMakes(ctx, makes)
+	return result, nil
 }
 
 func (j *CarGeneratorJob) fetchModelsForMakes(ctx context.Context, makes []makeInfo) []carInfo {

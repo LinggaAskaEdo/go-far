@@ -45,7 +45,7 @@ func InitDB(log zerolog.Logger, opt DatabaseOptions) *pgxpool.Pool {
 		log.Panic().Err(err).Msg(fmt.Sprintf("%s status: FAILED", strings.ToUpper(opt.Driver)))
 	}
 
-	log.Debug().Msg(fmt.Sprintf("%s status: OK", strings.ToUpper(opt.Driver)))
+	log.Info().Msg(fmt.Sprintf("%s status: OK", strings.ToUpper(opt.Driver)))
 
 	return pool
 }
