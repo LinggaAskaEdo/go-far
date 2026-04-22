@@ -4,11 +4,12 @@ import (
 	"context"
 	"encoding/json"
 	"errors"
-	"go-far/src/preference"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
+
+	"go-far/src/preference"
 
 	"github.com/rs/zerolog"
 )

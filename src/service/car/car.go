@@ -17,7 +17,7 @@ type CarServiceItf interface {
 	GetCarWithOwner(ctx context.Context, id uuid.UUID) (*entity.CarWithOwner, error)
 	ListCarsByUser(ctx context.Context, userID uuid.UUID) ([]*entity.Car, error)
 	CountCarsByUser(ctx context.Context, userID uuid.UUID) (int, error)
-	UpdateCar(ctx context.Context, id uuid.UUID, req dto.UpdateCarRequest, userID string) (*entity.Car, error)
+	UpdateCar(ctx context.Context, id uuid.UUID, req *dto.UpdateCarRequest, userID string) (*entity.Car, error)
 	DeleteCar(ctx context.Context, id uuid.UUID, userID string) error
 	TransferCarOwnership(ctx context.Context, carID, newUserID uuid.UUID, userID string) error
 	BulkUpdateAvailability(ctx context.Context, req dto.BulkUpdateAvailabilityRequest, userID string) error

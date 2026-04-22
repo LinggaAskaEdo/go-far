@@ -123,7 +123,7 @@ func (e *rest) ListUsers(w http.ResponseWriter, r *http.Request) {
 		filter.ID = authUser.UserID
 	}
 
-	users, pagination, err := e.svc.User.ListUsers(ctx, cacheControl, filter)
+	users, pagination, err := e.svc.User.ListUsers(ctx, cacheControl, &filter)
 	if err != nil {
 		e.httpRespError(w, r, err)
 		return
@@ -157,15 +157,15 @@ func (e *rest) UpdateUser(w http.ResponseWriter, r *http.Request) {
 	}
 
 	var req dto.UpdateUserRequest
-	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
-		zerolog.Ctx(ctx).Error().Err(err).Msg("invalid_request_body")
-		e.httpRespError(w, r, x.WrapWithCode(err, x.CodeHTTPUnmarshal, "invalid_request_body"))
+	if decodeErr := json.NewDecoder(r.Body).Decode(&req); decodeErr != nil {
+		zerolog.Ctx(ctx).Error().Err(decodeErr).Msg("invalid_request_body")
+		e.httpRespError(w, r, x.WrapWithCode(decodeErr, x.CodeHTTPUnmarshal, "invalid_request_body"))
 		return
 	}
 
-	if err := validator.ValidateRequest(&req); err != nil {
-		zerolog.Ctx(ctx).Warn().Err(err).Msg("validation_failed_update_user")
-		e.httpRespError(w, r, err)
+	if validateErr := validator.ValidateRequest(&req); validateErr != nil {
+		zerolog.Ctx(ctx).Warn().Err(validateErr).Msg("validation_failed_update_user")
+		e.httpRespError(w, r, validateErr)
 		return
 	}
 

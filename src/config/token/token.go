@@ -20,19 +20,14 @@ import (
 )
 
 const (
-	jwtSecretEnv         = "JWT_SECRET_GO_FAR"
-	refreshTokenRotation = true
-	minSecretLength      = 32
-	redisTimeout         = 3 * time.Second
-)
-
-const (
-	RefreshTokenUsedPrefix    = "rt_used:"
-	RefreshTokenRevokedPrefix = "rt_revoked:"
+	refreshTokenRotation   = true
+	minSecretLength        = 32
+	redisTimeout           = 3 * time.Second
+	RefreshTokenUsedPrefix = "rt_used:"
 )
 
 type token struct {
-	log                 zerolog.Logger
+	log                 *zerolog.Logger
 	redis               *redis.Client
 	secret              []byte
 	expiredToken        time.Duration
@@ -77,11 +72,11 @@ type AccessDetails struct {
 }
 
 // InitToken initializes the token module
-func InitToken(log zerolog.Logger, opt TokenOptions, redis *redis.Client) Token {
+func InitToken(log *zerolog.Logger, opt *TokenOptions, redisClient *redis.Client) Token {
 	onceToken.Do(func() {
-		secret := os.Getenv(jwtSecretEnv)
+		secret := os.Getenv("JWT_SECRET_GO_FAR")
 		if secret == "" {
-			log.Panic().Msgf("Environment variable %s is not set", jwtSecretEnv)
+			log.Panic().Msgf("Environment variable %s is not set", "JWT_SECRET_GO_FAR")
 		}
 
 		if len(secret) < minSecretLength {
@@ -90,7 +85,7 @@ func InitToken(log zerolog.Logger, opt TokenOptions, redis *redis.Client) Token 
 
 		tokenInst = &token{
 			log:                 log,
-			redis:               redis,
+			redis:               redisClient,
 			secret:              []byte(secret),
 			expiredToken:        opt.ExpiredToken,
 			expiredRefreshToken: opt.ExpiredRefreshToken,
@@ -256,7 +251,7 @@ func (a *token) extractToken(r *http.Request) string {
 	}
 
 	bearToken := authHeaders[0]
-	if len(bearToken) == 0 {
+	if bearToken == "" {
 		return ""
 	}
 
@@ -298,22 +293,22 @@ func (a *token) ValidateRefreshToken(r *http.Request, tokenStr string) (*AccessD
 		return nil, x.NewWithCode(x.CodeHTTPUnauthorized, preference.ErrInvalidToken)
 	}
 
-	userID := getStringClaim(claims, "user_id")
+	userID := a.getStringClaim(claims, "user_id")
 	if userID == "" {
 		return nil, x.NewWithCode(x.CodeHTTPUnauthorized, "invalid user_id in token")
 	}
 
-	username := getStringClaim(claims, "name")
+	username := a.getStringClaim(claims, "name")
 	if username == "" {
 		return nil, x.NewWithCode(x.CodeHTTPUnauthorized, "invalid name in token")
 	}
 
-	role := getStringClaim(claims, "role")
+	role := a.getStringClaim(claims, "role")
 	if role == "" {
 		return nil, x.NewWithCode(x.CodeHTTPUnauthorized, "invalid role in token")
 	}
 
-	refreshUUID := getStringClaim(claims, "refresh_uuid")
+	refreshUUID := a.getStringClaim(claims, "refresh_uuid")
 	if refreshUUID == "" {
 		return nil, x.NewWithCode(x.CodeHTTPUnauthorized, "invalid refresh_uuid in token")
 	}
@@ -347,7 +342,7 @@ func (a *token) ValidateRefreshToken(r *http.Request, tokenStr string) (*AccessD
 	}, nil
 }
 
-func getStringClaim(claims jwt.MapClaims, key string) string {
+func (a *token) getStringClaim(claims jwt.MapClaims, key string) string {
 	if val, ok := claims[key].(string); ok {
 		return val
 	}

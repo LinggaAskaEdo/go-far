@@ -13,15 +13,14 @@ import (
 
 // RedisOptions holds Redis configuration
 type RedisOptions struct {
-	Enabled         bool          `yaml:"enabled"`
+	Password        string        `yaml:"password"`
 	Network         string        `yaml:"network"`
 	Address         string        `yaml:"address"`
-	Password        string        `yaml:"password"`
+	DialTimeout     time.Duration `yaml:"dial_timeout"`
 	CacheTTL        time.Duration `yaml:"cache_ttl"`
 	MaxRetries      int           `yaml:"max_retries"`
 	MinRetryBackoff time.Duration `yaml:"min_retry_backoff"`
 	MaxRetryBackoff time.Duration `yaml:"max_retry_backoff"`
-	DialTimeout     time.Duration `yaml:"dial_timeout"`
 	ReadTimeout     time.Duration `yaml:"read_timeout"`
 	WriteTimeout    time.Duration `yaml:"write_timeout"`
 	PoolSize        int           `yaml:"pool_size"`
@@ -29,10 +28,11 @@ type RedisOptions struct {
 	MaxIdleConns    int           `yaml:"max_idle_conns"`
 	MaxActiveConns  int           `yaml:"max_active_conns"`
 	PoolTimeout     time.Duration `yaml:"pool_timeout"`
+	Enabled         bool          `yaml:"enabled"`
 }
 
 // InitRedis initializes a Redis client
-func InitRedis(log zerolog.Logger, opt RedisOptions, redisType string) *redis.Client {
+func InitRedis(log *zerolog.Logger, opt *RedisOptions, redisType string) *redis.Client {
 	var redisClient *redis.Client
 	var DB int
 

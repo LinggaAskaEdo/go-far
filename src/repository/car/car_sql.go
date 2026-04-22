@@ -190,7 +190,7 @@ func (r *carRepository) countCarsByUserIDSQL(ctx context.Context, userID uuid.UU
 	return count, nil
 }
 
-func (r *carRepository) assignCarToUserSQL(ctx context.Context, userID uuid.UUID, carID uuid.UUID) error {
+func (r *carRepository) assignCarToUserSQL(ctx context.Context, userID, carID uuid.UUID) error {
 	query, args, err := r.queryLoader.Compile("AssignCarToUser", map[string]any{
 		"UserID": userID,
 		"CarID":  carID,

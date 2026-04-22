@@ -25,19 +25,19 @@ func ParseRole(s string) Role {
 }
 
 type User struct {
+	CreatedAt time.Time `db:"created_at" json:"created_at"`
+	UpdatedAt time.Time `db:"updated_at" json:"updated_at"`
 	ID        string    `db:"id" json:"id"`
 	Email     string    `db:"email" json:"email"`
 	Name      string    `db:"name" json:"name"`
 	Password  string    `db:"password" json:"-"`
-	Age       int       `db:"age" json:"age"`
 	Role      Role      `db:"role" json:"role"`
+	Age       int       `db:"age" json:"age"`
 	IsActive  bool      `db:"is_active" json:"is_active"`
-	CreatedAt time.Time `db:"created_at" json:"created_at"`
-	UpdatedAt time.Time `db:"updated_at" json:"updated_at"`
 }
 
 type UserWithCars struct {
+	Cars []Car `json:"cars,omitempty"`
 	User
-	Cars     []Car `json:"cars,omitempty"`
-	CarCount int   `json:"car_count"`
+	CarCount int `json:"car_count"`
 }

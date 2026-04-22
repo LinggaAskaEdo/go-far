@@ -34,15 +34,15 @@ const (
 )
 
 type SQLBuilder struct {
+	values      map[string]reflect.Value
 	paramTag    string
 	colTag      string
 	suffixQuery string
-	values      map[string]reflect.Value
 	page        int64
 	limit       int64
 }
 
-func NewSQLBuilder(paramTag, colTag string, suffix string, page, limit int64) *SQLBuilder {
+func NewSQLBuilder(paramTag, colTag, suffix string, page, limit int64) *SQLBuilder {
 	return &SQLBuilder{
 		paramTag:    paramTag,
 		colTag:      colTag,
@@ -66,15 +66,20 @@ func (qb *SQLBuilder) AliasPrefix(alias string, ptr any) *SQLBuilder {
 	return qb
 }
 
-func (qb *SQLBuilder) Build() (string, []string, []any, error) {
-	args := []any{}
-	sortBy := []string{}
-	sortByDisplay := []string{}
-	mapDBcolsByParam := make(map[string]string)
-	buff := bytes.NewBufferString("")
-	argIdx := 1
+func (qb *SQLBuilder) Build() (query string, sortByDisplay []string, args []any, err error) {
+	var (
+		sortBy    []string
+		mapDBcols map[string]string
+		buff      *bytes.Buffer
+		argIdx    int
+	)
 
-	qb.buildColumnMapping(mapDBcolsByParam)
+	sortBy = []string{}
+	mapDBcols = make(map[string]string)
+	buff = bytes.NewBufferString("")
+	argIdx = 1
+
+	qb.buildColumnMapping(mapDBcols)
 	buff.WriteString(qb.buildWhereClause())
 
 	for table, v := range qb.values {
@@ -87,7 +92,7 @@ func (qb *SQLBuilder) Build() (string, []string, []any, error) {
 
 			isSortBy := qb.isSortByField(colTag)
 			if isSortBy {
-				sortCols, sortDisp := qb.processSortBy(arg, alias, mapDBcolsByParam)
+				sortCols, sortDisp := qb.processSortBy(arg, alias, mapDBcols)
 				sortBy = append(sortBy, sortCols...)
 				sortByDisplay = append(sortByDisplay, sortDisp...)
 				continue
@@ -134,30 +139,30 @@ func (qb *SQLBuilder) getAlias(table string) string {
 
 func (qb *SQLBuilder) buildWhereClause() string {
 	buff := bytes.NewBufferString(" WHERE 1=1")
-	if len(qb.suffixQuery) > 0 {
+	if qb.suffixQuery != "" {
 		buff.WriteString(" AND " + qb.suffixQuery)
 	}
 
 	return buff.String()
 }
 
-func (qb *SQLBuilder) processField(v reflect.Value, i int) (any, string, int) {
+func (qb *SQLBuilder) processField(v reflect.Value, i int) (arg any, colTag string, qType int) {
 	tag := v.Type().Field(i).Tag
-	colTag := tag.Get(qb.colTag)
-	paramTag := tag.Get(qb.paramTag)
+	col := tag.Get(qb.colTag)
+	param := tag.Get(qb.paramTag)
 
-	if colTag == "" || colTag == "-" {
-		return nil, "", 0
+	if col == "" || col == "-" {
+		return
 	}
 
 	vFieldItf := v.Field(i).Interface()
-	qType := unknown
-	arg, skip := qb.extractValue(vFieldItf, paramTag, &qType)
+	qType = unknown
+	extractedArg, skip := qb.extractValue(vFieldItf, param, &qType)
 	if skip {
-		return nil, "", 0
+		return
 	}
 
-	return arg, colTag, qType
+	return extractedArg, col, qType
 }
 
 func (qb *SQLBuilder) extractValue(vFieldItf any, paramTag string, qType *int) (any, bool) {
@@ -230,7 +235,7 @@ func (qb *SQLBuilder) extractScalarValue(vFieldItf any, paramTag string, qType *
 			return f, false
 		}
 	case string:
-		if len(f) > 0 {
+		if f != "" {
 			qb.applyLikeModifier(f, qType)
 			return f, false
 		}
@@ -280,23 +285,21 @@ func (qb *SQLBuilder) isPaginationField(colTag string) bool {
 	return false
 }
 
-func (qb *SQLBuilder) processSortBy(arg any, alias string, mapDBcolsByParam map[string]string) ([]string, []string) {
+func (qb *SQLBuilder) processSortBy(arg any, alias string, mapDBcolsByParam map[string]string) (sortBy, sortByDisplay []string) {
 	v, ok := arg.(string)
 	if !ok || v == "" {
-		return nil, nil
+		return
 	}
 
 	reg := regexp.MustCompile(`(?P<sign>-)?(?P<col>[a-zA-Z_]+),?`)
 	if !reg.MatchString(v) {
-		return nil, nil
+		return
 	}
 
 	return qb.parseSortFields(v, reg, alias, mapDBcolsByParam)
 }
 
-func (qb *SQLBuilder) parseSortFields(v string, reg *regexp.Regexp, alias string, mapDBcolsByParam map[string]string) ([]string, []string) {
-	sortBy := []string{}
-	sortByDisplay := []string{}
+func (qb *SQLBuilder) parseSortFields(v string, reg *regexp.Regexp, alias string, mapDBcolsByParam map[string]string) (sortBy, sortByDisplay []string) {
 	for _, s := range strings.Split(v, ",") {
 		match := reg.FindStringSubmatch(s)
 		if match == nil {
@@ -314,12 +317,11 @@ func (qb *SQLBuilder) parseSortFields(v string, reg *regexp.Regexp, alias string
 		}
 	}
 
-	return sortBy, sortByDisplay
+	return
 }
 
-func (qb *SQLBuilder) extractColumnAndSort(match []string, reg *regexp.Regexp, _ string) (string, string) {
-	sort := "asc"
-	col := ""
+func (qb *SQLBuilder) extractColumnAndSort(match []string, reg *regexp.Regexp, _ string) (col, sort string) {
+	sort = "asc"
 	for i, name := range reg.SubexpNames() {
 		if i == 0 || name == "" {
 			continue
@@ -332,10 +334,10 @@ func (qb *SQLBuilder) extractColumnAndSort(match []string, reg *regexp.Regexp, _
 		}
 	}
 
-	return col, sort
+	return
 }
 
-func (qb *SQLBuilder) appendWhereClause(buff *bytes.Buffer, alias, colTag string, qType int, argIdx int) {
+func (qb *SQLBuilder) appendWhereClause(buff *bytes.Buffer, alias, colTag string, qType, argIdx int) {
 	switch qType {
 	case eq:
 		buff.WriteString(" AND " + alias + colTag + "=$" + strconv.Itoa(argIdx))
@@ -387,19 +389,20 @@ func getOffset(page, limit int64) int64 {
 
 func (qb *SQLBuilder) getOperator(valType int, paramTag string) int {
 	if valType == one {
-		if strings.Contains(paramTag, "__gte") {
+		switch {
+		case strings.Contains(paramTag, "__gte"):
 			return gte
-		} else if strings.Contains(paramTag, "__lte") {
+		case strings.Contains(paramTag, "__lte"):
 			return lte
-		} else if strings.Contains(paramTag, "__lt") {
+		case strings.Contains(paramTag, "__lt"):
 			return lt
-		} else if strings.Contains(paramTag, "__gt") {
+		case strings.Contains(paramTag, "__gt"):
 			return gt
-		} else if strings.Contains(paramTag, "__neq") {
+		case strings.Contains(paramTag, "__neq"):
 			return neq
+		default:
+			return eq
 		}
-
-		return eq
 	}
 
 	if strings.Contains(paramTag, "__nin") {

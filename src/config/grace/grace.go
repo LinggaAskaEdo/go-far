@@ -22,21 +22,21 @@ type App interface {
 }
 
 type app struct {
-	log             zerolog.Logger
+	log             *zerolog.Logger
 	httpServer      *http.Server
-	tracer          tracer.Tracer
+	trc             tracer.Tracer
 	shutdownTimeout time.Duration
 }
 
 // InitGrace initializes graceful shutdown handling
-func InitGrace(log zerolog.Logger, httpServer *http.Server, tracer tracer.Tracer, shutdownTimeout time.Duration) App {
+func InitGrace(log *zerolog.Logger, httpServer *http.Server, trc tracer.Tracer, shutdownTimeout time.Duration) App {
 	var gs *app
 
 	onceGrace.Do(func() {
 		gs = &app{
 			log:             log,
 			httpServer:      httpServer,
-			tracer:          tracer,
+			trc:             trc,
 			shutdownTimeout: shutdownTimeout,
 		}
 	})
@@ -69,7 +69,7 @@ func (g *app) Serve() {
 		g.log.Error().Err(err).Msg("HTTP server shutdown error")
 	}
 
-	if err := g.tracer.Stop(shutdownCtx); err != nil {
+	if err := g.trc.Stop(shutdownCtx); err != nil {
 		g.log.Error().Err(err).Msg("Tracer shutdown error")
 	}
 

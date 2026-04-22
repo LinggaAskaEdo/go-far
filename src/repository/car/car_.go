@@ -70,7 +70,7 @@ func (r *carRepository) CreateBulk(ctx context.Context, cars []*entity.Car) erro
 	return nil
 }
 
-func (r *carRepository) AssignCarToUser(ctx context.Context, userID uuid.UUID, carID uuid.UUID) error {
+func (r *carRepository) AssignCarToUser(ctx context.Context, userID, carID uuid.UUID) error {
 	return r.assignCarToUserSQL(ctx, userID, carID)
 }
 
@@ -84,7 +84,7 @@ func (r *carRepository) FindByID(ctx context.Context, id uuid.UUID) (*entity.Car
 	cached, err := r.redis0.Get(ctx, cacheKey).Result()
 	if err == nil {
 		var car entity.Car
-		if err := json.Unmarshal([]byte(cached), &car); err == nil {
+		if unmarshallErr := json.Unmarshal([]byte(cached), &car); unmarshallErr == nil {
 			zerolog.Ctx(ctx).Debug().Str("id", id.String()).Msg("car_found_in_cache")
 			return &car, nil
 		}

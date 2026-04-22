@@ -11,7 +11,7 @@ import (
 
 // Scheduler manages scheduled jobs
 type Scheduler struct {
-	log  zerolog.Logger
+	log  *zerolog.Logger
 	cron *cron.Cron
 	jobs []Job
 	mu   sync.RWMutex
@@ -26,38 +26,38 @@ type Job interface {
 
 // SchedulerOptions holds scheduler configuration
 type SchedulerOptions struct {
-	Enabled       bool                 `yaml:"enabled"`
 	SchedulerJobs SchedulerJobsOptions `yaml:"jobs"`
+	Enabled       bool                 `yaml:"enabled"`
 }
 
 // SchedulerJobsOptions holds individual job configurations
 type SchedulerJobsOptions struct {
-	UserGeneratorJob UserGeneratorJobOptions `yaml:"user_generator"`
-	CarGeneratorJob  CarGeneratorJobOptions  `yaml:"car_generator"`
+	UserGeneratorJob *UserGeneratorJobOptions `yaml:"user_generator"`
+	CarGeneratorJob  *CarGeneratorJobOptions  `yaml:"car_generator"`
 }
 
 // UserGeneratorJobOptions holds user generator job configuration
 type UserGeneratorJobOptions struct {
-	Enabled       bool   `yaml:"enabled"`
 	RandomUserURL string `yaml:"random_user_url"`
 	Cron          string `yaml:"cron"`
 	BatchSize     int    `yaml:"batch_size"`
 	MinAge        int    `yaml:"min_age"`
 	MaxAge        int    `yaml:"max_age"`
+	Enabled       bool   `yaml:"enabled"`
 }
 
 // CarGeneratorJobOptions holds car generator job configuration
 type CarGeneratorJobOptions struct {
-	Enabled     bool   `yaml:"enabled"`
 	NHTSAAPIURL string `yaml:"nhtsa_api_url"`
 	Cron        string `yaml:"cron"`
 	BatchSize   int    `yaml:"batch_size"`
 	MinYear     int    `yaml:"min_year"`
 	MaxYear     int    `yaml:"max_year"`
+	Enabled     bool   `yaml:"enabled"`
 }
 
 // InitScheduler initializes the scheduler
-func InitScheduler(log zerolog.Logger, opt SchedulerOptions) *Scheduler {
+func InitScheduler(log *zerolog.Logger, opt *SchedulerOptions) *Scheduler {
 	if opt.Enabled {
 		return &Scheduler{
 			log:  log,

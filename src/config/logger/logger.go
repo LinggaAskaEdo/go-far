@@ -19,7 +19,6 @@ var (
 
 // LoggerOptions holds logger configuration
 type LoggerOptions struct {
-	Enabled    bool   `yaml:"enabled"`
 	Level      string `yaml:"level"`
 	Format     string `yaml:"format"`
 	Output     string `yaml:"output"`
@@ -27,11 +26,12 @@ type LoggerOptions struct {
 	MaxSize    int    `yaml:"max_size"`
 	MaxBackups int    `yaml:"max_backups"`
 	MaxAge     int    `yaml:"max_age"`
+	Enabled    bool   `yaml:"enabled"`
 	Compress   bool   `yaml:"compress"`
 }
 
 // InitLogger initializes the logger
-func InitLogger(opt LoggerOptions) zerolog.Logger {
+func InitLogger(opt *LoggerOptions) zerolog.Logger {
 	onceLogger.Do(func() {
 		zerolog.ErrorStackMarshaler = pkgerrors.MarshalStack
 		zerolog.TimeFieldFormat = time.RFC3339

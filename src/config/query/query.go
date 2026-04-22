@@ -11,13 +11,13 @@ type QueriesOptions struct {
 }
 
 type QueryLoader struct {
-	log       zerolog.Logger
+	log       *zerolog.Logger
 	templates map[string]*template.Template // key: query name
 	rawSQL    map[string]string             // key: query name
 	fileMap   map[string]string             // query name -> file path (for error reporting)
 }
 
-func InitQueryLoader(log zerolog.Logger, opt QueriesOptions) *QueryLoader {
+func InitQueryLoader(log *zerolog.Logger, opt *QueriesOptions) *QueryLoader {
 	ql := &QueryLoader{
 		log:       log,
 		templates: make(map[string]*template.Template),

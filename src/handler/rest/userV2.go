@@ -25,7 +25,7 @@ func (e *rest) ListUsersV2(w http.ResponseWriter, r *http.Request) {
 		filter.ID = authUser.UserID
 	}
 
-	users, pagination, err := e.svc.User.ListUsersV2(ctx, filter)
+	users, pagination, err := e.svc.User.ListUsersV2(ctx, &filter)
 	if err != nil {
 		e.httpRespError(w, r, err)
 		return

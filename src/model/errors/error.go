@@ -9,10 +9,10 @@ import (
 )
 
 type AppError struct {
-	Code       Code    `json:"code"`
-	Message    string  `json:"message"`
-	DebugError *string `json:"debug,omitempty"`
 	sys        error
+	DebugError *string `json:"debug,omitempty"`
+	Message    string  `json:"message"`
+	Code       Code    `json:"code"`
 }
 
 func init() {
@@ -56,7 +56,7 @@ func getDebugError(err error, debugMode bool) *string {
 	}
 	errStr := err.Error()
 
-	if len(errStr) == 0 {
+	if errStr == "" {
 		return nil
 	}
 

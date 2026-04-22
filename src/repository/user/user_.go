@@ -48,7 +48,7 @@ func (d *userRepository) FindByID(ctx context.Context, id string) (*entity.User,
 	if err == nil {
 		var user entity.User
 
-		if err := json.Unmarshal([]byte(cached), &user); err == nil {
+		if unmarshallErr := json.Unmarshal([]byte(cached), &user); unmarshallErr == nil {
 			zerolog.Ctx(ctx).Debug().Str("id", id).Msg("data_found_in_cache")
 			return &user, nil
 		}
@@ -74,7 +74,7 @@ func (d *userRepository) FindByEmail(ctx context.Context, email string) (*entity
 	return user, nil
 }
 
-func (d *userRepository) FindAll(ctx context.Context, cacheControl dto.CacheControl, filter dto.UserFilter) (*[]entity.User, *dto.Pagination, error) {
+func (d *userRepository) FindAll(ctx context.Context, cacheControl dto.CacheControl, filter *dto.UserFilter) (*[]entity.User, *dto.Pagination, error) {
 	if cacheControl.MustRevalidate {
 		result, pagination, err := d.findAllSQLUser(ctx, filter)
 		if err != nil {

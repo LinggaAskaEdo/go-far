@@ -14,19 +14,19 @@ import (
 )
 
 type HttpClientOptions struct {
-	Enabled               bool                  `yaml:"enabled"`
-	MaxIdleConns          int                   `yaml:"max_idle_conns"`
+	CircuitBreaker        CircuitBreakerOptions `yaml:"circuit_breaker"`
+	KeepAlive             time.Duration         `yaml:"keep_alive"`
 	MaxIdleConnsPerHost   int                   `yaml:"max_idle_conns_per_host"`
 	MaxConnsPerHost       int                   `yaml:"max_conns_per_host"`
 	IdleConnTimeout       time.Duration         `yaml:"idle_conn_timeout"`
 	DialTimeout           time.Duration         `yaml:"dial_timeout"`
-	KeepAlive             time.Duration         `yaml:"keep_alive"`
 	TLSHandshakeTimeout   time.Duration         `yaml:"tls_handshake_timeout"`
 	ResponseHeaderTimeout time.Duration         `yaml:"response_header_timeout"`
 	ExpectContinueTimeout time.Duration         `yaml:"expect_continue_timeout"`
-	DisableCompression    bool                  `yaml:"disable_compression"`
 	Timeout               time.Duration         `yaml:"timeout"`
-	CircuitBreaker        CircuitBreakerOptions `yaml:"circuit_breaker"`
+	MaxIdleConns          int                   `yaml:"max_idle_conns"`
+	Enabled               bool                  `yaml:"enabled"`
+	DisableCompression    bool                  `yaml:"disable_compression"`
 }
 
 type CircuitBreakerOptions struct {
@@ -35,7 +35,7 @@ type CircuitBreakerOptions struct {
 	BackoffMax time.Duration `yaml:"backoff_max"`
 }
 
-func InitHttpClient(log zerolog.Logger, opt HttpClientOptions) *http.Client {
+func InitHttpClient(log *zerolog.Logger, opt *HttpClientOptions) *http.Client {
 	if !opt.Enabled {
 		log.Debug().Msg("HTTP client is disabled")
 		return nil
@@ -56,12 +56,12 @@ func InitHttpClient(log zerolog.Logger, opt HttpClientOptions) *http.Client {
 		}).DialContext,
 	}
 
-	timeout := timeout.NewBuilder[*http.Response](3 * time.Second).
+	timeoutPolicy := timeout.NewBuilder[*http.Response](3 * time.Second).
 		OnTimeoutExceeded(func(e failsafe.ExecutionDoneEvent[*http.Response]) {
 			log.Info().Msg("Request timed out")
 		}).Build()
 
-	circuitBreaker := circuitbreaker.NewBuilder[*http.Response]().
+	circuitBreakerPolicy := circuitbreaker.NewBuilder[*http.Response]().
 		HandleIf(func(response *http.Response, err error) bool {
 			return response != nil && response.StatusCode == http.StatusServiceUnavailable
 		}).
@@ -93,10 +93,10 @@ func InitHttpClient(log zerolog.Logger, opt HttpClientOptions) *http.Client {
 		Build()
 
 	wrappedTransport := failsafehttp.NewRoundTripper(
-		transport,      // innerRoundTripper
-		circuitBreaker, // circuit breaker
-		retryPolicy,    // retry policy
-		timeout,        // timeout policy
+		transport,            // innerRoundTripper
+		circuitBreakerPolicy, // circuit breaker
+		retryPolicy,          // retry policy
+		timeoutPolicy,        // timeout policy
 	)
 
 	client := &http.Client{

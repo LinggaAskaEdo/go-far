@@ -19,13 +19,13 @@ var (
 
 // ServerOptions holds HTTP server configuration
 type ServerOptions struct {
+	Mode            string        `yaml:"mode"`
 	Port            int           `yaml:"port"`
 	WriteTimeout    time.Duration `yaml:"write_timeout"`
 	ReadTimeout     time.Duration `yaml:"read_timeout"`
 	IdleTimeout     time.Duration `json:"idle_timeout"`
 	ShutdownTimeout time.Duration `yaml:"shutdown_timeout"`
-	Mode            string        `yaml:"mode"`
-	MaxBodyBytes    int64         `yaml:"max_body_bytes"` // Max request body size in bytes (default 1MB)
+	MaxBodyBytes    int64         `yaml:"max_body_bytes"`
 }
 
 // HttpOptions holds HTTP handler configuration
@@ -34,7 +34,7 @@ type HttpOptions struct {
 }
 
 // InitHttpServer initializes the HTTP server
-func InitHttpServer(logger zerolog.Logger, opt ServerOptions, handler http.Handler) *http.Server {
+func InitHttpServer(logger *zerolog.Logger, opt *ServerOptions, handler http.Handler) *http.Server {
 	onceServer.Do(func() {
 		serverPort := fmt.Sprintf(":%d", opt.Port)
 

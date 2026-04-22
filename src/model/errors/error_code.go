@@ -19,9 +19,9 @@ type (
 	ErrorMessage map[Code]Message
 
 	Message struct {
-		StatusCode    int    `json:"status_code"`
 		EN            string `json:"en"`
 		ID            string `json:"id"`
+		StatusCode    int    `json:"status_code"`
 		HasAnnotation bool
 	}
 )

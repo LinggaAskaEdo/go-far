@@ -14,7 +14,7 @@ import (
 
 var validatedTypes sync.Map // cache for validated struct types
 
-func (ql *QueryLoader) Compile(name string, data any) (string, []any, error) {
+func (ql *QueryLoader) Compile(name string, data any) (query string, args []any, err error) {
 	tmpl, ok := ql.templates[name]
 	if !ok {
 		return "", nil, x.NewWithCode(x.CodeSQLQueryNotFound, fmt.Sprintf("query %s not found", name))
@@ -61,9 +61,8 @@ func validateData(data any) error {
 	return nil
 }
 
-func (ql *QueryLoader) compileTemplate(tmpl *template.Template, data any) (string, []any, error) {
+func (ql *QueryLoader) compileTemplate(tmpl *template.Template, data any) (query string, args []any, err error) {
 	var sb strings.Builder
-	var args []any
 
 	funcMap := template.FuncMap{
 		"arg": func(v any) (string, error) {
@@ -74,7 +73,7 @@ func (ql *QueryLoader) compileTemplate(tmpl *template.Template, data any) (strin
 			// Output value directly – no placeholder. Caller must validate!
 			return fmt.Sprintf("%v", v), nil
 		},
-		"eq":  func(a, b any) bool { return reflect.DeepEqual(a, b) },
+		"eq":  reflect.DeepEqual,
 		"ne":  func(a, b any) bool { return !reflect.DeepEqual(a, b) },
 		"gt":  func(a, b int) bool { return a > b },
 		"lt":  func(a, b int) bool { return a < b },

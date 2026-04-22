@@ -1,0 +1,31 @@
+version: "2"
+
+run:
+  timeout: 5m
+
+linters:
+  enable:
+    - staticcheck
+    - gosec
+    - gocritic
+    - govet          # Go's official static analyzer
+    - errcheck       # Checks for unchecked errors
+    - ineffassign    # Detects ineffectual assignments
+    - unused         # Checks for unused constants, variables, functions, and types
+    - gocyclo        # Computes cyclomatic complexity of functions
+
+  settings:
+    gocyclo:
+      min-complexity: 15  # Adjust this threshold as needed
+    govet:
+      enable-all: true
+      disable:
+        - fieldalignment
+
+formatters:
+  enable:
+    - goimports
+
+issues:
+  max-issues-per-linter: 0
+  max-same-issues: 0

@@ -18,7 +18,7 @@ type Tracer interface {
 }
 
 type tracerImpl struct {
-	log      zerolog.Logger
+	log      *zerolog.Logger
 	provider *sdktrace.TracerProvider
 }
 
@@ -41,12 +41,12 @@ func (t *tracerImpl) Stop(ctx context.Context) error {
 
 // TracerOptions holds tracer configuration
 type TracerOptions struct {
-	Enabled  bool   `yaml:"enabled"`
 	Endpoint string `yaml:"endpoint"`
+	Enabled  bool   `yaml:"enabled"`
 }
 
 // InitTracer initializes the OpenTelemetry tracer
-func InitTracer(log zerolog.Logger, opt TracerOptions) Tracer {
+func InitTracer(log *zerolog.Logger, opt *TracerOptions) Tracer {
 	ctx := context.Background()
 
 	// Create resource with service information

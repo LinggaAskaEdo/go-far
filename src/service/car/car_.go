@@ -98,7 +98,7 @@ func (s *carService) CountCarsByUser(ctx context.Context, userID uuid.UUID) (int
 	return s.carRepository.CountByUserID(ctx, userID)
 }
 
-func (s *carService) UpdateCar(ctx context.Context, id uuid.UUID, req dto.UpdateCarRequest, userID string) (*entity.Car, error) {
+func (s *carService) UpdateCar(ctx context.Context, id uuid.UUID, req *dto.UpdateCarRequest, userID string) (*entity.Car, error) {
 	existingCar, err := s.carRepository.FindByID(ctx, id)
 	if err != nil {
 		return nil, err

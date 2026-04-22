@@ -56,55 +56,55 @@ func init() {
 	}
 
 	// Logger Initialization
-	log := logger.InitLogger(conf.Logger)
+	log := logger.InitLogger(&conf.Logger)
 
 	// SQL Initialization
-	sql0 = database.InitDB(log, conf.Postgres)
+	sql0 = database.InitDB(&log, &conf.Postgres)
 
 	// Redis Initialization
-	redis0 = cfgredis.InitRedis(log, conf.Redis, preference.REDIS_APPS)
-	redis1 = cfgredis.InitRedis(log, conf.Redis, preference.REDIS_AUTH)
-	redis2 = cfgredis.InitRedis(log, conf.Redis, preference.REDIS_LIMITER)
+	redis0 = cfgredis.InitRedis(&log, &conf.Redis, preference.REDIS_APPS)
+	redis1 = cfgredis.InitRedis(&log, &conf.Redis, preference.REDIS_AUTH)
+	redis2 = cfgredis.InitRedis(&log, &conf.Redis, preference.REDIS_LIMITER)
 
 	// HTTP Client Initialization
-	httpClient = httpclient.InitHttpClient(log, conf.HttpClient)
+	httpClient = httpclient.InitHttpClient(&log, &conf.HttpClient)
 
 	// Query Loader Initialization
-	queryLoader := query.InitQueryLoader(log, conf.Queries)
+	queryLoader := query.InitQueryLoader(&log, &conf.Queries)
 
 	// Initialize dependencies
-	repository := repository.InitRepository(sql0, redis0, queryLoader, conf.Redis.CacheTTL)
-	service := service.InitService(repository)
+	repo := repository.InitRepository(sql0, redis0, queryLoader, conf.Redis.CacheTTL)
+	svc := service.InitService(repo)
 
 	// Auth Initialization
-	authToken := token.InitToken(log, conf.Token, redis1)
+	authToken := token.InitToken(&log, &conf.Token, redis1)
 
 	// Middleware Initialization
-	mw := middleware.InitMiddleware(log, conf.Middleware, authToken, redis2)
+	mw := middleware.InitMiddleware(&log, &conf.Middleware, authToken, redis2)
 
 	// HTTP Mux Initialization
 	mux := server.InitHttpMux()
 
-	validator.InitValidator(log)
+	validator.InitValidator(&log)
 
 	// REST Handler Initialization (registers routes on mux)
-	restHandler.InitRestHandler(mux, authToken, mw, service, service.User, sql0, redis0)
+	restHandler.InitRestHandler(mux, authToken, mw, svc, svc.User, sql0, redis0)
 
 	// Build the full handler with middleware chain
 	handler := server.WrapHandler(mux, mw, conf.HTTP, conf.Server)
 
 	// Scheduler Initialization
-	scheduler = cfgscheduler.InitScheduler(log, conf.Scheduler)
-	schedHandler.InitSchedulerHandler(log, scheduler, service, conf.Scheduler.SchedulerJobs, httpClient, conf.Scheduler.Enabled)
+	scheduler = cfgscheduler.InitScheduler(&log, &conf.Scheduler)
+	schedHandler.InitSchedulerHandler(&log, scheduler, svc, &conf.Scheduler.SchedulerJobs, httpClient, conf.Scheduler.Enabled)
 
 	// HTTP Server Initialization
-	httpServer := server.InitHttpServer(log, conf.Server, handler)
+	httpServer := server.InitHttpServer(&log, &conf.Server, handler)
 
 	// Tracer Initialization
-	tracerInst = tracer.InitTracer(log, conf.Tracer)
+	tracerInst = tracer.InitTracer(&log, &conf.Tracer)
 
 	// App Initialization
-	app = grace.InitGrace(log, httpServer, tracerInst, conf.Server.ShutdownTimeout)
+	app = grace.InitGrace(&log, httpServer, tracerInst, conf.Server.ShutdownTimeout)
 }
 
 // @title			Go-Far
@@ -122,15 +122,15 @@ func init() {
 func main() {
 	defer func() {
 		if redis0 != nil {
-			redis0.Close()
+			_ = redis0.Close()
 		}
 
 		if redis1 != nil {
-			redis1.Close()
+			_ = redis1.Close()
 		}
 
 		if redis2 != nil {
-			redis2.Close()
+			_ = redis2.Close()
 		}
 
 		if sql0 != nil {

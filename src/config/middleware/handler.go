@@ -123,13 +123,12 @@ func (mw *middleware) Handler() func(http.Handler) http.Handler {
 	}
 }
 
-func (mw *middleware) prepareContext(ctx context.Context, r *http.Request) (context.Context, string, string) {
+func (mw *middleware) prepareContext(ctx context.Context, r *http.Request) (ctxOut context.Context, traceID, spanID string) {
 	span := trace.SpanFromContext(ctx)
 	spanContext := span.SpanContext()
 
-	traceID := spanContext.TraceID().String()
+	traceID = spanContext.TraceID().String()
 
-	var spanID string
 	if requestID := r.Header.Get(preference.HeaderXRequestID); requestID != "" {
 		spanID = requestID
 	} else {
@@ -137,9 +136,9 @@ func (mw *middleware) prepareContext(ctx context.Context, r *http.Request) (cont
 		r.Header.Set(preference.HeaderXRequestID, spanID)
 	}
 
-	ctx = mw.attachTraceSpanIDs(ctx, traceID, spanID)
+	ctxOut = mw.attachTraceSpanIDs(ctx, traceID, spanID)
 
-	return ctx, traceID, spanID
+	return
 }
 
 func (mw *middleware) logRequestStart(r *http.Request, traceID, spanID string) {

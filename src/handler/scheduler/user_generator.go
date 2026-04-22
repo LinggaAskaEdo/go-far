@@ -4,7 +4,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"math/rand"
 	"net/http"
 	"strings"
 	"sync"
@@ -14,6 +13,7 @@ import (
 	"go-far/src/model/dto"
 	"go-far/src/model/entity"
 	"go-far/src/service/user"
+	"go-far/src/util"
 
 	"github.com/rs/zerolog"
 )
@@ -43,12 +43,11 @@ var (
 )
 
 type UserGeneratorJob struct {
-	log         zerolog.Logger
 	userService user.UserServiceItf
-	config      cfg.UserGeneratorJobOptions
-	rng         *rand.Rand
-	mu          sync.Mutex
+	log         *zerolog.Logger
+	config      *cfg.UserGeneratorJobOptions
 	httpClient  *http.Client
+	mu          sync.Mutex
 }
 
 type randomUserResp struct {
@@ -58,12 +57,12 @@ type randomUserResp struct {
 			Last  string `json:"last"`
 		} `json:"name"`
 		Email string `json:"email"`
-		DOB   struct {
-			Age int `json:"age"`
-		} `json:"dob"`
 		Login struct {
 			Password string `json:"password"`
 		} `json:"login"`
+		DOB struct {
+			Age int `json:"age"`
+		} `json:"dob"`
 	} `json:"results"`
 }
 
@@ -78,12 +77,11 @@ type randomUser struct {
 	}
 }
 
-func InitUserGeneratorJob(log zerolog.Logger, userService user.UserServiceItf, cfg cfg.UserGeneratorJobOptions, httpClient *http.Client) *UserGeneratorJob {
+func InitUserGeneratorJob(log *zerolog.Logger, userService user.UserServiceItf, opts *cfg.UserGeneratorJobOptions, httpClient *http.Client) *UserGeneratorJob {
 	return &UserGeneratorJob{
 		log:         log,
 		userService: userService,
-		config:      cfg,
-		rng:         rand.New(rand.NewSource(time.Now().UnixNano())),
+		config:      opts,
 		httpClient:  httpClient,
 	}
 }
@@ -154,7 +152,7 @@ func (j *UserGeneratorJob) fetchRandomUsersFromAPI(ctx context.Context, count in
 func (j *UserGeneratorJob) doFetchRandomUsersFromAPI(ctx context.Context, count int) ([]randomUser, error) {
 	url := fmt.Sprintf("%s?results=%d&format=json", j.config.RandomUserURL, count)
 
-	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, http.NoBody)
 	if err != nil {
 		return nil, err
 	}
@@ -163,7 +161,9 @@ func (j *UserGeneratorJob) doFetchRandomUsersFromAPI(ctx context.Context, count 
 	if err != nil {
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	if resp.StatusCode != http.StatusOK {
 		return nil, fmt.Errorf("API returned status: %d", resp.StatusCode)
@@ -201,13 +201,13 @@ func (j *UserGeneratorJob) runWithFallback(ctx context.Context) error {
 
 	successCount := 0
 	for i := 0; i < j.config.BatchSize; i++ {
-		firstName := fallbackFirstNames[j.rng.Intn(len(fallbackFirstNames))]
-		lastName := fallbackLastNames[j.rng.Intn(len(fallbackLastNames))]
+		firstName := fallbackFirstNames[util.RandomInt(len(fallbackFirstNames))]
+		lastName := fallbackLastNames[util.RandomInt(len(fallbackLastNames))]
 		name := fmt.Sprintf("%s %s", firstName, lastName)
 
 		timestamp := time.Now().Unix()
-		email := fmt.Sprintf("%s.%s.%d@gofar.com", firstName, lastName, timestamp+int64(j.rng.Intn(1000)))
-		age := j.config.MinAge + j.rng.Intn(j.config.MaxAge-j.config.MinAge+1)
+		email := fmt.Sprintf("%s.%s.%d@gofar.com", firstName, lastName, timestamp+int64(util.RandomInt(1000)))
+		age := j.config.MinAge + util.RandomInt(j.config.MaxAge-j.config.MinAge+1)
 
 		req := dto.CreateUserRequest{
 			Name:     name,

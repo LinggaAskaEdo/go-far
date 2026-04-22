@@ -11,7 +11,7 @@ import (
 	"github.com/rs/zerolog"
 )
 
-func (d *userRepository) findAllSQLUserV2(ctx context.Context, filter dto.UserFilterV2) (*[]entity.User, *dto.Pagination, error) {
+func (d *userRepository) findAllSQLUserV2(ctx context.Context, filter *dto.UserFilterV2) (*[]entity.User, *dto.Pagination, error) {
 	filter.Page = util.ValidatePage(filter.Page)
 	filter.PageSize = util.ValidateLimit(filter.PageSize)
 

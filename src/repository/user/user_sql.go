@@ -119,7 +119,7 @@ func (d *userRepository) createSQLUser(ctx context.Context, tx pgx.Tx, user *ent
 	return tx, user, nil
 }
 
-func (d *userRepository) findAllSQLUser(ctx context.Context, filter dto.UserFilter) (*[]entity.User, *dto.Pagination, error) {
+func (d *userRepository) findAllSQLUser(ctx context.Context, filter *dto.UserFilter) (*[]entity.User, *dto.Pagination, error) {
 	var (
 		results      []entity.User
 		totalRecords int64
@@ -155,9 +155,9 @@ func (d *userRepository) findAllSQLUser(ctx context.Context, filter dto.UserFilt
 
 	for rows.Next() {
 		var user entity.User
-		if err := rows.Scan(&user.ID, &user.Email, &user.Name, &user.Age, &user.Role, &user.IsActive, &user.CreatedAt, &user.UpdatedAt); err != nil {
-			zerolog.Ctx(ctx).Error().Err(err).Msg("scan_user_err")
-			return nil, &pagination, x.WrapWithCode(err, x.CodeSQLRowScan, "scan_user_err")
+		if scanErr := rows.Scan(&user.ID, &user.Email, &user.Name, &user.Age, &user.Role, &user.IsActive, &user.CreatedAt, &user.UpdatedAt); scanErr != nil {
+			zerolog.Ctx(ctx).Error().Err(scanErr).Msg("scan_user_err")
+			return nil, &pagination, x.WrapWithCode(scanErr, x.CodeSQLRowScan, "scan_user_err")
 		}
 		user.Password = ""
 		results = append(results, user)

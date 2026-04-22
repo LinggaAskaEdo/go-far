@@ -102,7 +102,7 @@ func (e *rest) httpRespError(w http.ResponseWriter, r *http.Request, err error) 
 	lang := preference.LANG_ID
 
 	appLangHeader := http.CanonicalHeaderKey(preference.APP_LANG)
-	if r.Header[appLangHeader] != nil && r.Header[appLangHeader][0] == preference.LANG_EN {
+	if vals := r.Header[appLangHeader]; len(vals) > 0 && vals[0] == preference.LANG_EN {
 		lang = preference.LANG_EN
 	}
 

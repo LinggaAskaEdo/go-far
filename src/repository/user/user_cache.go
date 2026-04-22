@@ -20,7 +20,7 @@ const (
 	durationUserExpiration time.Duration = 5 * time.Minute
 )
 
-func (d *userRepository) setCacheFindAllUser(ctx context.Context, filter dto.UserFilter, result *[]entity.User, pagination *dto.Pagination) error {
+func (d *userRepository) setCacheFindAllUser(ctx context.Context, filter *dto.UserFilter, result *[]entity.User, pagination *dto.Pagination) error {
 	cacheKey := generateCacheKey(filter)
 
 	var encJSON []byte
@@ -32,12 +32,12 @@ func (d *userRepository) setCacheFindAllUser(ctx context.Context, filter dto.Use
 
 	encJSON = snappy.Encode(encJSON, rawJSON)
 
-	if err := d.redis0.HSet(ctx, userByParamHashKey, cacheKey, encJSON).Err(); err != nil {
-		return x.WrapWithCode(err, x.CodeCacheSetHashKey, "set_cache_find_all_user")
+	if hsetErr := d.redis0.HSet(ctx, userByParamHashKey, cacheKey, encJSON).Err(); hsetErr != nil {
+		return x.WrapWithCode(hsetErr, x.CodeCacheSetHashKey, "set_cache_find_all_user")
 	}
 
-	if err := d.redis0.Expire(ctx, userByParamHashKey, durationUserExpiration).Err(); err != nil {
-		return x.WrapWithCode(err, x.CodeCacheSetExpiration, "set_cache_find_all_user_expiration")
+	if expireErr := d.redis0.Expire(ctx, userByParamHashKey, durationUserExpiration).Err(); expireErr != nil {
+		return x.WrapWithCode(expireErr, x.CodeCacheSetExpiration, "set_cache_find_all_user_expiration")
 	}
 
 	rawJSON, err = json.Marshal(pagination)
@@ -59,7 +59,7 @@ func (d *userRepository) setCacheFindAllUser(ctx context.Context, filter dto.Use
 	return nil
 }
 
-func (d *userRepository) getCacheFindAllUser(ctx context.Context, filter dto.UserFilter) (*[]entity.User, *dto.Pagination, error) {
+func (d *userRepository) getCacheFindAllUser(ctx context.Context, filter *dto.UserFilter) (*[]entity.User, *dto.Pagination, error) {
 	var (
 		results    []entity.User
 		pagination dto.Pagination
@@ -80,8 +80,8 @@ func (d *userRepository) getCacheFindAllUser(ctx context.Context, filter dto.Use
 		return nil, nil, x.WrapWithCode(err, x.CodeCacheDecode, "get_cache_find_all_user")
 	}
 
-	if err := json.Unmarshal(decJSON, &results); err != nil {
-		return nil, nil, x.WrapWithCode(err, x.CodeCacheUnmarshal, "get_cache_find_all_user")
+	if unmarshallErr := json.Unmarshal(decJSON, &results); unmarshallErr != nil {
+		return nil, nil, x.WrapWithCode(unmarshallErr, x.CodeCacheUnmarshal, "get_cache_find_all_user")
 	}
 
 	paginationRaw, err := d.redis0.HGet(ctx, userPaginationHashKey, cacheKey).Bytes()
@@ -104,7 +104,7 @@ func (d *userRepository) getCacheFindAllUser(ctx context.Context, filter dto.Use
 	return &results, &pagination, nil
 }
 
-func generateCacheKey(filter dto.UserFilter) string {
+func generateCacheKey(filter *dto.UserFilter) string {
 	keys := []string{
 		"id:" + filter.ID,
 		"name:" + filter.Name,

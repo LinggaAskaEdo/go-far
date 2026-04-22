@@ -11,13 +11,13 @@ type Service struct {
 	Car  car.CarServiceItf
 }
 
-func InitService(repository *repository.Repository) *Service {
+func InitService(repo *repository.Repository) *Service {
 	return &Service{
 		User: user.InitUserService(
-			repository.User,
+			repo.User,
 		),
 		Car: car.InitCarService(
-			repository.Car,
+			repo.Car,
 		),
 	}
 }

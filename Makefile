@@ -1,29 +1,30 @@
 # Variables
-BINARY_NAME    := app
-BIN_DIR        := ./bin
-SRC_DIR        := ./src
-CMD_PATH       := $(SRC_DIR)/cmd/app.go
-DOCS_DIR       := ./etc/docs
-COVERAGE_OUT   := coverage.out
-COVERAGE_HTML  := coverage.html
+BINARY_NAME		:= app
+BIN_DIR        	:= ./bin
+SRC_DIR        	:= ./src
+CMD_PATH       	:= $(SRC_DIR)/cmd/app.go
+DOCS_DIR       	:= ./etc/docs
+COVERAGE_OUT   	:= coverage.out
+COVERAGE_HTML  	:= coverage.html
 
 # Go flags
-GO             := go
-GOFLAGS        := -v
-LDFLAGS        := -s -w -X main.version=$(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+GO             	:= go
+GOBIN 			:= $(shell go env GOPATH)/bin
+GOFLAGS        	:= -v
+LDFLAGS        	:= -s -w -X main.version=$(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
 
 # Tools
-SWAG           := swag
-GOLANGCI_LINT  := golangci-lint
-GOOSE          := goose
+SWAG           	:= swag
+GOLANGCI_LINT  	:= golangci-lint
+GOOSE          	:= goose
 
 # Colors
-BLUE           := \033[36m
-YELLOW         := \033[33m
-GREEN          := \033[32m
-WHITE          := \033[37m
-RESET          := \033[0m
-COMMA          := ,
+BLUE           	:= \033[36m
+YELLOW         	:= \033[33m
+GREEN          	:= \033[32m
+WHITE          	:= \033[37m
+RESET          	:= \033[0m
+COMMA          	:= ,
 
 .PHONY: all help build run clean swagger migrate deps fmt vet lint test check install-tools update sql-postgres-create sql-postgres-up sql-mysql-create sql-mysql-up monitoring-start monitoring-stop kill benchmark
 
@@ -82,7 +83,7 @@ clean:
 ## Format code
 fmt:
 	@echo "Formatting code..."
-	@$(GO) fmt ./...
+	$(GOBIN)/goimports -w .
 	@echo "Format complete"
 
 ## Run go vet
@@ -95,11 +96,12 @@ vet:
 lint:
 	@echo "Running linter..."
 	@if command -v $(GOLANGCI_LINT) >/dev/null 2>&1; then \
-		$(GOLANGCI_LINT) run && printf "Linting complete\n"; \
+		$(GOLANGCI_LINT) run; \
 	else \
-		printf "$(YELLOW)golangci-lint not installed. Install with: make install-tools$(RESET)\n"; \
-		echo "Skipping lint..."; \
+		echo "$(YELLOW)golangci-lint not installed. Install with: make install-tools$(RESET)"; \
+		exit 1; \
 	fi
+	@echo "Lint complete"
 
 ## Run all checks (fmt, vet, lint)
 check: fmt vet lint
@@ -162,7 +164,15 @@ install-tools:
 	@echo "Installing tools..."
 	@$(GO) install github.com/swaggo/swag/cmd/swag@latest
 	@$(GO) install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
+	@$(GO) install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
 	@$(GO) install github.com/pressly/goose/v3/cmd/goose@latest
+	@$(GO) install mvdan.cc/gofumpt@latest
+	@$(GO) install github.com/daixiang0/gci@latest
+	@$(GO) install golang.org/x/tools/cmd/goimports@latest
+	@$(GO) install honnef.co/go/tools/cmd/staticcheck@latest
+	@$(GO) install github.com/securego/gosec/v2/cmd/gosec@latest
+	@$(GO) install -v github.com/go-critic/go-critic/cmd/go-critic@latest
+	@$(GO) install golang.org/x/tools/go/analysis/passes/fieldalignment/cmd/fieldalignment@latest
 	@printf "$(BLUE)Tools installed$(RESET)\n"
 
 ## Start monitoring stack (Grafana, Prometheus, Loki, Tempo)

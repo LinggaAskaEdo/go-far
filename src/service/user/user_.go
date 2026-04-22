@@ -57,7 +57,7 @@ func (s *userService) GetUser(ctx context.Context, id string) (*entity.User, err
 	return s.userRepository.FindByID(ctx, id)
 }
 
-func (s *userService) ListUsers(ctx context.Context, cacheControl dto.CacheControl, filter dto.UserFilter) (*[]entity.User, *dto.Pagination, error) {
+func (s *userService) ListUsers(ctx context.Context, cacheControl dto.CacheControl, filter *dto.UserFilter) (*[]entity.User, *dto.Pagination, error) {
 	return s.userRepository.FindAll(ctx, cacheControl, filter)
 }
 

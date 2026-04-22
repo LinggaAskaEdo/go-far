@@ -59,8 +59,8 @@ const (
 	RouteCarsByUserCount  string = "/users/{user_id}/cars/count"
 
 	// Limiter Error Message
-	FormatError  string = "Please check the format with your input."
-	CommandError string = "The command of first number should > 0"
+	FormatError  string = "please check the format with your input"
+	CommandError string = "the command of first number should > 0"
 
 	// Context Keys
 	ContextKeyAuthUser contextKey = "auth_user"

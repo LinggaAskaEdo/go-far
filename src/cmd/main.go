@@ -1,8 +1,9 @@
 package main
 
 import (
-	"math/rand"
 	"time"
+
+	"go-far/src/util"
 )
 
 const (
@@ -10,15 +11,15 @@ const (
 	DefaultMaxJitter = 2000
 )
 
-func sleepWithJitter(min int, max int) {
-	if min < 1 {
-		min = DefaultMinJitter
+func sleepWithJitter(low, high int) {
+	if low < 1 {
+		low = DefaultMinJitter
 	}
 
-	if max < 1 || max < min {
-		max = DefaultMaxJitter
+	if high < 1 || high < low {
+		high = DefaultMaxJitter
 	}
 
-	rnd := rand.Intn(max-min) + min
+	rnd := util.RandomInt(high-low) + low
 	time.Sleep(time.Duration(rnd) * time.Millisecond)
 }

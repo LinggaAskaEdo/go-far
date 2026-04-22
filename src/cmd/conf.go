@@ -16,18 +16,18 @@ import (
 )
 
 type Config struct {
-	Server     server.ServerOptions          `yaml:"server"`
-	Logger     logger.LoggerOptions          `yaml:"logger"`
-	Postgres   database.DatabaseOptions      `yaml:"postgres"`
-	MySQL      database.DatabaseOptions      `yaml:"mysql"`
-	Redis      redis.RedisOptions            `yaml:"redis"`
-	Queries    query.QueriesOptions          `yaml:"queries"`
-	Token      token.TokenOptions            `yaml:"token"`
-	Middleware middleware.MiddlewareOptions  `yaml:"middleware"`
-	HTTP       server.HttpOptions            `yaml:"http"`
 	Scheduler  cfgscheduler.SchedulerOptions `yaml:"scheduler"`
 	Tracer     tracer.TracerOptions          `yaml:"tracer"`
+	Queries    query.QueriesOptions          `yaml:"queries"`
+	HTTP       server.HttpOptions            `yaml:"http"`
+	Middleware middleware.MiddlewareOptions  `yaml:"middleware"`
+	Server     server.ServerOptions          `yaml:"server"`
+	Postgres   database.DatabaseOptions      `yaml:"postgres"`
+	MySQL      database.DatabaseOptions      `yaml:"mysql"`
+	Logger     logger.LoggerOptions          `yaml:"logger"`
+	Redis      redis.RedisOptions            `yaml:"redis"`
 	HttpClient httpclient.HttpClientOptions  `yaml:"http_client"`
+	Token      token.TokenOptions            `yaml:"token"`
 }
 
 func InitConfig() (*Config, error) {

@@ -13,15 +13,15 @@ import (
 var onceSchedulerHandler = &sync.Once{}
 
 type schedulerHandler struct {
-	log        zerolog.Logger
+	log        *zerolog.Logger
 	sch        *cfg.Scheduler
 	svc        *service.Service
-	jobs       cfg.SchedulerJobsOptions
+	jobs       *cfg.SchedulerJobsOptions
 	httpClient *http.Client
 	enabled    bool
 }
 
-func InitSchedulerHandler(log zerolog.Logger, sch *cfg.Scheduler, svc *service.Service, jobs cfg.SchedulerJobsOptions, httpClient *http.Client, enabled bool) {
+func InitSchedulerHandler(log *zerolog.Logger, sch *cfg.Scheduler, svc *service.Service, jobs *cfg.SchedulerJobsOptions, httpClient *http.Client, enabled bool) {
 	var s *schedulerHandler
 
 	onceSchedulerHandler.Do(func() {

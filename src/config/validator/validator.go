@@ -1,10 +1,11 @@
 package validator
 
 import (
-	"go-far/src/model/entity"
-	"go-far/src/model/errors"
 	"strings"
 	"sync"
+
+	"go-far/src/model/entity"
+	"go-far/src/model/errors"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/rs/zerolog"
@@ -19,7 +20,7 @@ type Validator struct {
 	*validator.Validate
 }
 
-func InitValidator(log zerolog.Logger) {
+func InitValidator(log *zerolog.Logger) {
 	once.Do(func() {
 		validate := validator.New()
 

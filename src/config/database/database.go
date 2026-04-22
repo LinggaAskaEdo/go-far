@@ -11,21 +11,21 @@ import (
 )
 
 type DatabaseOptions struct {
-	Enabled         bool          `yaml:"enabled"`
 	Driver          string        `yaml:"driver"`
 	Host            string        `yaml:"host"`
-	Port            int           `yaml:"port"`
 	User            string        `yaml:"user"`
 	Password        string        `yaml:"password" env:"POSTGRES_DOCKER_PASSWORD"`
 	DBName          string        `yaml:"dbname"`
-	SSLMode         bool          `yaml:"sslmode"`
-	MaxOpenConns    int           `yaml:"max_open_conns"`
-	MaxIdleConns    int           `yaml:"max_idle_conns"`
+	Port            int           `yaml:"port"`
 	ConnMaxLifetime time.Duration `yaml:"conn_max_lifetime"`
 	ConnMaxIdleTime time.Duration `yaml:"conn_max_idle_time"`
+	MaxOpenConns    int32         `yaml:"max_open_conns"`
+	MaxIdleConns    int32         `yaml:"max_idle_conns"`
+	Enabled         bool          `yaml:"enabled"`
+	SSLMode         bool          `yaml:"sslmode"`
 }
 
-func InitDB(log zerolog.Logger, opt DatabaseOptions) *pgxpool.Pool {
+func InitDB(log *zerolog.Logger, opt *DatabaseOptions) *pgxpool.Pool {
 	if !opt.Enabled {
 		return nil
 	}
@@ -35,8 +35,8 @@ func InitDB(log zerolog.Logger, opt DatabaseOptions) *pgxpool.Pool {
 		log.Panic().Err(err).Msg("failed to parse database config")
 	}
 
-	config.MaxConns = int32(opt.MaxOpenConns)
-	config.MinConns = int32(opt.MaxIdleConns)
+	config.MaxConns = opt.MaxOpenConns
+	config.MinConns = opt.MaxIdleConns
 	config.MaxConnLifetime = opt.ConnMaxLifetime
 	config.MaxConnIdleTime = opt.ConnMaxIdleTime
 
@@ -50,7 +50,7 @@ func InitDB(log zerolog.Logger, opt DatabaseOptions) *pgxpool.Pool {
 	return pool
 }
 
-func getURI(opt DatabaseOptions) string {
+func getURI(opt *DatabaseOptions) string {
 	ssl := "disable"
 	if opt.SSLMode {
 		ssl = "require"

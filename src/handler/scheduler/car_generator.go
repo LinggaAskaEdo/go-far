@@ -4,16 +4,15 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"math/rand"
 	"net/http"
 	"strings"
 	"sync"
-	"time"
 
 	cfg "go-far/src/config/scheduler"
 	"go-far/src/model/dto"
 	"go-far/src/service/car"
 	"go-far/src/service/user"
+	"go-far/src/util"
 
 	"github.com/rs/zerolog"
 )
@@ -31,61 +30,59 @@ var (
 )
 
 type CarGeneratorJob struct {
-	log         zerolog.Logger
 	carService  car.CarServiceItf
 	userService user.UserServiceItf
-	config      cfg.CarGeneratorJobOptions
-	nhtsaURL    string
-	rng         *rand.Rand
-	mu          sync.Mutex
+	log         *zerolog.Logger
+	config      *cfg.CarGeneratorJobOptions
 	httpClient  *http.Client
+	nhtsaURL    string
 	carCache    []carInfo
+	mu          sync.Mutex
 	cacheMu     sync.Mutex
 }
 
 type carInfo struct {
 	Brand  string
 	Model  string
-	Year   int
 	Colors []string
+	Year   int
 }
 
 type makeInfo struct {
-	MakeID   int
 	MakeName string
+	MakeID   int
 }
 
 type nhtsaMakesResponse struct {
-	Count  int `json:"Count"`
 	Result []struct {
-		MakeID   int    `json:"MakeId"`
 		MakeName string `json:"MakeName"`
+		MakeID   int    `json:"MakeId"`
 	} `json:"Results"`
+	Count int `json:"Count"`
 }
 
 type nhtsaModelsResponse struct {
-	Count  int `json:"Count"`
 	Result []struct {
 		ModelName string `json:"Model_Name"`
 	} `json:"Results"`
+	Count int `json:"Count"`
 }
 
 type carData struct {
 	Brand        string
 	Model        string
-	Year         int
 	Color        string
 	LicensePlate string
+	Year         int
 	IsAvailable  bool
 }
 
-func InitCarGeneratorJob(log zerolog.Logger, carService car.CarServiceItf, userService user.UserServiceItf, cfg cfg.CarGeneratorJobOptions, httpClient *http.Client, nhtsaURL string) *CarGeneratorJob {
+func InitCarGeneratorJob(log *zerolog.Logger, carService car.CarServiceItf, userService user.UserServiceItf, opts *cfg.CarGeneratorJobOptions, httpClient *http.Client, nhtsaURL string) *CarGeneratorJob {
 	return &CarGeneratorJob{
 		log:         log,
 		carService:  carService,
 		userService: userService,
-		config:      cfg,
-		rng:         rand.New(rand.NewSource(time.Now().UnixNano())),
+		config:      opts,
 		httpClient:  httpClient,
 		carCache:    make([]carInfo, 0),
 		nhtsaURL:    nhtsaURL,
@@ -114,7 +111,7 @@ func (j *CarGeneratorJob) Run(ctx context.Context) error {
 
 	filter := dto.UserFilter{Page: 1, PageSize: 100}
 	cacheControl := dto.CacheControl{}
-	users, _, err := j.userService.ListUsers(ctx, cacheControl, filter)
+	users, _, err := j.userService.ListUsers(ctx, cacheControl, &filter)
 	if err != nil || users == nil || len(*users) == 0 {
 		j.log.Warn().Err(err).Msg("No users found to assign cars to")
 		return nil
@@ -129,7 +126,7 @@ func (j *CarGeneratorJob) Run(ctx context.Context) error {
 	for i := 0; i < j.config.BatchSize; i++ {
 		carData := j.generateRandomCar()
 
-		owner := userList[j.rng.Intn(len(userList))]
+		owner := userList[util.RandomInt(len(userList))]
 
 		req := dto.CreateCarRequest{
 			Brand:        carData.Brand,
@@ -166,16 +163,16 @@ func (j *CarGeneratorJob) Run(ctx context.Context) error {
 
 func (j *CarGeneratorJob) generateRandomCar() *carData {
 	carInfo := j.randomCar()
-	year := j.config.MinYear + j.rng.Intn(j.config.MaxYear-j.config.MinYear+1)
+	year := j.config.MinYear + util.RandomInt(j.config.MaxYear-j.config.MinYear+1)
 	licensePlate := j.generateLicensePlate()
 
 	return &carData{
 		Brand:        carInfo.Brand,
 		Model:        carInfo.Model,
 		Year:         year,
-		Color:        carInfo.Colors[j.rng.Intn(len(carInfo.Colors))],
+		Color:        carInfo.Colors[util.RandomInt(len(carInfo.Colors))],
 		LicensePlate: licensePlate,
-		IsAvailable:  j.rng.Float32() < 0.7,
+		IsAvailable:  util.RandomFloat32() < 0.7,
 	}
 }
 
@@ -188,9 +185,9 @@ func (j *CarGeneratorJob) randomCar() *carInfo {
 		return j.getFallbackCar()
 	}
 
-	car := j.carCache[j.rng.Intn(len(j.carCache))]
+	info := j.carCache[util.RandomInt(len(j.carCache))]
 
-	return &car
+	return &info
 }
 
 func (j *CarGeneratorJob) fetchCarDataFromAPI(ctx context.Context) {
@@ -233,7 +230,9 @@ func (j *CarGeneratorJob) doFetchMakesFromAPI(ctx context.Context) ([]carInfo, e
 		j.log.Warn().Err(err).Msg("failed to fetch makes from NHTSA")
 		return nil, err
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	var makesResp nhtsaMakesResponse
 	if err := json.NewDecoder(resp.Body).Decode(&makesResp); err != nil {
@@ -245,9 +244,7 @@ func (j *CarGeneratorJob) doFetchMakesFromAPI(ctx context.Context) ([]carInfo, e
 		return nil, nil
 	}
 
-	rand.Shuffle(len(makesResp.Result), func(i, j int) {
-		makesResp.Result[i], makesResp.Result[j] = makesResp.Result[j], makesResp.Result[i]
-	})
+	util.ShuffleSlice(makesResp.Result)
 
 	makes := make([]makeInfo, len(makesResp.Result))
 	for i, m := range makesResp.Result {
@@ -269,8 +266,8 @@ func (j *CarGeneratorJob) fetchModelsForMakes(ctx context.Context, makes []makeI
 		default:
 		}
 
-		make := makes[i]
-		models := j.fetchModelsForMake(make.MakeName)
+		mk := makes[i]
+		models := j.fetchModelsForMake(mk.MakeName)
 		if len(models) == 0 {
 			continue
 		}
@@ -278,9 +275,9 @@ func (j *CarGeneratorJob) fetchModelsForMakes(ctx context.Context, makes []makeI
 		numModels := min(2, len(models))
 		for m := range numModels {
 			newCars = append(newCars, carInfo{
-				Brand:  make.MakeName,
+				Brand:  mk.MakeName,
 				Model:  models[m],
-				Year:   j.config.MinYear + rand.Intn(j.config.MaxYear-j.config.MinYear+1),
+				Year:   j.config.MinYear + util.RandomInt(j.config.MaxYear-j.config.MinYear+1),
 				Colors: j.getRandomColors(3),
 			})
 		}
@@ -295,7 +292,9 @@ func (j *CarGeneratorJob) fetchModelsForMake(makeName string) []string {
 	if err != nil {
 		return nil
 	}
-	defer resp.Body.Close()
+	defer func() {
+		_ = resp.Body.Close()
+	}()
 
 	var modelsResp nhtsaModelsResponse
 	if err := json.NewDecoder(resp.Body).Decode(&modelsResp); err != nil {
@@ -306,9 +305,7 @@ func (j *CarGeneratorJob) fetchModelsForMake(makeName string) []string {
 		return nil
 	}
 
-	rand.Shuffle(len(modelsResp.Result), func(i, j int) {
-		modelsResp.Result[i], modelsResp.Result[j] = modelsResp.Result[j], modelsResp.Result[i]
-	})
+	util.ShuffleSlice(modelsResp.Result)
 
 	models := make([]string, len(modelsResp.Result))
 	for i, r := range modelsResp.Result {
@@ -320,9 +317,7 @@ func (j *CarGeneratorJob) fetchModelsForMake(makeName string) []string {
 func (j *CarGeneratorJob) getRandomColors(num int) []string {
 	shuffled := make([]string, len(carColors))
 	copy(shuffled, carColors)
-	rand.Shuffle(len(shuffled), func(i, j int) {
-		shuffled[i], shuffled[j] = shuffled[j], shuffled[i]
-	})
+	util.ShuffleSlice(shuffled)
 
 	if num > len(shuffled) {
 		num = len(shuffled)
@@ -340,51 +335,51 @@ func (j *CarGeneratorJob) getFallbackCar() *carInfo {
 		{Brand: "BMW", Model: "3 Series", Year: 2023, Colors: []string{"Alpine White", "Black Sapphire", "Mineral Gray"}},
 	}
 
-	return &fallbacks[j.rng.Intn(len(fallbacks))]
+	return &fallbacks[util.RandomInt(len(fallbacks))]
 }
 
 func (j *CarGeneratorJob) generateLicensePlate() string {
-	format := j.rng.Intn(4)
+	format := util.RandomInt(4) // returns 0, 1, 2, or 3
 	var plate strings.Builder
 
 	switch format {
 	case 0:
-		plate.WriteString(licenseLetters[j.rng.Intn(len(licenseLetters))])
-		plate.WriteString(licenseLetters[j.rng.Intn(len(licenseLetters))])
-		plate.WriteString(licenseLetters[j.rng.Intn(len(licenseLetters))])
+		plate.WriteString(licenseLetters[util.RandomInt(len(licenseLetters))])
+		plate.WriteString(licenseLetters[util.RandomInt(len(licenseLetters))])
+		plate.WriteString(licenseLetters[util.RandomInt(len(licenseLetters))])
 		plate.WriteString("-")
-		plate.WriteString(licenseNumbers[j.rng.Intn(len(licenseNumbers))])
-		plate.WriteString(licenseNumbers[j.rng.Intn(len(licenseNumbers))])
-		plate.WriteString(licenseNumbers[j.rng.Intn(len(licenseNumbers))])
-		plate.WriteString(licenseNumbers[j.rng.Intn(len(licenseNumbers))])
+		plate.WriteString(licenseNumbers[util.RandomInt(len(licenseNumbers))])
+		plate.WriteString(licenseNumbers[util.RandomInt(len(licenseNumbers))])
+		plate.WriteString(licenseNumbers[util.RandomInt(len(licenseNumbers))])
+		plate.WriteString(licenseNumbers[util.RandomInt(len(licenseNumbers))])
 	case 1:
-		plate.WriteString(licenseLetters[j.rng.Intn(len(licenseLetters))])
-		plate.WriteString(licenseLetters[j.rng.Intn(len(licenseLetters))])
-		plate.WriteString(licenseLetters[j.rng.Intn(len(licenseLetters))])
-		plate.WriteString(licenseLetters[j.rng.Intn(len(licenseLetters))])
-		plate.WriteString(licenseLetters[j.rng.Intn(len(licenseLetters))])
-		plate.WriteString(licenseNumbers[j.rng.Intn(len(licenseNumbers))])
-		plate.WriteString(licenseNumbers[j.rng.Intn(len(licenseNumbers))])
-		plate.WriteString(licenseNumbers[j.rng.Intn(len(licenseNumbers))])
+		plate.WriteString(licenseLetters[util.RandomInt(len(licenseLetters))])
+		plate.WriteString(licenseLetters[util.RandomInt(len(licenseLetters))])
+		plate.WriteString(licenseLetters[util.RandomInt(len(licenseLetters))])
+		plate.WriteString(licenseLetters[util.RandomInt(len(licenseLetters))])
+		plate.WriteString(licenseLetters[util.RandomInt(len(licenseLetters))])
+		plate.WriteString(licenseNumbers[util.RandomInt(len(licenseNumbers))])
+		plate.WriteString(licenseNumbers[util.RandomInt(len(licenseNumbers))])
+		plate.WriteString(licenseNumbers[util.RandomInt(len(licenseNumbers))])
 	case 2:
-		plate.WriteString(licenseNumbers[j.rng.Intn(len(licenseNumbers))])
-		plate.WriteString(licenseNumbers[j.rng.Intn(len(licenseNumbers))])
-		plate.WriteString(licenseNumbers[j.rng.Intn(len(licenseNumbers))])
-		plate.WriteString(licenseNumbers[j.rng.Intn(len(licenseNumbers))])
+		plate.WriteString(licenseNumbers[util.RandomInt(len(licenseNumbers))])
+		plate.WriteString(licenseNumbers[util.RandomInt(len(licenseNumbers))])
+		plate.WriteString(licenseNumbers[util.RandomInt(len(licenseNumbers))])
+		plate.WriteString(licenseNumbers[util.RandomInt(len(licenseNumbers))])
 		plate.WriteString("-")
-		plate.WriteString(licenseLetters[j.rng.Intn(len(licenseLetters))])
-		plate.WriteString(licenseLetters[j.rng.Intn(len(licenseLetters))])
-		plate.WriteString(licenseLetters[j.rng.Intn(len(licenseLetters))])
-		plate.WriteString(licenseLetters[j.rng.Intn(len(licenseLetters))])
+		plate.WriteString(licenseLetters[util.RandomInt(len(licenseLetters))])
+		plate.WriteString(licenseLetters[util.RandomInt(len(licenseLetters))])
+		plate.WriteString(licenseLetters[util.RandomInt(len(licenseLetters))])
+		plate.WriteString(licenseLetters[util.RandomInt(len(licenseLetters))])
 	default:
-		plate.WriteString(licenseLetters[j.rng.Intn(len(licenseLetters))])
-		plate.WriteString(licenseLetters[j.rng.Intn(len(licenseLetters))])
-		plate.WriteString(licenseLetters[j.rng.Intn(len(licenseLetters))])
-		plate.WriteString(licenseNumbers[j.rng.Intn(len(licenseNumbers))])
-		plate.WriteString(licenseNumbers[j.rng.Intn(len(licenseNumbers))])
-		plate.WriteString(licenseNumbers[j.rng.Intn(len(licenseNumbers))])
-		plate.WriteString(licenseNumbers[j.rng.Intn(len(licenseNumbers))])
-		plate.WriteString(licenseNumbers[j.rng.Intn(len(licenseNumbers))])
+		plate.WriteString(licenseLetters[util.RandomInt(len(licenseLetters))])
+		plate.WriteString(licenseLetters[util.RandomInt(len(licenseLetters))])
+		plate.WriteString(licenseLetters[util.RandomInt(len(licenseLetters))])
+		plate.WriteString(licenseNumbers[util.RandomInt(len(licenseNumbers))])
+		plate.WriteString(licenseNumbers[util.RandomInt(len(licenseNumbers))])
+		plate.WriteString(licenseNumbers[util.RandomInt(len(licenseNumbers))])
+		plate.WriteString(licenseNumbers[util.RandomInt(len(licenseNumbers))])
+		plate.WriteString(licenseNumbers[util.RandomInt(len(licenseNumbers))])
 	}
 
 	return fmt.Sprintf("USA-%s", plate.String())

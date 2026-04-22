@@ -26,7 +26,7 @@ type rest struct {
 	redis *redis.Client
 }
 
-func InitRestHandler(mux *http.ServeMux, auth token.Token, mw middleware.Middleware, svc *service.Service, usvc user.UserServiceItf, sql0 *pgxpool.Pool, redis *redis.Client) {
+func InitRestHandler(mux *http.ServeMux, auth token.Token, mw middleware.Middleware, svc *service.Service, usvc user.UserServiceItf, sql0 *pgxpool.Pool, redisClient *redis.Client) {
 	var e *rest
 
 	onceRestHandler.Do(func() {
@@ -37,7 +37,7 @@ func InitRestHandler(mux *http.ServeMux, auth token.Token, mw middleware.Middlew
 			svc:   svc,
 			usvc:  usvc,
 			sql0:  sql0,
-			redis: redis,
+			redis: redisClient,
 		}
 
 		e.Serve()

@@ -38,17 +38,17 @@ type Middleware interface {
 }
 
 type middleware struct {
-	log           zerolog.Logger
 	tkn           token.Token
-	opt           MiddlewareOptions
+	log           *zerolog.Logger
+	opt           *MiddlewareOptions
 	rdb           *redis.Client
-	limit         int
-	period        time.Duration
+	publicPaths   map[string]bool
 	roleRateLimit RoleRateLimitOptions
 	authRateLimit AuthRateLimitOptions
+	limit         int
+	period        time.Duration
 	authLimit     int
 	authPeriod    time.Duration
-	publicPaths   map[string]bool
 }
 
 // MiddlewareOptions holds middleware configuration
@@ -85,7 +85,7 @@ type RoleRateLimit struct {
 }
 
 // InitMiddleware initializes the middleware
-func InitMiddleware(log zerolog.Logger, opt MiddlewareOptions, tkn token.Token, rdb *redis.Client) Middleware {
+func InitMiddleware(log *zerolog.Logger, opt *MiddlewareOptions, tkn token.Token, rdb *redis.Client) Middleware {
 	onceMiddleware.Do(func() {
 		// --- Main rate limiter (mandatory) ---
 		limit := opt.RateLimiter.Limit
