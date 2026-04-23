@@ -1,9 +1,9 @@
 # Variables
 BINARY_NAME		:= app
 BIN_DIR        	:= ./bin
-SRC_DIR        	:= ./src
-CMD_PATH       	:= $(SRC_DIR)/cmd/app.go
-DOCS_DIR       	:= ./etc/docs
+SRC_DIR        	:= ./cmd/api
+CMD_PATH       	:= $(SRC_DIR)/main.go
+DOCS_DIR       	:= ./api/openapi
 COVERAGE_OUT   	:= coverage.out
 COVERAGE_HTML  	:= coverage.html
 
@@ -26,7 +26,7 @@ WHITE          	:= \033[37m
 RESET          	:= \033[0m
 COMMA          	:= ,
 
-.PHONY: all help build run clean swagger migrate deps fmt vet lint test check install-tools update sql-postgres-create sql-postgres-up sql-mysql-create sql-mysql-up monitoring-start monitoring-stop kill benchmark
+.PHONY: all help build run clean swagger migrate deps lint test install-tools update sql-postgres-create sql-postgres-up sql-mysql-create sql-mysql-up monitoring-start monitoring-stop kill benchmark
 
 ## Show this help message
 help:
@@ -47,9 +47,6 @@ help:
 	@printf "  $(GREEN)make kill$(RESET)                  Kill app running on port 8181\n"
 	@echo ""
 	@printf "$(YELLOW)Code Quality:$(RESET)\n"
-	@printf "  $(GREEN)make check$(RESET)                 Run all checks (fmt, vet, lint)\n"
-	@printf "  $(GREEN)make fmt$(RESET)                   Format code with go fmt\n"
-	@printf "  $(GREEN)make vet$(RESET)                   Run go vet for common issues\n"
 	@printf "  $(GREEN)make lint$(RESET)                  Run golangci-lint\n"
 	@printf "  $(GREEN)make test$(RESET)                  Run tests with coverage report\n"
 	@echo ""
@@ -69,28 +66,15 @@ help:
 	@echo ""
 
 ## Execute build and run
-all: clean deps swagger check build run
+all: clean deps swagger build run
 
 ## Clean build artifacts and coverage files
 clean:
 	@echo "Cleaning..."
 	@rm -rf $(BIN_DIR)/
 	@rm -rf logs/
-	@rm -rf etc/cert/
 	@rm -f $(COVERAGE_OUT) $(COVERAGE_HTML)
 	@printf "$(BLUE)Clean complete$(RESET)\n"
-
-## Format code
-fmt:
-	@echo "Formatting code..."
-	$(GOBIN)/goimports -w .
-	@echo "Format complete"
-
-## Run go vet
-vet:
-	@echo "Running go vet..."
-	@$(GO) vet ./...
-	@echo "Vet complete"
 
 ## Run linter
 lint:
@@ -102,10 +86,6 @@ lint:
 		exit 1; \
 	fi
 	@echo "Lint complete"
-
-## Run all checks (fmt, vet, lint)
-check: fmt vet lint
-	@printf "$(BLUE)All checks passed$(RESET)\n"
 
 ## Update dependencies to latest versions
 update:
@@ -133,12 +113,12 @@ test:
 	@printf "$(BLUE)Tests complete. Coverage report: $(COVERAGE_HTML)$(RESET)\n"
 
 ## Build the application with optimizations
-build: clean check swagger
+build: clean swagger
 	@echo "Building application..."
 	@$(GO) mod tidy
-	@$(GO) generate $(SRC_DIR)/cmd
+	@$(GO) generate $(SRC_DIR)
 	@mkdir -p $(BIN_DIR)
-	@$(GO) build $(GOFLAGS) -ldflags="$(LDFLAGS)" -o $(BIN_DIR)/$(BINARY_NAME) $(SRC_DIR)/cmd
+	@$(GO) build $(GOFLAGS) -ldflags="$(LDFLAGS)" -o $(BIN_DIR)/$(BINARY_NAME) $(SRC_DIR)
 	@printf "$(BLUE)Build complete: $(BIN_DIR)/$(BINARY_NAME)$(RESET)\n"
 
 ## Run the application
@@ -178,20 +158,20 @@ install-tools:
 ## Start monitoring stack (Grafana, Prometheus, Loki, Tempo)
 monitoring-start:
 	@echo "Starting monitoring stack..."
-	@./start-monitoring.sh
+	@./scripts/start-monitoring.sh
 	@echo "Monitoring stack started"
 
 ## Stop monitoring stack
 monitoring-stop:
 	@echo "Stopping monitoring stack..."
-	@./stop-monitoring.sh
+	@./scripts/stop-monitoring.sh
 	@echo "Monitoring stack stopped"
 
 ## Create SQL migration files for postgres
 sql-postgres-create:
 	@echo "Creating postgres SQL migration files..."
 	@read -p "Enter migration name (use underscores): " name; \
-		$(GOOSE) -dir ./etc/migrations create postgres_$${name} sql
+		$(GOOSE) -dir ./db/migrations create postgres_$${name} sql
 
 ## Apply up migrations for postgres
 sql-postgres-up:
@@ -202,10 +182,10 @@ sql-postgres-up:
 			read -p "Enter postgres password: " pass ; \
 			stty echo ; \
 			echo ; \
-			$(GOOSE) -dir ./etc/migrations postgres "host=localhost user=postgres password=$$pass dbname=go-far sslmode=disable" up ; \
+			$(GOOSE) -dir ./db/migrations postgres "host=localhost user=postgres password=$$pass dbname=go-far sslmode=disable" up ; \
 		}
 
 ## Run API benchmark with Apache Bench
 benchmark:
 	@echo "Running API benchmark..."
-	@./etc/benchmark/benchmark.sh
+	@./scripts/benchmark.sh

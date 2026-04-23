@@ -511,6 +511,10 @@ Apache 2.0 - See [LICENSE](LICENSE) for details.
 
 ## 📋 Changelog
 
+### v1.10.0
+
+- Updated app version
+
 ### v1.9.0
 
 - Added circuit breaker configuration in httpclient package (`src/config/httpclient`)

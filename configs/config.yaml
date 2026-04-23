@@ -1,0 +1,128 @@
+http:
+  server:
+    app_name: go-far-app
+    mode: release # debug, release
+    port: 8181
+    write_timeout: 10s
+    read_timeout: 10s
+    idle_timeout: 60s
+    shutdown_timeout: 5s  
+    max_body_bytes: 1048576 # 1MB (1 << 20), typical: 1-10MB for REST APIs
+  client:
+    enabled: true
+    max_idle_conns: 100
+    max_idle_conns_per_host: 10
+    max_conns_per_host: 20
+    idle_conn_timeout: 90s
+    dial_timeout: 30s
+    keep_alive: 30s
+    tls_handshake_timeout: 10s
+    response_header_timeout: 10s
+    expect_continue_timeout: 1s
+    disable_compression: false
+    timeout: 10s
+    circuit_breaker:
+      max_retries: 2
+      backoff_min: 100ms
+      backoff_max: 2s
+
+database:
+  postgres:
+    enabled: true
+    driver: postgres
+    host: localhost
+    port: 5432
+    user: postgres
+    password: ${POSTGRES_DOCKER_PASSWORD}
+    dbname: go-far
+    sslmode: false
+    max_open_conns: 25
+    max_idle_conns: 5
+    conn_max_lifetime: 1h
+    conn_max_idle_time: 30m
+
+redis:
+  enabled: true
+  network: tcp
+  address: "localhost:6379"
+  password: ""
+  cache_ttl: 60s
+  max_retries: 3
+  min_retry_backoff: 8ms
+  max_retry_backoff: 512ms
+  dial_timeout: 5s
+  read_timeout: 3s
+  write_timeout: 3s
+  pool_size: 10
+  min_idle_conns: 5
+  max_idle_conns: 5
+  max_active_conns: 10
+  pool_timeout: 30s
+
+logger:
+  enabled: true
+  level: debug # debug, info, warn, error
+  format: json # json, console
+  output: stdout # stdout, file
+  path: ./logs/app.log
+  max_size: 100 # megabytes
+  max_backups: 7
+  max_age: 30 # days
+  compress: true # disabled by default
+
+middleware:
+  public_paths:
+    - /health
+    - /ready
+    - /swagger/
+    - /auth/login
+    - /auth/register
+    - /auth/refresh
+    - /debug/statsviz
+    - /debug/statsviz/ws
+    - /favicon.ico
+  auth_rate_limit:
+    command: "3-M"  # 3 requests per minute per IP
+    limit: 3
+  rate_limiter:
+    command: "1-S" # 1 request per second
+    limit: 500 # max 500 clients
+  role_rate_limit:
+    admin:
+      command: "1-M"
+      limit: 10000000
+    user:
+      command: "1-M"
+      limit: 5
+    guest:
+      command: "1-M"
+      limit: 1
+
+scheduler:
+  enabled: true
+  jobs:
+    user_generator:
+      enabled: false
+      random_user_url: "https://randomuser.me/api/"
+      cron: "0 0 */1 * * *" # Every 1 hour
+      batch_size: 5
+      min_age: 18
+      max_age: 80
+    car_generator:
+      enabled: true
+      nhtsa_api_url: "https://vpic.nhtsa.dot.gov/api/vehicles"
+      cron: "0 */30 * * * *" # Every 30 minutes
+      batch_size: 3
+      min_year: 2015
+      max_year: 2025
+
+token:
+  expired_token: 5m
+  expired_refresh_token: 15m
+
+queries:
+  path: ./etc/queries/
+
+tracer:
+  enabled: false
+  endpoint: "http://localhost:4317"
