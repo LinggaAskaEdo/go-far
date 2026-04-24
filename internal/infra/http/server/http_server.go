@@ -20,18 +20,13 @@ var (
 
 // ServerOptions holds HTTP server configuration
 type HttpServerOptions struct {
-	AppName         string        `yaml:"app_name"`
-	Mode            string        `yaml:"mode"`
-	Port            int           `yaml:"port"`
-	WriteTimeout    time.Duration `yaml:"write_timeout"`
-	ReadTimeout     time.Duration `yaml:"read_timeout"`
-	IdleTimeout     time.Duration `json:"idle_timeout"`
-	ShutdownTimeout time.Duration `yaml:"shutdown_timeout"`
-	MaxBodyBytes    int64         `yaml:"max_body_bytes"`
-}
-
-// HttpOptions holds HTTP handler configuration
-type HttpOptions struct {
+	AppName      string        `yaml:"app_name"`
+	Mode         string        `yaml:"mode"`
+	Port         int           `yaml:"port"`
+	WriteTimeout time.Duration `yaml:"write_timeout"`
+	ReadTimeout  time.Duration `yaml:"read_timeout"`
+	IdleTimeout  time.Duration `json:"idle_timeout"`
+	MaxBodyBytes int64         `yaml:"max_body_bytes"`
 }
 
 // InitHttpServer initializes the HTTP server

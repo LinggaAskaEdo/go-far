@@ -35,7 +35,7 @@ func (d *userRepository) findAllSQLUserV2(ctx context.Context, filter *dto.UserF
 	}
 
 	qb := query.NewSQLBuilder("param", "db", "", filter.Page, filter.PageSize)
-	qb.AliasPrefix("-", &filter)
+	qb.AliasPrefix("-", filter)
 
 	queryExt, _, args, err := qb.Build()
 	if err != nil {

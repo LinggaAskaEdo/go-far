@@ -1,6 +1,6 @@
 -- name: CreateUser
 INSERT INTO users (email, password, name, age, role, is_active)
-VALUES ({{ .Email }}, {{ .Password }}, {{ .Name }}, {{ .Age }}, {{ .Role }}, true)
+VALUES ({{ arg .Email }}, {{ arg .Password }}, {{ arg .Name }}, {{ arg .Age }}, {{ arg .Role }}, true)
 RETURNING id, created_at, updated_at;
 
 -- name: FindUserByID

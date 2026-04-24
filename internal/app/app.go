@@ -15,6 +15,7 @@ import (
 	httpserver "go-far/internal/infra/http/server"
 	"go-far/internal/infra/logger"
 	"go-far/internal/infra/middleware"
+	pyro "go-far/internal/infra/pyroscope"
 	"go-far/internal/infra/query"
 	cfgredis "go-far/internal/infra/redis"
 	cfgscheduler "go-far/internal/infra/scheduler"
@@ -108,11 +109,15 @@ func Run() {
 		defer scheduler.Stop()
 	}
 
+	// 🔍 Start Pyroscope Profiler (VisualVM-like continuous profiling)
+	pyro := pyro.InitPyroscope(log, conf.App)
+	defer pyro.Stop()
+
 	// HTTP Server Initialization
 	httpServer := httpserver.InitHttpServer(log, conf.HTTP.Server, mw, httpMux)
 
 	// App Initialization
-	app := grace.InitGrace(log, httpServer, conf.HTTP.Server.ShutdownTimeout)
+	app := grace.InitGrace(log, httpServer, conf.App.ShutdownTimeout)
 	app.Serve()
 }
 

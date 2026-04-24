@@ -2,6 +2,7 @@ package config
 
 import (
 	"go-far/internal/infra/database"
+	app "go-far/internal/infra/grace"
 	httpclient "go-far/internal/infra/http/client"
 	httpserver "go-far/internal/infra/http/server"
 	"go-far/internal/infra/logger"
@@ -16,6 +17,7 @@ import (
 )
 
 type Config struct {
+	App        *app.AppOptions                `yaml:"app"`
 	HTTP       HTTPConfig                     `yaml:"http"`
 	Database   DatabaseConfig                 `yaml:"database"`
 	Redis      *redis.RedisOptions            `yaml:"redis"`

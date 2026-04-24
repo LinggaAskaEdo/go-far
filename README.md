@@ -502,6 +502,8 @@ Apache 2.0 - See [LICENSE](LICENSE) for details.
 
 ## 📋 Changelog
 
+### v1.13.0
+
 ### v1.12.0
 
 - Added comprehensive `.golangci.yml` with 20+ linters including reliability, concurrency, style, and modernization categories

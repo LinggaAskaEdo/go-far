@@ -1,7 +1,7 @@
 -- name: CreateCar
 INSERT INTO cars (brand, model, year, color, license_plate, is_available)
 VALUES ({{ arg .Brand }}, {{ arg .Model }}, {{ arg .Year }}, {{ arg .Color }}, {{ arg .LicensePlate }}, {{ arg .IsAvailable }})
-RETURNING id, created_at, updated_at;
+RETURNING id, brand, model, year, color, license_plate, is_available, created_at, updated_at;
 
 -- name: CreateCarBulk
 INSERT INTO cars (brand, model, year, color, license_plate, is_available, created_at, updated_at)

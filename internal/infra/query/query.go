@@ -28,6 +28,6 @@ func InitQueryLoader(log *zerolog.Logger, opt *QueriesOptions) *QueryLoader {
 		log.Panic().Err(err).Msg("Failed to load queries")
 	}
 
-	log.Debug().Msgf("Queries loaded successfully, total queries: %d", len(ql.templates))
+	log.Debug().Msgf("✅ Queries loaded successfully, total queries: %d", len(ql.templates))
 	return ql
 }

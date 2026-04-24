@@ -45,7 +45,7 @@ func InitDB(log *zerolog.Logger, opt *DatabaseOptions) *pgxpool.Pool {
 		log.Panic().Err(err).Msg(strings.ToUpper(opt.Driver) + " status: FAILED")
 	}
 
-	log.Info().Msg(strings.ToUpper(opt.Driver) + " status: OK")
+	log.Info().Msg("✅ " + strings.ToUpper(opt.Driver) + " status: OK")
 
 	return pool
 }

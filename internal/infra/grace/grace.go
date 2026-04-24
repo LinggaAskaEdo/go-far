@@ -20,20 +20,27 @@ type App interface {
 }
 
 type app struct {
-	log             *zerolog.Logger
-	httpServer      *http.Server
-	shutdownTimeout time.Duration
+	log        *zerolog.Logger
+	httpServer *http.Server
+	timeout    time.Duration
+}
+
+type AppOptions struct {
+	Name            string        `yaml:"name"`
+	Version         string        `yaml:"version"`
+	Environment     string        `yaml:"environment"`
+	ShutdownTimeout time.Duration `yaml:"shutdown_timeout"`
 }
 
 // InitGrace initializes graceful shutdown handling
-func InitGrace(log *zerolog.Logger, httpServer *http.Server, shutdownTimeout time.Duration) App {
+func InitGrace(log *zerolog.Logger, httpServer *http.Server, timeout time.Duration) App {
 	var gs *app
 
 	onceGrace.Do(func() {
 		gs = &app{
-			log:             log,
-			httpServer:      httpServer,
-			shutdownTimeout: shutdownTimeout,
+			log:        log,
+			httpServer: httpServer,
+			timeout:    timeout,
 		}
 	})
 
@@ -46,8 +53,7 @@ func (g *app) Serve() {
 
 	var wg sync.WaitGroup
 	wg.Go(func() {
-		defer wg.Done()
-		g.log.Info().Str("addr", g.httpServer.Addr).Msg("Starting HTTP server")
+		g.log.Info().Str("addr", g.httpServer.Addr).Msg("✅ Starting HTTP server")
 		if err := g.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			g.log.Error().Err(err).Msg("HTTP server error")
 		}
@@ -56,7 +62,7 @@ func (g *app) Serve() {
 	<-signalCh
 	g.log.Debug().Msg("Received shutdown signal, gracefully shutting down...")
 
-	shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), g.shutdownTimeout)
+	shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), g.timeout)
 	defer cancelShutdown()
 
 	if err := g.httpServer.Shutdown(shutdownCtx); err != nil {
