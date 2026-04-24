@@ -8,7 +8,7 @@ import (
 	"time"
 )
 
-func DecodeQuery[T any](q url.Values) T {
+func DecodeURL[T any](q url.Values) T {
 	var result T
 	typ := reflect.TypeOf(result)
 	val := reflect.ValueOf(&result).Elem()

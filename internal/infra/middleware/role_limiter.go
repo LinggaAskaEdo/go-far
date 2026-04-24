@@ -36,6 +36,11 @@ const rateLimitLuaScript = `
 	return {1, count, ttl}
 `
 
+var (
+	uuidPattern    = regexp.MustCompile(`/[a-f0-9]{20,}`)
+	numericPattern = regexp.MustCompile(`/\d+`)
+)
+
 // rateLimitResult holds parsed rate limiting data
 type rateLimitResult struct {
 	Allowed bool
@@ -187,12 +192,10 @@ func (mw *middleware) getRoleRateLimit(role string) (command string, limit int) 
 //   - /cars/123/owner -> /cars/{id}/owner
 func normalizePath(path string) string {
 	// Match UUID-like patterns (xid: 20-char alphanumeric with dashes)
-	uuidRegex := regexp.MustCompile(`/[a-f0-9]{20,}`)
-	path = uuidRegex.ReplaceAllString(path, "/{id}")
+	path = uuidPattern.ReplaceAllString(path, "/{id}")
 
 	// Match numeric IDs
-	numericRegex := regexp.MustCompile(`/\d+`)
-	path = numericRegex.ReplaceAllString(path, "/{id}")
+	path = numericPattern.ReplaceAllString(path, "/{id}")
 
 	return path
 }

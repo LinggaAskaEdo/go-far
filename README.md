@@ -511,7 +511,7 @@ Apache 2.0 - See [LICENSE](LICENSE) for details.
 
 ## 📋 Changelog
 
-### v1.10.0
+### v1.11.0
 
 - Updated app version
 

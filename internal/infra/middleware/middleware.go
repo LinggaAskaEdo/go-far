@@ -38,17 +38,18 @@ type Middleware interface {
 }
 
 type middleware struct {
-	tkn           token.Token
-	log           *zerolog.Logger
-	opt           *MiddlewareOptions
-	rdb           *redis.Client
-	publicPaths   map[string]bool
-	roleRateLimit RoleRateLimitOptions
-	authRateLimit AuthRateLimitOptions
-	limit         int
-	period        time.Duration
-	authLimit     int
-	authPeriod    time.Duration
+	tkn            token.Token
+	log            *zerolog.Logger
+	opt            *MiddlewareOptions
+	rdb            *redis.Client
+	publicPaths    map[string]bool
+	roleRateLimit  RoleRateLimitOptions
+	authRateLimit  AuthRateLimitOptions
+	limit          int
+	period         time.Duration
+	authLimit      int
+	authPeriod     time.Duration
+	tracingEnabled bool
 }
 
 // MiddlewareOptions holds middleware configuration
@@ -85,7 +86,7 @@ type RoleRateLimit struct {
 }
 
 // InitMiddleware initializes the middleware
-func InitMiddleware(log *zerolog.Logger, opt *MiddlewareOptions, tkn token.Token, rdb *redis.Client) Middleware {
+func InitMiddleware(log *zerolog.Logger, opt *MiddlewareOptions, tkn token.Token, rdb *redis.Client, tracingEnabled bool) Middleware {
 	onceMiddleware.Do(func() {
 		// --- Main rate limiter (mandatory) ---
 		limit := opt.RateLimiter.Limit
@@ -113,17 +114,18 @@ func InitMiddleware(log *zerolog.Logger, opt *MiddlewareOptions, tkn token.Token
 		}
 
 		middlewareInst = &middleware{
-			log:           log,
-			opt:           opt,
-			tkn:           tkn,
-			rdb:           rdb,
-			limit:         limit,
-			period:        period,
-			roleRateLimit: opt.RoleRateLimit,
-			authRateLimit: opt.AuthRateLimit,
-			authLimit:     authLimit,
-			authPeriod:    authPeriod,
-			publicPaths:   publicPathsMap,
+			log:            log,
+			opt:            opt,
+			tkn:            tkn,
+			rdb:            rdb,
+			limit:          limit,
+			period:         period,
+			roleRateLimit:  opt.RoleRateLimit,
+			authRateLimit:  opt.AuthRateLimit,
+			authLimit:      authLimit,
+			authPeriod:     authPeriod,
+			publicPaths:    publicPathsMap,
+			tracingEnabled: tracingEnabled,
 		}
 	})
 

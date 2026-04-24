@@ -6,6 +6,7 @@ require (
 	github.com/arl/statsviz v0.8.0
 	github.com/jackc/pgx/v5 v5.9.2
 	github.com/rs/xid v1.6.0
+	github.com/swaggo/http-swagger v1.3.4
 	github.com/swaggo/swag v1.16.6
 	github.com/yuseferi/envyaml v1.1.0
 	go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp v0.68.0
@@ -51,6 +52,7 @@ require (
 	github.com/jackc/pgservicefile v0.0.0-20240606120523-5a60cdf6a761 // indirect
 	github.com/jackc/puddle/v2 v2.2.2 // indirect
 	github.com/pkg/errors v0.9.1 // indirect
+	github.com/swaggo/files v0.0.0-20220610200504-28940afbdbfe // indirect
 	go.yaml.in/yaml/v3 v3.0.4 // indirect
 	golang.org/x/mod v0.35.0 // indirect
 	golang.org/x/sync v0.20.0 // indirect

@@ -6,7 +6,7 @@ import (
 	"time"
 
 	"go-far/internal/config"
-	restHandler "go-far/internal/handler/rest"
+	httpHandler "go-far/internal/handler/http"
 	schedHandler "go-far/internal/handler/scheduler"
 	"go-far/internal/infra/database"
 	"go-far/internal/infra/grace"
@@ -54,13 +54,25 @@ func Run() {
 
 	// Redis Initialization
 	redis0 := cfgredis.InitRedis(log, conf.Redis, preference.REDIS_APPS)
-	defer redis0.Close()
+	defer func() {
+		if err := redis0.Close(); err != nil {
+			log.Error().Err(err).Msg("Failed to close Redis APPS connection")
+		}
+	}()
 
 	redis1 := cfgredis.InitRedis(log, conf.Redis, preference.REDIS_AUTH)
-	defer redis1.Close()
+	defer func() {
+		if err := redis1.Close(); err != nil {
+			log.Error().Err(err).Msg("Failed to close Redis AUTH connection")
+		}
+	}()
 
 	redis2 := cfgredis.InitRedis(log, conf.Redis, preference.REDIS_LIMITER)
-	defer redis2.Close()
+	defer func() {
+		if err := redis2.Close(); err != nil {
+			log.Error().Err(err).Msg("Failed to close Redis LIMITER connection")
+		}
+	}()
 
 	// HTTP Client Initialization
 	httpClient := httpclient.InitHttpClient(log, conf.HTTP.Client)
@@ -72,28 +84,28 @@ func Run() {
 	repo := repository.InitRepository(sql0, redis0, queryLoader, conf.Redis.CacheTTL)
 	svc := service.InitService(repo)
 
+	// Tracer Initialization
+	if conf.Tracer.Enabled {
+		tracerInst := tracer.InitTracer(log, conf.Tracer)
+		defer tracerInst.Stop()
+	}
+
 	// Auth & MiddlewareInitialization
 	authToken := token.InitToken(log, conf.Token, redis1)
-	mw := middleware.InitMiddleware(log, conf.Middleware, authToken, redis2)
+	mw := middleware.InitMiddleware(log, conf.Middleware, authToken, redis2, conf.Tracer.Enabled)
 
 	// HTTP router & validator
 	httpMux := httpmux.InitHttpMux(log)
 	validator.InitValidator(log)
 
 	// REST Handler Initialization (registers routes on mux)
-	restHandler.InitRestHandler(httpMux, authToken, mw, svc, svc.User, sql0, redis0)
+	httpHandler.InitHttpHandler(httpMux, authToken, mw, svc, svc.User, sql0, redis0)
 
 	// Scheduler Initialization
 	if conf.Scheduler.Enabled {
 		scheduler := cfgscheduler.InitScheduler(log, conf.Scheduler)
 		schedHandler.InitSchedulerHandler(log, scheduler, svc, &conf.Scheduler.SchedulerJobs, httpClient, conf.Scheduler.Enabled)
 		defer scheduler.Stop()
-	}
-
-	// Tracer Initialization
-	if conf.Tracer.Enabled {
-		tracerInst := tracer.InitTracer(log, conf.Tracer)
-		defer tracerInst.Stop()
 	}
 
 	// HTTP Server Initialization

@@ -64,8 +64,17 @@ func (mw *middleware) isPublicPath(path string) bool {
 	}
 
 	for pub := range mw.publicPaths {
+		// Handle exact slash suffix (existing behaviour)
 		if strings.HasSuffix(pub, "/") && strings.HasPrefix(path, pub) {
 			return true
+		}
+
+		// Handle wildcard pattern "/*"
+		if strings.HasSuffix(pub, "/*") {
+			prefix := strings.TrimSuffix(pub, "/*")
+			if strings.HasPrefix(path, prefix) {
+				return true
+			}
 		}
 	}
 
@@ -77,7 +86,6 @@ func (mw *middleware) Handler() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			path := r.URL.Path
-			mw.log.Debug().Str("path", path).Msg("Incoming request")
 			isPublic := mw.isPublicPath(path)
 
 			// Authentication (skip public paths)
@@ -148,15 +156,25 @@ func (mw *middleware) logRequestStart(r *http.Request, traceID, spanID string) {
 		path = path + "?" + r.URL.RawQuery
 	}
 
-	mw.log.Info().
-		Str(preference.EVENT, "START").
-		Str("trace_id", traceID).
-		Str("span_id", spanID).
+	event := mw.log.Info().
+		Str(preference.EVENT, "START")
+
+	if mw.tracingEnabled {
+		event = event.
+			Str(string(preference.CONTEXT_KEY_LOG_TRACE_ID), traceID).
+			Str(string(preference.CONTEXT_KEY_LOG_SPAN_ID), spanID)
+	} else {
+		event = event.
+			Str(string(preference.CONTEXT_KEY_LOG_REQUEST_ID), spanID)
+	}
+
+	event = event.
 		Str(preference.METHOD, r.Method).
 		Str(preference.URL, path).
 		Str(preference.USER_AGENT, r.UserAgent()).
-		Str(preference.ADDR, r.Host).
-		Send()
+		Str(preference.ADDR, r.Host)
+
+	event.Send()
 }
 
 func (mw *middleware) logRequestEnd(traceID, spanID string, start time.Time, statusCode int) {
@@ -165,13 +183,23 @@ func (mw *middleware) logRequestEnd(traceID, spanID string, start time.Time, sta
 		latency = latency.Truncate(time.Second)
 	}
 
-	mw.log.Info().
-		Str(preference.EVENT, "END").
-		Str("trace_id", traceID).
-		Str("span_id", spanID).
+	event := mw.log.Info().
+		Str(preference.EVENT, "END")
+
+	if mw.tracingEnabled {
+		event = event.
+			Str(string(preference.CONTEXT_KEY_LOG_TRACE_ID), traceID).
+			Str(string(preference.CONTEXT_KEY_LOG_SPAN_ID), spanID)
+	} else {
+		event = event.
+			Str(string(preference.CONTEXT_KEY_LOG_REQUEST_ID), spanID)
+	}
+
+	event = event.
 		Str(preference.LATENCY, latency.String()).
-		Int(preference.STATUS, statusCode).
-		Send()
+		Int(preference.STATUS, statusCode)
+
+	event.Send()
 }
 
 func (mw *middleware) attachTraceSpanIDs(ctx context.Context, traceID, spanID string) context.Context {
@@ -182,14 +210,30 @@ func (mw *middleware) attachTraceSpanIDs(ctx context.Context, traceID, spanID st
 }
 
 func (mw *middleware) attachLogger(ctx context.Context) context.Context {
-	traceID, _ := ctx.Value(preference.CONTEXT_KEY_LOG_TRACE_ID).(string)
-	spanID, _ := ctx.Value(preference.CONTEXT_KEY_LOG_SPAN_ID).(string)
+	// traceID, _ := ctx.Value(preference.CONTEXT_KEY_LOG_TRACE_ID).(string)
+	// spanID, _ := ctx.Value(preference.CONTEXT_KEY_LOG_SPAN_ID).(string)
 
-	return mw.log.With().
-		Str(string(preference.CONTEXT_KEY_LOG_TRACE_ID), traceID).
-		Str(string(preference.CONTEXT_KEY_LOG_SPAN_ID), spanID).
-		Logger().
-		WithContext(ctx)
+	// return mw.log.With().
+	// 	Str(string(preference.CONTEXT_KEY_LOG_TRACE_ID), traceID).
+	// 	Str(string(preference.CONTEXT_KEY_LOG_SPAN_ID), spanID).
+	// 	Logger().
+	// 	WithContext(ctx)
+
+	logBuilder := mw.log.With()
+
+	if mw.tracingEnabled {
+		traceID, _ := ctx.Value(preference.CONTEXT_KEY_LOG_TRACE_ID).(string)
+		spanID, _ := ctx.Value(preference.CONTEXT_KEY_LOG_SPAN_ID).(string)
+
+		logBuilder = logBuilder.
+			Str(string(preference.CONTEXT_KEY_LOG_TRACE_ID), traceID).
+			Str(string(preference.CONTEXT_KEY_LOG_SPAN_ID), spanID)
+	} else {
+		logBuilder = logBuilder.
+			Str(string(preference.CONTEXT_KEY_LOG_REQUEST_ID), ctx.Value(preference.CONTEXT_KEY_LOG_SPAN_ID).(string))
+	}
+
+	return logBuilder.Logger().WithContext(ctx)
 }
 
 func (mw *middleware) writeJSONError(w http.ResponseWriter, status int, msg string) {

@@ -3,6 +3,7 @@ package user
 import (
 	"context"
 
+	"go-far/internal/infra/query"
 	"go-far/internal/model/dto"
 	"go-far/internal/model/entity"
 	x "go-far/internal/model/errors"
@@ -33,7 +34,7 @@ func (d *userRepository) findAllSQLUserV2(ctx context.Context, filter *dto.UserF
 		return nil, &pagination, x.WrapWithCode(err, x.CodeSQLQueryBuild, "build_users_query_err")
 	}
 
-	qb := util.NewSQLBuilder("param", "db", "", filter.Page, filter.PageSize)
+	qb := query.NewSQLBuilder("param", "db", "", filter.Page, filter.PageSize)
 	qb.AliasPrefix("-", &filter)
 
 	queryExt, _, args, err := qb.Build()

@@ -5,22 +5,88 @@ run:
 
 linters:
   enable:
-    - staticcheck
-    - gosec
-    - gocritic
+    # ---- Existing ----
+    - staticcheck    # Advanced static analysis (now includes the functionality of stylecheck and gosimple)
+    - gosec          # Inspects source code for security problems
+    - gocritic       # Detects suspicious constructs and style issues
     - govet          # Go's official static analyzer
     - errcheck       # Checks for unchecked errors
     - ineffassign    # Detects ineffectual assignments
     - unused         # Checks for unused constants, variables, functions, and types
     - gocyclo        # Computes cyclomatic complexity of functions
 
+    # ---- New: Reliability & Concurrency ----
+    - noctx          # Detects missing context in HTTP requests
+    - exhaustive     # Ensures switch statements on enums are exhaustive
+    - durationcheck  # Catches mistakes in time.Duration calculations
+    - errorlint      # Enforces error wrapping best practices
+    - contextcheck   # Checks context propagation rules
+
+    # ---- New: Style & Consistency ----
+    - revive         # Replace for golint – flexible style rules
+    - funlen         # Flags functions that are too long
+    - gocognit       # Measures cognitive complexity of functions
+    - nestif         # Detects deeply nested if statements
+    - wsl_v5         # Enforces consistent whitespace usage
+
+    # ---- New: Modernization ----
+    - perfsprint     # Suggests faster alternatives to fmt.Sprintf
+    - intrange       # Suggests using for range int where possible
+    - modernize      # Suggests modern Go constructs (Go 1.21+)
+
   settings:
     gocyclo:
-      min-complexity: 15  # Adjust this threshold as needed
+      min-complexity: 15
+      
     govet:
       enable-all: true
       disable:
-        - fieldalignment
+        - fieldalignment  # fieldalignment is often noisy and may be disabled
+
+    funlen:
+      lines: 80           # Maximum number of lines for a function
+      statements: 50      # Maximum number of statements for a function
+      
+    gocognit:
+      min-complexity: 20  # Cognitive complexity threshold
+      
+    nestif:
+      min-complexity: 4   # Minimum complexity for a nested `if` to trigger
+      
+    exhaustive:
+      default-signifies-exhaustive: true  # Treat 'default' as exhaustive
+      
+    wsl_v5:
+      allow-first-in-block: true
+      allow-whole-block: false
+      branch-max-lines: 2
+      
+    perfsprint:
+      int-conversion: true   # Suggest `strconv.Itoa` over `fmt.Sprint`
+      err-error: true        # Suggest `errors.New` for simple errors
+
+    revive:
+      rules:
+        - name: exported
+          severity: warning
+        - name: package-comments
+          severity: warning
+        - name: blank-imports
+        - name: context-as-argument
+        - name: error-return      # Error must be last return value
+        - name: error-strings
+        - name: error-naming
+        - name: indent-error-flow
+        - name: if-return
+        - name: increment-decrement
+        - name: range
+        - name: receiver-naming
+        - name: time-naming
+        - name: unexported-return
+        - name: unnecessary-stmt
+        - name: unreachable-code
+        - name: unused-parameter
+        - name: useless-break
 
 formatters:
   enable:

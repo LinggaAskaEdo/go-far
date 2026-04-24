@@ -19,7 +19,7 @@ func (e *rest) ListUsersV2(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	filter := util.DecodeQuery[dto.UserFilterV2](r.URL.Query())
+	filter := util.DecodeURL[dto.UserFilterV2](r.URL.Query())
 
 	if authUser.Role != string(entity.RoleAdmin) {
 		filter.ID = authUser.UserID

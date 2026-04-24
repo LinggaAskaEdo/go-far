@@ -113,7 +113,7 @@ test:
 	@printf "$(BLUE)Tests complete. Coverage report: $(COVERAGE_HTML)$(RESET)\n"
 
 ## Build the application with optimizations
-build: clean swagger
+build: clean swagger lint
 	@echo "Building application..."
 	@$(GO) mod tidy
 	@$(GO) generate $(SRC_DIR)

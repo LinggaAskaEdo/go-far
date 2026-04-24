@@ -1,4 +1,4 @@
-package util
+package query
 
 import (
 	"bytes"
@@ -9,10 +9,10 @@ import (
 	"strings"
 	"time"
 
+	"go-far/internal/util"
+
 	_ "github.com/lib/pq"
 )
-
-const maxLimit, defaultLimit int64 = 1e4, 10
 
 const (
 	one = iota
@@ -32,6 +32,8 @@ const (
 	gte
 	gt
 )
+
+var sortFieldPattern = regexp.MustCompile(`(?P<sign>-)?(?P<col>[a-zA-Z_]+),?`)
 
 type SQLBuilder struct {
 	values      map[string]reflect.Value
@@ -291,12 +293,11 @@ func (qb *SQLBuilder) processSortBy(arg any, alias string, mapDBcolsByParam map[
 		return
 	}
 
-	reg := regexp.MustCompile(`(?P<sign>-)?(?P<col>[a-zA-Z_]+),?`)
-	if !reg.MatchString(v) {
+	if !sortFieldPattern.MatchString(v) {
 		return
 	}
 
-	return qb.parseSortFields(v, reg, alias, mapDBcolsByParam)
+	return qb.parseSortFields(v, sortFieldPattern, alias, mapDBcolsByParam)
 }
 
 func (qb *SQLBuilder) parseSortFields(v string, reg *regexp.Regexp, alias string, mapDBcolsByParam map[string]string) (sortBy, sortByDisplay []string) {
@@ -369,8 +370,8 @@ func (qb *SQLBuilder) appendOrderBy(buff *bytes.Buffer, sortBy []string) {
 }
 
 func (qb *SQLBuilder) appendLimitOffset(buff *bytes.Buffer, args *[]any, argIdx *int) {
-	qb.limit = ValidateLimit(qb.limit)
-	qb.page = ValidatePage(qb.page)
+	qb.limit = util.ValidateLimit(qb.limit)
+	qb.page = util.ValidatePage(qb.page)
 
 	if qb.page > 0 || qb.limit > 0 {
 		offset := getOffset(qb.page, qb.limit)
@@ -410,38 +411,4 @@ func (qb *SQLBuilder) getOperator(valType int, paramTag string) int {
 	}
 
 	return in_
-}
-
-func ValidateLimit(limit int64) int64 {
-	if limit < 1 {
-		return defaultLimit
-	} else if limit > maxLimit {
-		return maxLimit
-	}
-
-	return limit
-}
-
-func ValidatePage(page int64) int64 {
-	if page < 1 {
-		return 1
-	}
-
-	return page
-}
-
-func ValidateSortBy(sort string) string {
-	if sort == "" {
-		return "name"
-	}
-
-	return sort
-}
-
-func ValidateSortDir(sort string) string {
-	if sort == "" {
-		return "ASC"
-	}
-
-	return sort
 }

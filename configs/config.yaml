@@ -26,7 +26,7 @@ http:
       backoff_min: 100ms
       backoff_max: 2s
 
-database:
+database: # postgres, mysql, oracle
   postgres:
     enabled: true
     driver: postgres
@@ -74,10 +74,19 @@ middleware:
   public_paths:
     - /health
     - /ready
-    - /swagger/
-    - /auth/login
-    - /auth/register
-    - /auth/refresh
+    - /swagger
+    - /swagger/*
+    # - /swagger/index.html
+    # - /swagger/swagger-ui-bundle.js
+    # - /swagger/swagger-ui-standalone-preset.js
+    # - /swagger/swagger-ui.css
+    # - /swagger/swagger.json
+    # - /api/openapi/swagger.json
+    # - /docs
+    - /auth/*
+    # - /auth/login
+    # - /auth/register
+    # - /auth/refresh
     - /debug/statsviz
     - /debug/statsviz/ws
     - /favicon.ico
@@ -121,7 +130,7 @@ token:
   expired_refresh_token: 15m
 
 queries:
-  path: ./etc/queries/
+  path: ./configs/queries/
 
 tracer:
   enabled: false

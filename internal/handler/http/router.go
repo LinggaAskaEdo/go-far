@@ -26,7 +26,7 @@ type rest struct {
 	redis *redis.Client
 }
 
-func InitRestHandler(mux *http.ServeMux, auth token.Token, mw middleware.Middleware, svc *service.Service, usvc user.UserServiceItf, sql0 *pgxpool.Pool, redisClient *redis.Client) {
+func InitHttpHandler(mux *http.ServeMux, auth token.Token, mw middleware.Middleware, svc *service.Service, usvc user.UserServiceItf, sql0 *pgxpool.Pool, redisClient *redis.Client) {
 	var e *rest
 
 	onceRestHandler.Do(func() {

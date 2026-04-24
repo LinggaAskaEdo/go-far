@@ -111,7 +111,7 @@ func (e *rest) ListUsers(w http.ResponseWriter, r *http.Request) {
 		return
 	}
 
-	filter := util.DecodeQuery[dto.UserFilter](r.URL.Query())
+	filter := util.DecodeURL[dto.UserFilter](r.URL.Query())
 	cacheControl := dto.CacheControl{}
 
 	if r.Header.Get(preference.CacheControl) == preference.CacheMustRevalidate {

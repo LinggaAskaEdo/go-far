@@ -56,7 +56,7 @@ func (g *app) Serve() {
 	}()
 
 	<-signalCh
-	g.log.Info().Msg("Received shutdown signal, gracefully shutting down...")
+	g.log.Debug().Msg("Received shutdown signal, gracefully shutting down...")
 
 	shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), g.shutdownTimeout)
 	defer cancelShutdown()
@@ -66,5 +66,5 @@ func (g *app) Serve() {
 	}
 
 	wg.Wait()
-	g.log.Info().Msg("Shutdown complete")
+	g.log.Debug().Msg("Shutdown complete")
 }
