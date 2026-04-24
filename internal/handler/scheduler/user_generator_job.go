@@ -12,6 +12,7 @@ import (
 	cfg "go-far/internal/infra/scheduler"
 	"go-far/internal/model/dto"
 	"go-far/internal/model/entity"
+	appErr "go-far/internal/model/errors"
 	"go-far/internal/service/user"
 	"go-far/internal/util"
 
@@ -166,7 +167,8 @@ func (j *UserGeneratorJob) doFetchRandomUsersFromAPI(ctx context.Context, count 
 	}()
 
 	if resp.StatusCode != http.StatusOK {
-		return nil, fmt.Errorf("API returned status: %d", resp.StatusCode)
+		return nil, appErr.New(fmt.Sprintf("API returned status: %d", resp.StatusCode), appErr.CodeHTTPExternalAPI)
+
 	}
 
 	var apiResp randomUserResp
@@ -175,7 +177,7 @@ func (j *UserGeneratorJob) doFetchRandomUsersFromAPI(ctx context.Context, count 
 	}
 
 	if len(apiResp.Results) == 0 {
-		return nil, fmt.Errorf("no results from API")
+		return nil, appErr.New("no results from API", appErr.CodeHTTPExternalAPI)
 	}
 
 	users := make([]randomUser, len(apiResp.Results))
@@ -200,7 +202,7 @@ func (j *UserGeneratorJob) runWithFallback(ctx context.Context) error {
 	defer j.mu.Unlock()
 
 	successCount := 0
-	for i := 0; i < j.config.BatchSize; i++ {
+	for range j.config.BatchSize {
 		firstName := fallbackFirstNames[util.RandomInt(len(fallbackFirstNames))]
 		lastName := fallbackLastNames[util.RandomInt(len(fallbackLastNames))]
 		name := fmt.Sprintf("%s %s", firstName, lastName)

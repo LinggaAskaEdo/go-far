@@ -6,7 +6,7 @@ import (
 	"go-far/internal/infra/query"
 	"go-far/internal/model/dto"
 	"go-far/internal/model/entity"
-	x "go-far/internal/model/errors"
+	appErr "go-far/internal/model/errors"
 	"go-far/internal/util"
 
 	"github.com/rs/zerolog"
@@ -31,7 +31,7 @@ func (d *userRepository) findAllSQLUserV2(ctx context.Context, filter *dto.UserF
 	baseQuery, _, err := d.queryLoader.Compile("FindUsersBaseV2", nil)
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("build_users_query_err")
-		return nil, &pagination, x.WrapWithCode(err, x.CodeSQLQueryBuild, "build_users_query_err")
+		return nil, &pagination, appErr.WrapWithCode(err, appErr.CodeSQLQueryBuild, "build_users_query_err")
 	}
 
 	qb := query.NewSQLBuilder("param", "db", "", filter.Page, filter.PageSize)
@@ -40,7 +40,7 @@ func (d *userRepository) findAllSQLUserV2(ctx context.Context, filter *dto.UserF
 	queryExt, _, args, err := qb.Build()
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("build_users_query_err")
-		return nil, &pagination, x.WrapWithCode(err, x.CodeSQLQueryBuild, "build_users_query_err")
+		return nil, &pagination, appErr.WrapWithCode(err, appErr.CodeSQLQueryBuild, "build_users_query_err")
 	}
 
 	fullQuery := baseQuery + queryExt
@@ -50,7 +50,7 @@ func (d *userRepository) findAllSQLUserV2(ctx context.Context, filter *dto.UserF
 	rows, err := d.sql0.Query(ctx, fullQuery, args...)
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("find_users_err")
-		return nil, &pagination, x.WrapWithCode(err, x.CodeSQLRowScan, "find_users_err")
+		return nil, &pagination, appErr.WrapWithCode(err, appErr.CodeSQLRowScan, "find_users_err")
 	}
 	defer rows.Close()
 
@@ -58,8 +58,9 @@ func (d *userRepository) findAllSQLUserV2(ctx context.Context, filter *dto.UserF
 		var user entity.User
 		if err := rows.Scan(&user.ID, &user.Email, &user.Name, &user.Age, &user.Role, &user.IsActive, &user.CreatedAt, &user.UpdatedAt); err != nil {
 			zerolog.Ctx(ctx).Error().Err(err).Msg("scan_user_err")
-			return nil, &pagination, x.WrapWithCode(err, x.CodeSQLRowScan, "scan_user_err")
+			return nil, &pagination, appErr.WrapWithCode(err, appErr.CodeSQLRowScan, "scan_user_err")
 		}
+
 		results = append(results, user)
 	}
 

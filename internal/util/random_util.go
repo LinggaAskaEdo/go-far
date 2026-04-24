@@ -3,7 +3,6 @@ package util
 import (
 	"crypto/rand"
 	"math/big"
-	"reflect"
 )
 
 // RandomInt returns a cryptographically secure random int in [0, n).
@@ -37,18 +36,10 @@ func RandomFloat32() float32 {
 }
 
 // shuffleSlice uses crypto/rand to shuffle any slice in place.
-func ShuffleSlice(slice interface{}) {
-	v := reflect.ValueOf(slice)
-	if v.Kind() != reflect.Slice {
-		panic("shuffleSlice: not a slice")
-	}
-
-	n := v.Len()
+func ShuffleSlice[T any](slice []T) {
+	n := len(slice)
 	for i := n - 1; i > 0; i-- {
 		j := RandomInt(i + 1)
-		// swap v.Index(i), v.Index(j)
-		tmp := v.Index(i).Interface()
-		v.Index(i).Set(v.Index(j))
-		v.Index(j).Set(reflect.ValueOf(tmp))
+		slice[i], slice[j] = slice[j], slice[i]
 	}
 }

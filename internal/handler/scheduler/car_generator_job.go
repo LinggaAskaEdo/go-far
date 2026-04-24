@@ -123,7 +123,7 @@ func (j *CarGeneratorJob) Run(ctx context.Context) error {
 	defer j.mu.Unlock()
 
 	successCount := 0
-	for i := 0; i < j.config.BatchSize; i++ {
+	for range j.config.BatchSize {
 		carData := j.generateRandomCar()
 
 		owner := userList[util.RandomInt(len(userList))]
@@ -224,8 +224,13 @@ func (j *CarGeneratorJob) fetchMakesFromAPI(ctx context.Context) ([]carInfo, err
 }
 
 func (j *CarGeneratorJob) doFetchMakesFromAPI(ctx context.Context) ([]carInfo, error) {
-	url := fmt.Sprintf("%s/GetMakeForManufacturer?format=json", j.nhtsaURL)
-	resp, err := j.httpClient.Get(url)
+	url := j.nhtsaURL + "/GetMakeForManufacturer?format=json"
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, url, nil)
+	if err != nil {
+		j.log.Warn().Err(err).Msg("failed to create makes request")
+		return nil, err
+	}
+	resp, err := j.httpClient.Do(req)
 	if err != nil {
 		j.log.Warn().Err(err).Msg("failed to fetch makes from NHTSA")
 		return nil, err
@@ -259,7 +264,7 @@ func (j *CarGeneratorJob) fetchModelsForMakes(ctx context.Context, makes []makeI
 	numMakes := min(10, len(makes))
 	var newCars []carInfo
 
-	for i := 0; i < numMakes; i++ {
+	for i := range numMakes {
 		select {
 		case <-ctx.Done():
 			return newCars
@@ -267,7 +272,7 @@ func (j *CarGeneratorJob) fetchModelsForMakes(ctx context.Context, makes []makeI
 		}
 
 		mk := makes[i]
-		models := j.fetchModelsForMake(mk.MakeName)
+		models := j.fetchModelsForMake(ctx, mk.MakeName)
 		if len(models) == 0 {
 			continue
 		}
@@ -286,9 +291,13 @@ func (j *CarGeneratorJob) fetchModelsForMakes(ctx context.Context, makes []makeI
 	return newCars
 }
 
-func (j *CarGeneratorJob) fetchModelsForMake(makeName string) []string {
+func (j *CarGeneratorJob) fetchModelsForMake(ctx context.Context, makeName string) []string {
 	modelURL := fmt.Sprintf("%s/GetModelsForMake/%s?format=json", j.nhtsaURL, makeName)
-	resp, err := j.httpClient.Get(modelURL)
+	req, err := http.NewRequestWithContext(ctx, http.MethodGet, modelURL, nil)
+	if err != nil {
+		return nil
+	}
+	resp, err := j.httpClient.Do(req)
 	if err != nil {
 		return nil
 	}
@@ -382,5 +391,5 @@ func (j *CarGeneratorJob) generateLicensePlate() string {
 		plate.WriteString(licenseNumbers[util.RandomInt(len(licenseNumbers))])
 	}
 
-	return fmt.Sprintf("USA-%s", plate.String())
+	return "USA-" + plate.String()
 }

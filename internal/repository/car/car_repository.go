@@ -6,7 +6,7 @@ import (
 	"fmt"
 
 	"go-far/internal/model/entity"
-	x "go-far/internal/model/errors"
+	appErr "go-far/internal/model/errors"
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
@@ -18,7 +18,7 @@ func (r *carRepository) Create(ctx context.Context, car *entity.Car) error {
 	tx, err := r.sql0.Begin(ctx)
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("tx_create_car")
-		return x.Wrap(err, "tx_create_car")
+		return appErr.Wrap(err, "tx_create_car")
 	}
 
 	defer func() {
@@ -36,7 +36,7 @@ func (r *carRepository) Create(ctx context.Context, car *entity.Car) error {
 
 	if err = tx.Commit(ctx); err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("commit_create_car")
-		return x.Wrap(err, "commit_create_car")
+		return appErr.Wrap(err, "commit_create_car")
 	}
 
 	return nil
@@ -46,7 +46,7 @@ func (r *carRepository) CreateBulk(ctx context.Context, cars []*entity.Car) erro
 	tx, err := r.sql0.Begin(ctx)
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("tx_create_bulk_cars")
-		return x.Wrap(err, "tx_create_bulk_cars")
+		return appErr.Wrap(err, "tx_create_bulk_cars")
 	}
 
 	defer func() {
@@ -64,7 +64,7 @@ func (r *carRepository) CreateBulk(ctx context.Context, cars []*entity.Car) erro
 
 	if err = tx.Commit(ctx); err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("commit_create_bulk_cars")
-		return x.Wrap(err, "commit_create_bulk_cars")
+		return appErr.Wrap(err, "commit_create_bulk_cars")
 	}
 
 	return nil
@@ -116,7 +116,7 @@ func (r *carRepository) CountByUserID(ctx context.Context, userID uuid.UUID) (in
 func (r *carRepository) Update(ctx context.Context, id uuid.UUID, car *entity.Car) error {
 	err := r.updateSQLCar(ctx, id, car)
 	if err != nil {
-		return err
+		return appErr.Wrap(err, "update_sql_car")
 	}
 
 	cacheKey := fmt.Sprintf(cacheKeyCar, id.String())

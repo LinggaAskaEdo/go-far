@@ -26,52 +26,49 @@ A production-ready RESTful API built with Go following Domain-Driven Design prin
 
 ```text
 go-far/
-├── src/
-│   ├── cmd/                    # Application entry point
-│   │   ├── main.go             # Main application bootstrap
-│   │   ├── app.go              # Dependency injection & initialization
-│   │   └── conf.go             # Configuration loading
-│   ├── config/                 # Infrastructure & configuration modules
-│   │   ├── database/           # Database connection
+├── cmd/api/                    # Application entry point
+│   └── main.go                 # Main application bootstrap
+├── internal/                   # Application packages
+│   ├── app/                    # App bootstrap & initialization
+│   ├── config/                 # Configuration management
+│   ├── handler/                # HTTP & scheduler handlers
+│   │   ├── http/               # REST API handlers
+│   │   │   ├── auth_handler.go
+│   │   │   ├── car_handler.go
+│   │   │   ├── helper.go
+│   │   │   ├── router.go
+│   │   │   └── user_handler.go
+│   │   └── scheduler/          # Cron job handlers
+│   ├── infra/                  # Infrastructure & configuration modules
+│   │   ├── database/           # PostgreSQL connection (pgx)
 │   │   ├── grace/              # Graceful shutdown
+│   │   ├── http/               # HTTP client & mux
 │   │   ├── logger/             # Zerolog logger
 │   │   ├── middleware/         # Request middleware (CORS, rate limiting)
 │   │   ├── query/              # SQL query loader (tqla templates)
 │   │   ├── redis/              # Redis client
 │   │   ├── scheduler/          # Cron scheduler
-│   │   ├── server/             # HTTP server & native net/http router
 │   │   ├── token/              # JWT token management (HS-256)
-│   │   └── tracer/             # OpenTelemetry tracer
-│   ├── handler/                # HTTP & scheduler handlers (interface layer)
-│   │   ├── rest/               # REST API handlers
-│   │   │   ├── auth.go         # Auth endpoints (register, login, refresh)
-│   │   │   ├── user.go         # User handlers
-│   │   │   └── car.go          # Car handlers
-│   │   └── scheduler/          # Cron job handlers
-│   ├── model/                  # Shared data contracts
-│   │   ├── entity/             # Domain entities
-│   │   │   ├── user.go         # User entity with roles
-│   │   │   └── car.go          # Car entity
+│   │   ├── tracer/             # OpenTelemetry tracer
+│   │   └── validator/          # Custom validators
+│   ├── model/                  # Data contracts
 │   │   ├── dto/                # Data Transfer Objects
-│   │   │   ├── request.go      # Request DTOs
-│   │   │   ├── response.go     # Response DTOs
-│   │   │   └── pagination.go   # Pagination support
+│   │   ├── entity/             # Domain entities
 │   │   └── errors/             # Error handling
 │   ├── preference/             # Constants & shared values
-│   ├── repository/             # Data access layer (infrastructure)
-│   │   ├── user/               # User repository
-│   │   └── car/                # Car repository
-│   ├── service/                # Business logic layer (domain services)
-│   │   ├── user/               # User service
-│   │   └── car/                # Car service
+│   ├── repository/             # Data access layer
+│   │   ├── car/                # Car repository
+│   │   └── user/               # User repository
+│   ├── service/                # Business logic layer
+│   │   ├── car/                # Car service
+│   │   └── user/               # User service
 │   └── util/                   # Utility functions
-├── etc/
-│   ├── docs/                   # Swagger documentation (generated)
-│   ├── migrations/             # Database migrations
-│   ├── queries/                # SQL queries with tqla templates
-│   └── postman/                # Postman collection
-├── logs/                       # Application logs
-├── config.yaml                 # Application configuration
+├── api/                        # Generated API docs
+│   └── openapi/                # Swagger documentation
+├── configs/                    # Application configuration
+├── db/                         # Database migrations
+├── deployments/                # Deployment configs
+├── scripts/                    # Utility scripts
 ├── Makefile                    # Build & run commands
 └── go.mod                      # Go module definition
 ```
@@ -158,67 +155,77 @@ Roles are assigned during registration and stored as a PostgreSQL enum type.
 
 ## ⚙️ Configuration
 
-Edit `config.yaml` or use environment variables:
+Edit `configs/config.yaml` or use environment variables:
 
 ```yaml
-server:
-  port: 8181
-  write_timeout: 10s
-  read_timeout: 10s
-  max_body_bytes: 1048576  # 1MB, typical: 1-10MB for REST APIs
+http:
+  server:
+    app_name: go-far-app
+    mode: release # debug, release
+    port: 8181
+    write_timeout: 10s
+    read_timeout: 10s
+    idle_timeout: 60s
+    shutdown_timeout: 5s
+    max_body_bytes: 1048576 # 1MB
 
-postgres:
-  host: localhost
-  port: 5432
-  user: postgres
-  password: ${POSTGRES_DOCKER_PASSWORD}
-  dbname: go_far
-
-redis:
-  address: localhost:6379
-  password: ""
-
-token:
-  expired_token: 5m
-  expired_refresh_token: 15m
-
-scheduler:
-  enabled: true
-  jobs:
-    user_generator:
+  database:
+    postgres:
       enabled: true
-      cron: "0 0 */1 * * *"  # Every 1 hour
-      batch_size: 5
-      min_age: 18
-      max_age: 80
-    car_generator:
-      enabled: true
-      cron: "0 */30 * * * *"  # Every 30 minutes
-      batch_size: 3
-      min_year: 2015
-      max_year: 2025
+      driver: postgres
+      host: localhost
+      port: 5432
+      user: postgres
+      password: ${POSTGRES_DOCKER_PASSWORD}
+      dbname: go_far
 
-middleware:
-  public_paths:
-    - /health
-    - /ready
-    - /swagger/
-    - /auth/login
-    - /auth/register
-    - /auth/refresh
-  rate_limiter:
-    command: "1-S"
-    limit: 500
-  role_rate_limit:
-    admin:
-      command: "1-M"
-      limit: 10
-    user:
-      command: "1-M"
-      limit: 5
-    guest:
-      command: "1-M"
-      limit: 1
+  redis:
+    enabled: true
+    address: localhost:6379
+    password: ""
+
+  logger:
+    enabled: true
+    level: debug # debug, info, warn, error
+    format: json # json, console
+
+  middleware:
+    public_paths:
+      - /health
+      - /ready
+      - /swagger
+      - /auth/*
+    rate_limiter:
+      command: "1-S"
+      limit: 500
+    role_rate_limit:
+      admin:
+        command: "1-M"
+        limit: 10000000
+      user:
+        command: "1-M"
+        limit: 5
+      guest:
+        command: "1-M"
+        limit: 1
+
+  scheduler:
+    enabled: true
+    jobs:
+      user_generator:
+        enabled: false
+        cron: "0 0 */1 * * *"
+      car_generator:
+        enabled: true
+        cron: "0 */30 * * * *"
+
+  token:
+    expired_token: 5m
+    expired_refresh_token: 15m
+
+  tracer:
+    enabled: false
+    endpoint: "http://localhost:4317"
 ```
 
 ### Scheduler Jobs
@@ -252,7 +259,7 @@ export MYSQL_PORT=3306
 export MYSQL_USER=root
 export MYSQL_DB_NAME=go_far
 
-# JWT Secret (loaded from /etc/environment)
+# JWT Secret (set in config or environment)
 export JWT_SECRET_GO_FAR=your-64-byte-hex-secret
 
 # Redis
@@ -267,15 +274,6 @@ export TRACER_ENDPOINT=localhost:4317
 
 # Logging
 export LOG_LEVEL=info
-```
-
-### /etc/environment
-
-The app automatically loads `/etc/environment` at startup. Add your secrets there:
-
-```bash
-JWT_SECRET_GO_FAR=cc085ae29c8ada6eedba8e7f04fb669e...
-POSTGRES_DOCKER_PASSWORD=a5k4CooL
 ```
 
 ## 🚦 Getting Started
@@ -311,8 +309,8 @@ POSTGRES_DOCKER_PASSWORD=a5k4CooL
 4. **Setup JWT secret**
 
    ```bash
-   # Add to /etc/environment (app loads automatically at startup)
-   echo "JWT_SECRET_GO_FAR=$(openssl rand -hex 64)" | sudo tee -a /etc/environment
+   # Set JWT_SECRET_GO_FAR environment variable or in configs/config.yaml
+   export JWT_SECRET_GO_FAR=$(openssl rand -hex 64)
    ```
 
 5. **Setup database**
@@ -325,8 +323,8 @@ POSTGRES_DOCKER_PASSWORD=a5k4CooL
 6. **Update configuration**
 
    ```bash
-   cp config.yaml config.yaml.local
-   # Edit config.yaml.local with your settings
+   cp configs/config.yaml configs/config.yaml.local
+   # Edit configs/config.yaml.local with your settings
    ```
 
 7. **Run the application**
@@ -511,11 +509,15 @@ Apache 2.0 - See [LICENSE](LICENSE) for details.
 
 ## 📋 Changelog
 
+### v1.12.0
+
+- Added comprehensive `.golangci.yml` with 20+ linters including reliability, concurrency, style, and modernization categories
+- Added new linters: noctx, exhaustive, durationcheck, errorlint, contextcheck, revive, funlen, gocognit, nestif, wsl_v5, perfsprint, intrange, modernize
+- Updated Makefile with simplified targets (removed fmt, vet, check; integrated into build)
+- Added gofumpt and gci formatters in install-tools
+- Updated app version to v1.12.0
+
 ### v1.11.0
-
-- Updated app version
-
-### v1.9.0
 
 - Added circuit breaker configuration in httpclient package (`src/config/httpclient`)
 - Integrated failsafe-go for external API protection with retry policy

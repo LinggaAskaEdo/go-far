@@ -2,6 +2,7 @@ package token
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net/http"
 	"os"
@@ -10,7 +11,7 @@ import (
 	"sync"
 	"time"
 
-	x "go-far/internal/model/errors"
+	appErr "go-far/internal/model/errors"
 	"go-far/internal/preference"
 
 	"github.com/golang-jwt/jwt/v5"
@@ -106,7 +107,7 @@ func (a *token) GenerateToken(r *http.Request, data any) (*TokenDetails, error) 
 	}
 
 	if !dataVal.IsValid() {
-		return nil, x.NewWithCode(x.CodeHTTPBadRequest, "Invalid data for token generation")
+		return nil, appErr.NewWithCode(appErr.CodeHTTPBadRequest, "Invalid data for token generation")
 	}
 
 	publicIDField := dataVal.FieldByName("PublicID")
@@ -114,7 +115,7 @@ func (a *token) GenerateToken(r *http.Request, data any) (*TokenDetails, error) 
 	roleField := dataVal.FieldByName("Role")
 
 	if !publicIDField.IsValid() || !usernameField.IsValid() || !roleField.IsValid() {
-		return nil, x.NewWithCode(x.CodeHTTPBadRequest, "Data must contain PublicID, Username and Role fields")
+		return nil, appErr.NewWithCode(appErr.CodeHTTPBadRequest, "Data must contain PublicID, Username and Role fields")
 	}
 
 	publicID := publicIDField.String()
@@ -122,7 +123,7 @@ func (a *token) GenerateToken(r *http.Request, data any) (*TokenDetails, error) 
 	role := roleField.String()
 
 	if publicID == "" || username == "" || role == "" {
-		return nil, x.NewWithCode(x.CodeHTTPBadRequest, "PublicID, Username and Role cannot be empty")
+		return nil, appErr.NewWithCode(appErr.CodeHTTPBadRequest, "PublicID, Username and Role cannot be empty")
 	}
 
 	td.ExpiresAt = time.Now().Add(a.expiredToken).Unix()
@@ -142,7 +143,7 @@ func (a *token) GenerateToken(r *http.Request, data any) (*TokenDetails, error) 
 
 	td.AccessToken, err = at.SignedString(a.secret)
 	if err != nil {
-		return nil, x.WrapWithCode(err, x.CodeHTTPInternalServerError, "Failed to sign access token")
+		return nil, appErr.WrapWithCode(err, appErr.CodeHTTPInternalServerError, "Failed to sign access token")
 	}
 
 	rt := jwt.NewWithClaims(jwt.SigningMethodHS256, jwt.MapClaims{
@@ -155,7 +156,7 @@ func (a *token) GenerateToken(r *http.Request, data any) (*TokenDetails, error) 
 
 	td.RefreshToken, err = rt.SignedString(a.secret)
 	if err != nil {
-		return nil, x.WrapWithCode(err, x.CodeHTTPInternalServerError, "Failed to sign refresh token")
+		return nil, appErr.WrapWithCode(err, appErr.CodeHTTPInternalServerError, "Failed to sign refresh token")
 	}
 
 	err = a.saveToRedis(ctx, publicID, td)
@@ -172,12 +173,12 @@ func (a *token) saveToRedis(ctx context.Context, publicID string, td *TokenDetai
 
 	respAccess := a.redis.Set(ctx, td.AccessUUID, publicID, a.expiredToken)
 	if respAccess.Err() != nil {
-		return x.WrapWithCode(respAccess.Err(), x.CodeHTTPInternalServerError, "failed to store access token in redis")
+		return appErr.WrapWithCode(respAccess.Err(), appErr.CodeHTTPInternalServerError, "failed to store access token in redis")
 	}
 
 	respRefresh := a.redis.Set(ctx, td.RefreshUUID, publicID, a.expiredRefreshToken)
 	if respRefresh.Err() != nil {
-		return x.WrapWithCode(respRefresh.Err(), x.CodeHTTPInternalServerError, "failed to store refresh token in redis")
+		return appErr.WrapWithCode(respRefresh.Err(), appErr.CodeHTTPInternalServerError, "failed to store refresh token in redis")
 	}
 
 	return nil
@@ -200,40 +201,40 @@ func (a *token) checkingToken(r *http.Request) (*AccessDetails, error) {
 
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok || !token.Valid {
-		return nil, x.NewWithCode(x.CodeHTTPUnauthorized, preference.ErrInvalidToken)
+		return nil, appErr.NewWithCode(appErr.CodeHTTPUnauthorized, preference.ErrInvalidToken)
 	}
 
 	userID, ok := claims["user_id"].(string)
 	if !ok || userID == "" {
-		return nil, x.NewWithCode(x.CodeHTTPUnauthorized, "invalid user_id in token")
+		return nil, appErr.NewWithCode(appErr.CodeHTTPUnauthorized, "invalid user_id in token")
 	}
 
 	username, ok := claims["name"].(string)
 	if !ok || username == "" {
-		return nil, x.NewWithCode(x.CodeHTTPUnauthorized, "invalid name in token")
+		return nil, appErr.NewWithCode(appErr.CodeHTTPUnauthorized, "invalid name in token")
 	}
 
 	role, ok := claims["role"].(string)
 	if !ok || role == "" {
-		return nil, x.NewWithCode(x.CodeHTTPUnauthorized, "invalid role in token")
+		return nil, appErr.NewWithCode(appErr.CodeHTTPUnauthorized, "invalid role in token")
 	}
 
 	accessUUID, ok := claims["access_uuid"].(string)
 	if !ok || accessUUID == "" {
-		return nil, x.NewWithCode(x.CodeHTTPUnauthorized, "invalid access_uuid in token")
+		return nil, appErr.NewWithCode(appErr.CodeHTTPUnauthorized, "invalid access_uuid in token")
 	}
 
 	redisIDUser, err := a.redis.Get(ctx, accessUUID).Result()
 	if err != nil {
-		if err == redis.Nil {
-			return nil, x.NewWithCode(x.CodeHTTPUnauthorized, "access token expired")
+		if errors.Is(err, redis.Nil) {
+			return nil, appErr.NewWithCode(appErr.CodeHTTPUnauthorized, "access token expired")
 		}
 
-		return nil, x.WrapWithCode(err, x.CodeHTTPInternalServerError, "failed to get token from redis")
+		return nil, appErr.WrapWithCode(err, appErr.CodeHTTPInternalServerError, "failed to get token from redis")
 	}
 
 	if userID != redisIDUser {
-		return nil, x.NewWithCode(x.CodeHTTPUnauthorized, "authentication failure")
+		return nil, appErr.NewWithCode(appErr.CodeHTTPUnauthorized, "authentication failure")
 	}
 
 	return &AccessDetails{
@@ -266,13 +267,13 @@ func (a *token) extractToken(r *http.Request) string {
 func (a *token) verifyToken(tokenStr string) (*jwt.Token, error) {
 	token, err := jwt.Parse(tokenStr, func(jwtToken *jwt.Token) (any, error) {
 		if _, ok := jwtToken.Method.(*jwt.SigningMethodHMAC); !ok {
-			return nil, x.WrapWithCode(fmt.Errorf("unexpected signing method: %v", jwtToken.Header["alg"]), x.CodeHTTPUnauthorized, preference.ErrInvalidToken)
+			return nil, appErr.WrapWithCode(fmt.Errorf("unexpected signing method: %v", jwtToken.Header["alg"]), appErr.CodeHTTPUnauthorized, preference.ErrInvalidToken)
 		}
 
 		return a.secret, nil
 	})
 	if err != nil {
-		return nil, x.WrapWithCode(err, x.CodeHTTPUnauthorized, preference.ErrInvalidToken)
+		return nil, appErr.WrapWithCode(err, appErr.CodeHTTPUnauthorized, preference.ErrInvalidToken)
 	}
 
 	return token, nil
@@ -290,43 +291,43 @@ func (a *token) ValidateRefreshToken(r *http.Request, tokenStr string) (*AccessD
 
 	claims, ok := token.Claims.(jwt.MapClaims)
 	if !ok || !token.Valid {
-		return nil, x.NewWithCode(x.CodeHTTPUnauthorized, preference.ErrInvalidToken)
+		return nil, appErr.NewWithCode(appErr.CodeHTTPUnauthorized, preference.ErrInvalidToken)
 	}
 
 	userID := a.getStringClaim(claims, "user_id")
 	if userID == "" {
-		return nil, x.NewWithCode(x.CodeHTTPUnauthorized, "invalid user_id in token")
+		return nil, appErr.NewWithCode(appErr.CodeHTTPUnauthorized, "invalid user_id in token")
 	}
 
 	username := a.getStringClaim(claims, "name")
 	if username == "" {
-		return nil, x.NewWithCode(x.CodeHTTPUnauthorized, "invalid name in token")
+		return nil, appErr.NewWithCode(appErr.CodeHTTPUnauthorized, "invalid name in token")
 	}
 
 	role := a.getStringClaim(claims, "role")
 	if role == "" {
-		return nil, x.NewWithCode(x.CodeHTTPUnauthorized, "invalid role in token")
+		return nil, appErr.NewWithCode(appErr.CodeHTTPUnauthorized, "invalid role in token")
 	}
 
 	refreshUUID := a.getStringClaim(claims, "refresh_uuid")
 	if refreshUUID == "" {
-		return nil, x.NewWithCode(x.CodeHTTPUnauthorized, "invalid refresh_uuid in token")
+		return nil, appErr.NewWithCode(appErr.CodeHTTPUnauthorized, "invalid refresh_uuid in token")
 	}
 
 	usedKey := RefreshTokenUsedPrefix + refreshUUID
 	used, err := a.redis.Exists(ctx, usedKey).Result()
 	if err == nil && used == 1 {
 		a.redis.Del(ctx, a.getAccessTokenKey(userID))
-		return nil, x.NewWithCode(x.CodeHTTPUnauthorized, "refresh token has been used")
+		return nil, appErr.NewWithCode(appErr.CodeHTTPUnauthorized, "refresh token has been used")
 	}
 
 	redisIDUser, err := a.redis.Get(ctx, refreshUUID).Result()
 	if err != nil {
-		return nil, x.WrapWithCode(err, x.CodeHTTPUnauthorized, "refresh token not found or expired")
+		return nil, appErr.WrapWithCode(err, appErr.CodeHTTPUnauthorized, "refresh token not found or expired")
 	}
 
 	if userID != redisIDUser {
-		return nil, x.NewWithCode(x.CodeHTTPUnauthorized, "authentication failure")
+		return nil, appErr.NewWithCode(appErr.CodeHTTPUnauthorized, "authentication failure")
 	}
 
 	if refreshTokenRotation {

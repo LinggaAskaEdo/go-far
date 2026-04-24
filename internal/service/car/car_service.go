@@ -5,7 +5,7 @@ import (
 
 	"go-far/internal/model/dto"
 	"go-far/internal/model/entity"
-	x "go-far/internal/model/errors"
+	appErr "go-far/internal/model/errors"
 
 	"github.com/google/uuid"
 )
@@ -110,7 +110,7 @@ func (s *carService) UpdateCar(ctx context.Context, id uuid.UUID, req *dto.Updat
 	}
 
 	if !isOwner {
-		return nil, x.NewWithCode(x.CodeHTTPForbidden, "you do not have permission to update this car")
+		return nil, appErr.NewWithCode(appErr.CodeHTTPForbidden, "you do not have permission to update this car")
 	}
 
 	if req.Brand != "" {
@@ -149,8 +149,9 @@ func (s *carService) DeleteCar(ctx context.Context, id uuid.UUID, userID string)
 	if err != nil {
 		return err
 	}
+
 	if !isOwner {
-		return x.NewWithCode(x.CodeHTTPForbidden, "you do not have permission to delete this car")
+		return appErr.NewWithCode(appErr.CodeHTTPForbidden, "you do not have permission to delete this car")
 	}
 
 	return s.carRepository.Delete(ctx, id)
@@ -161,8 +162,9 @@ func (s *carService) TransferCarOwnership(ctx context.Context, carID, newUserID 
 	if err != nil {
 		return err
 	}
+
 	if !isOwner {
-		return x.NewWithCode(x.CodeHTTPForbidden, "you do not have permission to transfer this car")
+		return appErr.NewWithCode(appErr.CodeHTTPForbidden, "you do not have permission to transfer this car")
 	}
 
 	return s.carRepository.TransferOwnership(ctx, carID, newUserID)
@@ -176,7 +178,7 @@ func (s *carService) BulkUpdateAvailability(ctx context.Context, req dto.BulkUpd
 
 	for carID, isOwned := range ownershipMap {
 		if !isOwned {
-			return x.NewWithCode(x.CodeHTTPForbidden, "you do not have permission to update car: "+carID.String())
+			return appErr.NewWithCode(appErr.CodeHTTPForbidden, "you do not have permission to update car: "+carID.String())
 		}
 	}
 

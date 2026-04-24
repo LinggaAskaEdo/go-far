@@ -71,7 +71,7 @@ func (mw *middleware) isPublicPath(path string) bool {
 
 		// Handle wildcard pattern "/*"
 		if strings.HasSuffix(pub, "/*") {
-			prefix := strings.TrimSuffix(pub, "/*")
+			prefix, _ := strings.CutSuffix(pub, "/*")
 			if strings.HasPrefix(path, prefix) {
 				return true
 			}

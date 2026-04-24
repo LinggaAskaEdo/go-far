@@ -1,11 +1,12 @@
 package validator
 
 import (
+	"errors"
 	"strings"
 	"sync"
 
 	"go-far/internal/model/entity"
-	"go-far/internal/model/errors"
+	appErrors "go-far/internal/model/errors"
 
 	"github.com/go-playground/validator/v10"
 	"github.com/rs/zerolog"
@@ -42,18 +43,19 @@ func InitValidator(log *zerolog.Logger) {
 
 func ValidateRequest(req any) error {
 	if val == nil {
-		return errors.NewWithCode(errors.CodeHTTPValidatorError, "validator not initialized")
+		return appErrors.NewWithCode(appErrors.CodeHTTPValidatorError, "validator not initialized")
 	}
 
 	err := val.Struct(req)
 	if err != nil {
-		if validationErrors, ok := err.(validator.ValidationErrors); ok {
+		var validationErrors validator.ValidationErrors
+		if errors.As(err, &validationErrors) {
 			var messages []string
 			for _, fe := range validationErrors {
 				messages = append(messages, formatValidationError(fe))
 			}
 
-			return errors.NewWithCode(errors.CodeHTTPValidatorError, strings.Join(messages, "; "))
+			return appErrors.NewWithCode(appErrors.CodeHTTPValidatorError, strings.Join(messages, "; "))
 		}
 	}
 

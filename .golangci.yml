@@ -23,11 +23,9 @@ linters:
     - contextcheck   # Checks context propagation rules
 
     # ---- New: Style & Consistency ----
-    - revive         # Replace for golint – flexible style rules
     - funlen         # Flags functions that are too long
     - gocognit       # Measures cognitive complexity of functions
     - nestif         # Detects deeply nested if statements
-    - wsl_v5         # Enforces consistent whitespace usage
 
     # ---- New: Modernization ----
     - perfsprint     # Suggests faster alternatives to fmt.Sprintf
@@ -55,12 +53,7 @@ linters:
       
     exhaustive:
       default-signifies-exhaustive: true  # Treat 'default' as exhaustive
-      
-    wsl_v5:
-      allow-first-in-block: true
-      allow-whole-block: false
-      branch-max-lines: 2
-      
+        
     perfsprint:
       int-conversion: true   # Suggest `strconv.Itoa` over `fmt.Sprint`
       err-error: true        # Suggest `errors.New` for simple errors

@@ -1,7 +1,6 @@
 package middleware
 
 import (
-	"errors"
 	"net/http"
 	"strconv"
 	"strings"
@@ -9,6 +8,7 @@ import (
 	"time"
 
 	"go-far/internal/infra/token"
+	appErr "go-far/internal/model/errors"
 	"go-far/internal/preference"
 
 	"github.com/redis/go-redis/v9"
@@ -137,12 +137,12 @@ func InitMiddleware(log *zerolog.Logger, opt *MiddlewareOptions, tkn token.Token
 func parsePeriod(command string) (time.Duration, error) {
 	parts := strings.Split(command, "-")
 	if len(parts) != 2 {
-		return 0, errors.New(preference.FormatError)
+		return 0, appErr.New(preference.FormatError, appErr.CodeHTTPBadRequest)
 	}
 
 	unit, err := strconv.Atoi(parts[0])
 	if err != nil {
-		return 0, err
+		return 0, appErr.New("invalid rate limit format", appErr.CodeHTTPBadRequest)
 	}
 
 	unitKey := strings.ToUpper(parts[1])
@@ -150,5 +150,5 @@ func parsePeriod(command string) (time.Duration, error) {
 		return time.Duration(unit) * t, nil
 	}
 
-	return 0, errors.New(preference.FormatError)
+	return 0, appErr.New(preference.FormatError, appErr.CodeHTTPBadRequest)
 }

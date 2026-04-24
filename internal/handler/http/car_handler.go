@@ -8,7 +8,7 @@ import (
 	"go-far/internal/infra/validator"
 	"go-far/internal/model/dto"
 	"go-far/internal/model/entity"
-	x "go-far/internal/model/errors"
+	appErr "go-far/internal/model/errors"
 
 	"github.com/google/uuid"
 	"github.com/rs/zerolog"
@@ -31,14 +31,14 @@ func (e *rest) CreateCar(w http.ResponseWriter, r *http.Request) {
 
 	authUser, ok := middleware.GetAuthUser(ctx)
 	if !ok {
-		e.httpRespError(w, r, x.NewWithCode(x.CodeHTTPUnauthorized, "unauthenticated"))
+		e.httpRespError(w, r, appErr.NewWithCode(appErr.CodeHTTPUnauthorized, "unauthenticated"))
 		return
 	}
 
 	var req dto.CreateCarRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("invalid_request_body")
-		e.httpRespError(w, r, x.WrapWithCode(err, x.CodeHTTPUnmarshal, "invalid_request_body"))
+		e.httpRespError(w, r, appErr.WrapWithCode(err, appErr.CodeHTTPUnmarshal, "invalid_request_body"))
 		return
 	}
 
@@ -74,14 +74,14 @@ func (e *rest) CreateBulkCars(w http.ResponseWriter, r *http.Request) {
 
 	authUser, ok := middleware.GetAuthUser(ctx)
 	if !ok {
-		e.httpRespError(w, r, x.NewWithCode(x.CodeHTTPUnauthorized, "unauthenticated"))
+		e.httpRespError(w, r, appErr.NewWithCode(appErr.CodeHTTPUnauthorized, "unauthenticated"))
 		return
 	}
 
 	var req dto.BulkCreateCarsRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("invalid_request_body")
-		e.httpRespError(w, r, x.WrapWithCode(err, x.CodeHTTPUnmarshal, "invalid_request_body"))
+		e.httpRespError(w, r, appErr.WrapWithCode(err, appErr.CodeHTTPUnmarshal, "invalid_request_body"))
 		return
 	}
 
@@ -117,7 +117,7 @@ func (e *rest) GetCar(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("invalid_car_id")
-		e.httpRespError(w, r, x.WrapWithCode(err, x.CodeHTTPBadRequest, "invalid_car_id"))
+		e.httpRespError(w, r, appErr.WrapWithCode(err, appErr.CodeHTTPBadRequest, "invalid_car_id"))
 		return
 	}
 
@@ -147,7 +147,7 @@ func (e *rest) GetCarWithOwner(w http.ResponseWriter, r *http.Request) {
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("invalid_car_id")
-		e.httpRespError(w, r, x.WrapWithCode(err, x.CodeHTTPBadRequest, "invalid_car_id"))
+		e.httpRespError(w, r, appErr.WrapWithCode(err, appErr.CodeHTTPBadRequest, "invalid_car_id"))
 		return
 	}
 
@@ -177,20 +177,20 @@ func (e *rest) ListCarsByUser(w http.ResponseWriter, r *http.Request) {
 
 	authUser, ok := middleware.GetAuthUser(ctx)
 	if !ok {
-		e.httpRespError(w, r, x.NewWithCode(x.CodeHTTPUnauthorized, "unauthenticated"))
+		e.httpRespError(w, r, appErr.NewWithCode(appErr.CodeHTTPUnauthorized, "unauthenticated"))
 		return
 	}
 
 	userID, err := uuid.Parse(r.PathValue("user_id"))
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("invalid_user_id")
-		e.httpRespError(w, r, x.WrapWithCode(err, x.CodeHTTPBadRequest, "invalid_user_id"))
+		e.httpRespError(w, r, appErr.WrapWithCode(err, appErr.CodeHTTPBadRequest, "invalid_user_id"))
 		return
 	}
 
 	// Non-admin users can only view their own cars
 	if authUser.Role != string(entity.RoleAdmin) && authUser.UserID != userID.String() {
-		e.httpRespError(w, r, x.NewWithCode(x.CodeHTTPForbidden, "forbidden"))
+		e.httpRespError(w, r, appErr.NewWithCode(appErr.CodeHTTPForbidden, "forbidden"))
 		return
 	}
 
@@ -220,20 +220,20 @@ func (e *rest) CountCarsByUser(w http.ResponseWriter, r *http.Request) {
 
 	authUser, ok := middleware.GetAuthUser(ctx)
 	if !ok {
-		e.httpRespError(w, r, x.NewWithCode(x.CodeHTTPUnauthorized, "unauthenticated"))
+		e.httpRespError(w, r, appErr.NewWithCode(appErr.CodeHTTPUnauthorized, "unauthenticated"))
 		return
 	}
 
 	userID, err := uuid.Parse(r.PathValue("user_id"))
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("invalid_user_id")
-		e.httpRespError(w, r, x.WrapWithCode(err, x.CodeHTTPBadRequest, "invalid_user_id"))
+		e.httpRespError(w, r, appErr.WrapWithCode(err, appErr.CodeHTTPBadRequest, "invalid_user_id"))
 		return
 	}
 
 	// Non-admin users can only count their own cars
 	if authUser.Role != string(entity.RoleAdmin) && authUser.UserID != userID.String() {
-		e.httpRespError(w, r, x.NewWithCode(x.CodeHTTPForbidden, "forbidden"))
+		e.httpRespError(w, r, appErr.NewWithCode(appErr.CodeHTTPForbidden, "forbidden"))
 		return
 	}
 
@@ -265,21 +265,21 @@ func (e *rest) UpdateCar(w http.ResponseWriter, r *http.Request) {
 
 	authUser, ok := middleware.GetAuthUser(ctx)
 	if !ok {
-		e.httpRespError(w, r, x.NewWithCode(x.CodeHTTPUnauthorized, "unauthenticated"))
+		e.httpRespError(w, r, appErr.NewWithCode(appErr.CodeHTTPUnauthorized, "unauthenticated"))
 		return
 	}
 
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("invalid_car_id")
-		e.httpRespError(w, r, x.WrapWithCode(err, x.CodeHTTPBadRequest, "invalid_car_id"))
+		e.httpRespError(w, r, appErr.WrapWithCode(err, appErr.CodeHTTPBadRequest, "invalid_car_id"))
 		return
 	}
 
 	var req dto.UpdateCarRequest
 	if decodeErr := json.NewDecoder(r.Body).Decode(&req); decodeErr != nil {
 		zerolog.Ctx(ctx).Error().Err(decodeErr).Msg("invalid_request_body")
-		e.httpRespError(w, r, x.WrapWithCode(decodeErr, x.CodeHTTPUnmarshal, "invalid_request_body"))
+		e.httpRespError(w, r, appErr.WrapWithCode(decodeErr, appErr.CodeHTTPUnmarshal, "invalid_request_body"))
 		return
 	}
 
@@ -314,14 +314,14 @@ func (e *rest) DeleteCar(w http.ResponseWriter, r *http.Request) {
 
 	authUser, ok := middleware.GetAuthUser(ctx)
 	if !ok {
-		e.httpRespError(w, r, x.NewWithCode(x.CodeHTTPUnauthorized, "unauthenticated"))
+		e.httpRespError(w, r, appErr.NewWithCode(appErr.CodeHTTPUnauthorized, "unauthenticated"))
 		return
 	}
 
 	id, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("invalid_car_id")
-		e.httpRespError(w, r, x.WrapWithCode(err, x.CodeHTTPBadRequest, "invalid_car_id"))
+		e.httpRespError(w, r, appErr.WrapWithCode(err, appErr.CodeHTTPBadRequest, "invalid_car_id"))
 		return
 	}
 
@@ -352,21 +352,21 @@ func (e *rest) TransferCarOwnership(w http.ResponseWriter, r *http.Request) {
 
 	authUser, ok := middleware.GetAuthUser(ctx)
 	if !ok {
-		e.httpRespError(w, r, x.NewWithCode(x.CodeHTTPUnauthorized, "unauthenticated"))
+		e.httpRespError(w, r, appErr.NewWithCode(appErr.CodeHTTPUnauthorized, "unauthenticated"))
 		return
 	}
 
 	carID, err := uuid.Parse(r.PathValue("id"))
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("invalid_car_id")
-		e.httpRespError(w, r, x.WrapWithCode(err, x.CodeHTTPBadRequest, "invalid_car_id"))
+		e.httpRespError(w, r, appErr.WrapWithCode(err, appErr.CodeHTTPBadRequest, "invalid_car_id"))
 		return
 	}
 
 	var req dto.TransferCarRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("invalid_request_body")
-		e.httpRespError(w, r, x.WrapWithCode(err, x.CodeHTTPUnmarshal, "invalid_request_body"))
+		e.httpRespError(w, r, appErr.WrapWithCode(err, appErr.CodeHTTPUnmarshal, "invalid_request_body"))
 		return
 	}
 
@@ -395,14 +395,14 @@ func (e *rest) BulkUpdateAvailability(w http.ResponseWriter, r *http.Request) {
 
 	authUser, ok := middleware.GetAuthUser(ctx)
 	if !ok {
-		e.httpRespError(w, r, x.NewWithCode(x.CodeHTTPUnauthorized, "unauthenticated"))
+		e.httpRespError(w, r, appErr.NewWithCode(appErr.CodeHTTPUnauthorized, "unauthenticated"))
 		return
 	}
 
 	var req dto.BulkUpdateAvailabilityRequest
 	if err := json.NewDecoder(r.Body).Decode(&req); err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("invalid_request_body")
-		e.httpRespError(w, r, x.WrapWithCode(err, x.CodeHTTPUnmarshal, "invalid_request_body"))
+		e.httpRespError(w, r, appErr.WrapWithCode(err, appErr.CodeHTTPUnmarshal, "invalid_request_body"))
 		return
 	}
 

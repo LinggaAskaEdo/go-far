@@ -46,6 +46,7 @@ const (
 	CodeHTTPServiceUnavailable
 	CodeHTTPParamDecode
 	CodeHTTPErrorOnReadBody
+	CodeHTTPExternalAPI
 )
 
 const (

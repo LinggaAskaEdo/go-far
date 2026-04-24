@@ -18,7 +18,7 @@ func DecodeURL[T any](q url.Values) T {
 		val = val.Elem()
 	}
 
-	for i := 0; i < typ.NumField(); i++ {
+	for i := range typ.NumField() {
 		field := typ.Field(i)
 		tag := field.Tag
 
@@ -66,6 +66,8 @@ func setField(field reflect.Value, rawVal string, typ reflect.Type) {
 		parseBool(field, rawVal)
 	case reflect.Slice:
 		parseStringSlice(field, typ, rawVal)
+	default:
+		// Handle other types as needed
 	}
 
 	if isTimeType(typ) {
@@ -116,7 +118,7 @@ func parseStringSlice(field reflect.Value, typ reflect.Type, val string) {
 }
 
 func isTimeType(typ reflect.Type) bool {
-	return typ == reflect.TypeOf(time.Time{})
+	return typ == reflect.TypeFor[time.Time]()
 }
 
 func parseTime(field reflect.Value, val string) {

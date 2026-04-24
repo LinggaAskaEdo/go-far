@@ -7,7 +7,7 @@ import (
 	"time"
 
 	"go-far/internal/model/dto"
-	x "go-far/internal/model/errors"
+	appErr "go-far/internal/model/errors"
 	"go-far/internal/preference"
 )
 
@@ -24,7 +24,7 @@ func (e *rest) Health(w http.ResponseWriter, r *http.Request) {
 		Status:    "healthy",
 		Timestamp: time.Now().Format(time.RFC3339),
 		Service:   "go-far",
-		Version:   "1.10.0",
+		Version:   "1.12.0",
 	}
 
 	e.httpRespSuccess(w, r, http.StatusOK, status, nil)
@@ -106,7 +106,7 @@ func (e *rest) httpRespError(w http.ResponseWriter, r *http.Request, err error) 
 		lang = preference.LANG_EN
 	}
 
-	statusCode, displayError := x.Compile(x.COMMON, err, lang, true)
+	statusCode, displayError := appErr.Compile(appErr.COMMON, err, lang, true)
 	statusStr := http.StatusText(statusCode)
 
 	jsonErrResp := &dto.HTTPErrorResp{

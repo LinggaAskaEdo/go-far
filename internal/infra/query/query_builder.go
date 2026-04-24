@@ -2,13 +2,13 @@ package query
 
 import (
 	"bytes"
-	"errors"
 	"reflect"
 	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
+	appErr "go-far/internal/model/errors"
 	"go-far/internal/util"
 
 	_ "github.com/lib/pq"
@@ -59,7 +59,7 @@ func (qb *SQLBuilder) AliasPrefix(alias string, ptr any) *SQLBuilder {
 	p := reflect.ValueOf(ptr)
 
 	if p.Kind() != reflect.Ptr {
-		panic(errors.New("passed any should be a pointer"))
+		panic(appErr.New("passed any should be a pointer"))
 	}
 
 	v := p.Elem()
@@ -86,7 +86,7 @@ func (qb *SQLBuilder) Build() (query string, sortByDisplay []string, args []any,
 
 	for table, v := range qb.values {
 		alias := qb.getAlias(table)
-		for i := 0; i < v.NumField(); i++ {
+		for i := range v.NumField() {
 			arg, colTag, qType := qb.processField(v, i)
 			if arg == nil {
 				continue
@@ -122,7 +122,7 @@ func (qb *SQLBuilder) Build() (query string, sortByDisplay []string, args []any,
 func (qb *SQLBuilder) buildColumnMapping(m map[string]string) {
 	for table, v := range qb.values {
 		alias := qb.getAlias(table)
-		for i := 0; i < v.NumField(); i++ {
+		for i := range v.NumField() {
 			tag := v.Type().Field(i).Tag
 			if tag.Get(qb.paramTag) != "-" && tag.Get(qb.paramTag) != "" {
 				m[alias+tag.Get(qb.paramTag)] = tag.Get(qb.colTag)
@@ -301,7 +301,7 @@ func (qb *SQLBuilder) processSortBy(arg any, alias string, mapDBcolsByParam map[
 }
 
 func (qb *SQLBuilder) parseSortFields(v string, reg *regexp.Regexp, alias string, mapDBcolsByParam map[string]string) (sortBy, sortByDisplay []string) {
-	for _, s := range strings.Split(v, ",") {
+	for s := range strings.SplitSeq(v, ",") {
 		match := reg.FindStringSubmatch(s)
 		if match == nil {
 			continue

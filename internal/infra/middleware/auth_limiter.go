@@ -3,12 +3,12 @@ package middleware
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"strconv"
 	"strings"
 	"time"
 
+	appErr "go-far/internal/model/errors"
 	"go-far/internal/preference"
 
 	"github.com/rs/zerolog"
@@ -24,7 +24,7 @@ func (mw *middleware) AuthLimiter() func(http.Handler) http.Handler {
 			key := "ratelimit:auth:" + ip
 
 			now := time.Now()
-			limitResult, err := mw.evalAuthRateLimit(key)
+			limitResult, err := mw.evalAuthRateLimit(r.Context(), key)
 			if err != nil {
 				zerolog.Ctx(r.Context()).Error().Err(err).Msg("eval auth rate limit failed")
 				next.ServeHTTP(w, r)
@@ -64,8 +64,8 @@ func getClientIP(r *http.Request) string {
 }
 
 // evalAuthRateLimit evaluates rate limit for auth endpoints
-func (mw *middleware) evalAuthRateLimit(key string) (rateLimitResult, error) {
-	result, err := mw.rdb.Eval(context.Background(), rateLimitLuaScript, []string{key},
+func (mw *middleware) evalAuthRateLimit(ctx context.Context, key string) (rateLimitResult, error) {
+	result, err := mw.rdb.Eval(ctx, rateLimitLuaScript, []string{key},
 		mw.authLimit,                 // rate limit
 		int(mw.authPeriod.Seconds()), // window duration in seconds
 	).Result()
@@ -75,7 +75,7 @@ func (mw *middleware) evalAuthRateLimit(key string) (rateLimitResult, error) {
 
 	resultArr, ok := result.([]any)
 	if !ok || len(resultArr) < 3 {
-		return rateLimitResult{}, errors.New("invalid rate limit response")
+		return rateLimitResult{}, appErr.New("invalid rate limit response", appErr.CodeHTTPInternalServerError)
 	}
 
 	return parseRateLimitResult(resultArr), nil

@@ -45,15 +45,13 @@ func (g *app) Serve() {
 	signal.Notify(signalCh, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 
 	var wg sync.WaitGroup
-	wg.Add(1)
-
-	go func() {
+	wg.Go(func() {
 		defer wg.Done()
 		g.log.Info().Str("addr", g.httpServer.Addr).Msg("Starting HTTP server")
 		if err := g.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
 			g.log.Error().Err(err).Msg("HTTP server error")
 		}
-	}()
+	})
 
 	<-signalCh
 	g.log.Debug().Msg("Received shutdown signal, gracefully shutting down...")

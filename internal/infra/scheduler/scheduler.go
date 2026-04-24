@@ -2,7 +2,7 @@ package scheduler
 
 import (
 	"context"
-	"fmt"
+	"strconv"
 	"sync"
 
 	"github.com/robfig/cron/v3"
@@ -97,7 +97,7 @@ func (s *Scheduler) Start() {
 	defer s.mu.RUnlock()
 
 	s.cron.Start()
-	s.log.Debug().Msg("Scheduler started, jobs registered: " + fmt.Sprint(len(s.jobs)))
+	s.log.Debug().Msg("Scheduler started, jobs registered: " + strconv.Itoa(len(s.jobs)))
 }
 
 // Stop stops the scheduler

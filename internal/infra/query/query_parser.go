@@ -8,7 +8,7 @@ import (
 	"sync"
 	"text/template"
 
-	x "go-far/internal/model/errors"
+	appErr "go-far/internal/model/errors"
 	"go-far/internal/util"
 )
 
@@ -17,7 +17,7 @@ var validatedTypes sync.Map // cache for validated struct types
 func (ql *QueryLoader) Compile(name string, data any) (query string, args []any, err error) {
 	tmpl, ok := ql.templates[name]
 	if !ok {
-		return "", nil, x.NewWithCode(x.CodeSQLQueryNotFound, fmt.Sprintf("query %s not found", name))
+		return "", nil, appErr.NewWithCode(appErr.CodeSQLQueryNotFound, fmt.Sprintf("query %s not found", name))
 	}
 
 	if err := validateData(data); err != nil {
@@ -46,13 +46,13 @@ func validateData(data any) error {
 		return nil
 	}
 
-	for i := 0; i < v.NumField(); i++ {
+	for i := range v.NumField() {
 		field := t.Field(i)
 		name := strings.ToLower(field.Name)
 		if util.IsColumnField(name) {
 			val := v.Field(i).String()
 			if val != "" && !util.IsValidIdentifier(val) {
-				return x.NewWithCode(x.CodeInvalidIdentifier, fmt.Sprintf("invalid identifier: %s", field.Name))
+				return appErr.NewWithCode(appErr.CodeInvalidIdentifier, "invalid identifier: "+field.Name)
 			}
 		}
 	}
@@ -89,7 +89,7 @@ func (ql *QueryLoader) compileTemplate(tmpl *template.Template, data any) (query
 	cloned = cloned.Funcs(funcMap)
 
 	if err := cloned.Execute(&sb, data); err != nil {
-		return "", nil, x.WrapWithCode(err, x.CodeTemplateExecute, fmt.Sprintf("execute template %s", tmpl.Name()))
+		return "", nil, appErr.WrapWithCode(err, appErr.CodeTemplateExecute, "execute template "+tmpl.Name())
 	}
 
 	return sb.String(), args, nil

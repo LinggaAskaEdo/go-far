@@ -3,11 +3,11 @@ package user
 import (
 	"context"
 	"encoding/json"
-	"fmt"
+	"errors"
 
 	"go-far/internal/model/dto"
 	"go-far/internal/model/entity"
-	x "go-far/internal/model/errors"
+	appErr "go-far/internal/model/errors"
 
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog"
@@ -17,7 +17,7 @@ func (d *userRepository) Create(ctx context.Context, user *entity.User) (*entity
 	tx, err := d.sql0.Begin(ctx)
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("tx_create_user")
-		return user, x.Wrap(err, "tx_create_user")
+		return user, appErr.Wrap(err, "tx_create_user")
 	}
 
 	defer func() {
@@ -31,19 +31,19 @@ func (d *userRepository) Create(ctx context.Context, user *entity.User) (*entity
 	tx, user, err = d.createSQLUser(ctx, tx, user)
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("sql_create_user")
-		return nil, x.Wrap(err, "sql_create_user")
+		return nil, appErr.Wrap(err, "sql_create_user")
 	}
 
 	if err = tx.Commit(ctx); err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("commit_create_user")
-		return nil, x.Wrap(err, "commit_create_user")
+		return nil, appErr.Wrap(err, "commit_create_user")
 	}
 
 	return user, nil
 }
 
 func (d *userRepository) FindByID(ctx context.Context, id string) (*entity.User, error) {
-	cacheKey := fmt.Sprintf("user:%s", id)
+	cacheKey := "user:" + id
 	cached, err := d.redis0.Get(ctx, cacheKey).Result()
 	if err == nil {
 		var user entity.User
@@ -89,7 +89,7 @@ func (d *userRepository) FindAll(ctx context.Context, cacheControl dto.CacheCont
 	}
 
 	result, pagination, err := d.getCacheFindAllUser(ctx, filter)
-	if err == redis.Nil {
+	if errors.Is(err, redis.Nil) {
 		zerolog.Ctx(ctx).Warn().Err(err).Send()
 
 		result, pagination, err = d.findAllSQLUser(ctx, filter)

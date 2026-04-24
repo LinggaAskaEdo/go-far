@@ -3,7 +3,6 @@ package middleware
 import (
 	"context"
 	"encoding/json"
-	"errors"
 	"net/http"
 	"regexp"
 	"strconv"
@@ -11,6 +10,7 @@ import (
 	"time"
 
 	"go-far/internal/model/entity"
+	appErr "go-far/internal/model/errors"
 	"go-far/internal/preference"
 
 	"github.com/rs/zerolog"
@@ -59,11 +59,7 @@ func parseRateLimitResult(resultArr []any) rateLimitResult {
 
 // formatRemaining calculates remaining requests
 func formatRemaining(limit, count int64) string {
-	remaining := limit - count
-	if remaining < 0 {
-		remaining = 0
-	}
-
+	remaining := max(limit-count, 0)
 	return strconv.FormatInt(remaining, 10)
 }
 
@@ -75,23 +71,23 @@ func formatTime(now time.Time, ttlSeconds int64) string {
 func (mw *middleware) parseCommand(command string) (time.Duration, error) {
 	values := strings.Split(command, "-")
 	if len(values) != 2 {
-		return 0, errors.New(preference.FormatError)
+		return 0, appErr.New(preference.FormatError, appErr.CodeHTTPBadRequest)
 	}
 
 	unit, err := strconv.Atoi(values[0])
 	if err != nil {
-		return 0, errors.New(preference.FormatError)
+		return 0, appErr.New(preference.FormatError, appErr.CodeHTTPBadRequest)
 	}
 
 	if unit <= 0 {
-		return 0, errors.New(preference.CommandError)
+		return 0, appErr.New(preference.CommandError)
 	}
 
 	if t, ok := timeDict[strings.ToUpper(values[1])]; ok {
 		return time.Duration(unit) * t, nil
 	}
 
-	return 0, errors.New(preference.FormatError)
+	return 0, appErr.New(preference.FormatError)
 }
 
 // RoleLimiter returns a rate limiting middleware based on user role
@@ -114,7 +110,7 @@ func (mw *middleware) RoleLimiter() func(http.Handler) http.Handler {
 			}
 
 			now := time.Now()
-			limitResult, err := mw.evalRoleRateLimit(r.URL.Path, r.Method, authUser, limit, duration)
+			limitResult, err := mw.evalRoleRateLimit(r.Context(), r.URL.Path, r.Method, authUser, limit, duration)
 			if err != nil {
 				mw.writeJSONError(w, http.StatusInternalServerError, err.Error())
 				return
@@ -133,13 +129,13 @@ func (mw *middleware) RoleLimiter() func(http.Handler) http.Handler {
 	}
 }
 
-func (mw *middleware) evalRoleRateLimit(path, method string, authUser *AuthUser, limit int, duration time.Duration) (rateLimitResult, error) {
+func (mw *middleware) evalRoleRateLimit(ctx context.Context, path, method string, authUser *AuthUser, limit int, duration time.Duration) (rateLimitResult, error) {
 	// Normalize path to remove dynamic segments (UUIDs, numeric IDs)
 	normalizedPath := normalizePath(path)
 
 	key := "ratelimit:role:" + normalizedPath + ":" + method + ":" + authUser.UserID
 
-	result, err := mw.rdb.Eval(context.Background(), rateLimitLuaScript, []string{key},
+	result, err := mw.rdb.Eval(ctx, rateLimitLuaScript, []string{key},
 		limit,                   // rate limit
 		int(duration.Seconds()), // window duration in seconds
 	).Result()
@@ -149,7 +145,7 @@ func (mw *middleware) evalRoleRateLimit(path, method string, authUser *AuthUser,
 
 	resultArr, ok := result.([]any)
 	if !ok || len(resultArr) < 3 {
-		return rateLimitResult{}, errors.New("invalid rate limit response")
+		return rateLimitResult{}, appErr.New("invalid rate limit response")
 	}
 
 	return parseRateLimitResult(resultArr), nil

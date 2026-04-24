@@ -3,7 +3,7 @@ package dto
 import (
 	"go-far/internal/infra/token"
 	"go-far/internal/model/entity"
-	x "go-far/internal/model/errors"
+	appErr "go-far/internal/model/errors"
 )
 
 type TokenResponse struct {
@@ -29,18 +29,18 @@ func ToTokenResponse(td *token.TokenDetails) TokenResponse {
 }
 
 type Meta struct {
-	Error      *x.AppError `json:"error,omitempty" swaggertype:"primitive,object" extensions:"x-order=4"`
-	Path       string      `json:"path" extensions:"x-order=0"`
-	Status     string      `json:"status" extensions:"x-order=2"`
-	Message    string      `json:"message" extensions:"x-order=3"`
-	Timestamp  string      `json:"timestamp" extensions:"x-order=5"`
-	StatusCode int         `json:"status_code" extensions:"x-order=1"`
+	Error      *appErr.AppError `json:"error,omitempty" swaggertype:"primitive,object" extensions:"x-order=4"`
+	Path       string           `json:"path" extensions:"x-order=0"`
+	Status     string           `json:"status" extensions:"x-order=2"`
+	Message    string           `json:"message" extensions:"x-order=3"`
+	Timestamp  string           `json:"timestamp" extensions:"x-order=5"`
+	StatusCode int              `json:"status_code" extensions:"x-order=1"`
 }
 
 type HttpSuccessResp struct {
+	Meta       Meta        `json:"metadata" extensions:"x-order=0"`
 	Data       any         `json:"data,omitempty" extensions:"x-order=1"`
 	Pagination *Pagination `json:"pagination,omitempty" extensions:"x-order=2"`
-	Meta       Meta        `json:"metadata" extensions:"x-order=0"`
 }
 
 type HTTPErrorResp struct {

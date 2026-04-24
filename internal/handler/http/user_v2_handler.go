@@ -6,7 +6,7 @@ import (
 	"go-far/internal/infra/middleware"
 	"go-far/internal/model/dto"
 	"go-far/internal/model/entity"
-	x "go-far/internal/model/errors"
+	appErr "go-far/internal/model/errors"
 	"go-far/internal/util"
 )
 
@@ -15,7 +15,7 @@ func (e *rest) ListUsersV2(w http.ResponseWriter, r *http.Request) {
 
 	authUser, ok := middleware.GetAuthUser(ctx)
 	if !ok {
-		e.httpRespError(w, r, x.NewWithCode(x.CodeHTTPUnauthorized, "unauthenticated"))
+		e.httpRespError(w, r, appErr.NewWithCode(appErr.CodeHTTPUnauthorized, "unauthenticated"))
 		return
 	}
 

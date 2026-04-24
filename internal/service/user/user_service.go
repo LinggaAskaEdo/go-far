@@ -5,7 +5,7 @@ import (
 
 	"go-far/internal/model/dto"
 	"go-far/internal/model/entity"
-	x "go-far/internal/model/errors"
+	appErr "go-far/internal/model/errors"
 
 	"golang.org/x/crypto/bcrypt"
 )
@@ -21,7 +21,7 @@ func (s *userService) RegisterUser(ctx context.Context, req dto.RegisterRequest)
 func (s *userService) registerUser(ctx context.Context, name, email, password string, age int, role entity.Role) (*entity.User, error) {
 	hashedPassword, err := bcrypt.GenerateFromPassword([]byte(password), bcrypt.DefaultCost)
 	if err != nil {
-		return nil, x.WrapWithCode(err, x.CodeHTTPInternalServerError, "failed to hash password")
+		return nil, appErr.WrapWithCode(err, appErr.CodeHTTPInternalServerError, "failed to hash password")
 	}
 
 	user := &entity.User{
@@ -47,7 +47,7 @@ func (s *userService) Login(ctx context.Context, req dto.LoginRequest) (*entity.
 	}
 
 	if err := bcrypt.CompareHashAndPassword([]byte(user.Password), []byte(req.Password)); err != nil {
-		return nil, x.NewWithCode(x.CodeHTTPUnauthorized, "Invalid credentials")
+		return nil, appErr.NewWithCode(appErr.CodeHTTPUnauthorized, "Invalid credentials")
 	}
 
 	return user, nil
@@ -64,7 +64,7 @@ func (s *userService) ListUsers(ctx context.Context, cacheControl dto.CacheContr
 func (s *userService) UpdateUser(ctx context.Context, id string, req dto.UpdateUserRequest) (*entity.User, error) {
 	existingUser, err := s.userRepository.FindByID(ctx, id)
 	if err != nil {
-		return nil, err
+		return nil, appErr.WrapWithCode(err, appErr.CodeHTTPNotFound, "user_not_found")
 	}
 
 	if req.Name != "" {

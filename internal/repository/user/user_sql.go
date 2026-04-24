@@ -2,12 +2,12 @@ package user
 
 import (
 	"context"
-	"fmt"
+	"errors"
 	"strings"
 
 	"go-far/internal/model/dto"
 	"go-far/internal/model/entity"
-	x "go-far/internal/model/errors"
+	appErr "go-far/internal/model/errors"
 	"go-far/internal/util"
 
 	"github.com/jackc/pgx/v5"
@@ -59,20 +59,20 @@ func (d *userRepository) findUserSQLByID(ctx context.Context, id string) (*entit
 	query, args, err := d.queryLoader.Compile("FindUserByID", map[string]any{"ID": id})
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("build_find_user_query_err")
-		return nil, x.WrapWithCode(err, x.CodeSQLQueryBuild, "build_find_user_query_err")
+		return nil, appErr.WrapWithCode(err, appErr.CodeSQLQueryBuild, "build_find_user_query_err")
 	}
 
 	zerolog.Ctx(ctx).Debug().Str("query", util.CleanQuery(query)).Any("args", args).Msg("compiled_query")
 
 	err = d.sql0.QueryRow(ctx, query, args...).Scan(&user.ID, &user.Email, &user.Name, &user.Password, &user.Age, &user.Role, &user.IsActive, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
-		if err == pgx.ErrNoRows {
+		if errors.Is(err, pgx.ErrNoRows) {
 			zerolog.Ctx(ctx).Debug().Str("id", id).Msg("user_not_found")
-			return nil, x.WrapWithCode(err, x.CodeSQLEmptyRow, "user_not_found")
+			return nil, appErr.WrapWithCode(err, appErr.CodeSQLEmptyRow, "user_not_found")
 		}
 
 		zerolog.Ctx(ctx).Error().Err(err).Str("id", id).Msg("find_user_err")
-		return nil, x.WrapWithCode(err, x.CodeSQLRowScan, "find_user_err")
+		return nil, appErr.WrapWithCode(err, appErr.CodeSQLRowScan, "find_user_err")
 	}
 
 	return &user, nil
@@ -84,19 +84,19 @@ func (d *userRepository) findUserSQLByEmail(ctx context.Context, email string) (
 	query, args, err := d.queryLoader.Compile("FindUserByEmail", map[string]any{"Email": email})
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("build_find_user_by_email_query_err")
-		return nil, x.WrapWithCode(err, x.CodeSQLQueryBuild, "build_find_user_by_email_query_err")
+		return nil, appErr.WrapWithCode(err, appErr.CodeSQLQueryBuild, "build_find_user_by_email_query_err")
 	}
 
 	zerolog.Ctx(ctx).Debug().Str("query", util.CleanQuery(query)).Any("args", args).Msg("compiled_query")
 
 	err = d.sql0.QueryRow(ctx, query, args...).Scan(&user.ID, &user.Email, &user.Name, &user.Password, &user.Age, &user.Role, &user.IsActive, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
-		if err == pgx.ErrNoRows {
-			return nil, x.NewWithCode(x.CodeHTTPUnauthorized, "Invalid credentials")
+		if errors.Is(err, pgx.ErrNoRows) {
+			return nil, appErr.NewWithCode(appErr.CodeHTTPUnauthorized, "Invalid credentials")
 		}
 
 		zerolog.Ctx(ctx).Error().Err(err).Str("email", email).Msg("find_user_by_email_err")
-		return nil, x.WrapWithCode(err, x.CodeSQLRowScan, "find_user_by_email_err")
+		return nil, appErr.WrapWithCode(err, appErr.CodeSQLRowScan, "find_user_by_email_err")
 	}
 
 	return &user, nil
@@ -106,14 +106,14 @@ func (d *userRepository) createSQLUser(ctx context.Context, tx pgx.Tx, user *ent
 	query, args, err := d.queryLoader.Compile("CreateUser", user)
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("build_create_user_query_err")
-		return tx, user, x.WrapWithCode(err, x.CodeSQLQueryBuild, "build_create_user_query_err")
+		return tx, user, appErr.WrapWithCode(err, appErr.CodeSQLQueryBuild, "build_create_user_query_err")
 	}
 
 	zerolog.Ctx(ctx).Debug().Str("query", util.CleanQuery(query)).Any("args", args).Msg("compiled_query")
 
 	err = tx.QueryRow(ctx, query, args...).Scan(&user.ID, &user.CreatedAt, &user.UpdatedAt)
 	if err != nil {
-		return tx, user, x.Wrap(err, "create_sql_user")
+		return tx, user, appErr.Wrap(err, "create_sql_user")
 	}
 
 	return tx, user, nil
@@ -141,7 +141,7 @@ func (d *userRepository) findAllSQLUser(ctx context.Context, filter *dto.UserFil
 	query, args, err := d.queryLoader.Compile("FindAllUsersBase", filter)
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("build_find_users_query_err")
-		return nil, &pagination, x.WrapWithCode(err, x.CodeSQLQueryBuild, "build_find_users_query_err")
+		return nil, &pagination, appErr.WrapWithCode(err, appErr.CodeSQLQueryBuild, "build_find_users_query_err")
 	}
 
 	zerolog.Ctx(ctx).Debug().Str("query", util.CleanQuery(query)).Any("args", args).Msg("compiled_query")
@@ -149,7 +149,7 @@ func (d *userRepository) findAllSQLUser(ctx context.Context, filter *dto.UserFil
 	rows, err := d.sql0.Query(ctx, query, args...)
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("find_users_err")
-		return nil, &pagination, x.WrapWithCode(err, x.CodeSQLRowScan, "find_users_err")
+		return nil, &pagination, appErr.WrapWithCode(err, appErr.CodeSQLRowScan, "find_users_err")
 	}
 	defer rows.Close()
 
@@ -157,7 +157,7 @@ func (d *userRepository) findAllSQLUser(ctx context.Context, filter *dto.UserFil
 		var user entity.User
 		if scanErr := rows.Scan(&user.ID, &user.Email, &user.Name, &user.Age, &user.Role, &user.IsActive, &user.CreatedAt, &user.UpdatedAt); scanErr != nil {
 			zerolog.Ctx(ctx).Error().Err(scanErr).Msg("scan_user_err")
-			return nil, &pagination, x.WrapWithCode(scanErr, x.CodeSQLRowScan, "scan_user_err")
+			return nil, &pagination, appErr.WrapWithCode(scanErr, appErr.CodeSQLRowScan, "scan_user_err")
 		}
 		user.Password = ""
 		results = append(results, user)
@@ -166,7 +166,7 @@ func (d *userRepository) findAllSQLUser(ctx context.Context, filter *dto.UserFil
 	countQuery, countArgs, err := d.queryLoader.Compile("CountUsersBase", filter)
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("count_users_query_err")
-		return nil, &pagination, x.WrapWithCode(err, x.CodeSQLQueryBuild, "count_users_query_err")
+		return nil, &pagination, appErr.WrapWithCode(err, appErr.CodeSQLQueryBuild, "count_users_query_err")
 	}
 
 	zerolog.Ctx(ctx).Debug().Str("query", util.CleanQuery(countQuery)).Any("args", countArgs).Msg("compiled_query")
@@ -174,7 +174,7 @@ func (d *userRepository) findAllSQLUser(ctx context.Context, filter *dto.UserFil
 	err = d.sql0.QueryRow(ctx, countQuery, countArgs...).Scan(&totalRecords)
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("count_users_err")
-		return nil, &pagination, x.WrapWithCode(err, x.CodeSQLRowScan, "count_users_err")
+		return nil, &pagination, appErr.WrapWithCode(err, appErr.CodeSQLRowScan, "count_users_err")
 	}
 
 	zerolog.Ctx(ctx).Debug().Int64("total", totalRecords).Msg("total_users_found")
@@ -197,7 +197,7 @@ func (d *userRepository) updateSQLUser(ctx context.Context, user *entity.User) e
 	query, args, err := d.queryLoader.Compile("UpdateUser", user)
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("build_update_user_query_err")
-		return x.WrapWithCode(err, x.CodeSQLQueryBuild, "build_update_user_query_err")
+		return appErr.WrapWithCode(err, appErr.CodeSQLQueryBuild, "build_update_user_query_err")
 	}
 
 	zerolog.Ctx(ctx).Debug().Str("query", util.CleanQuery(query)).Any("args", args).Msg("compiled_query")
@@ -205,17 +205,17 @@ func (d *userRepository) updateSQLUser(ctx context.Context, user *entity.User) e
 	result, err := d.sql0.Exec(ctx, query, args...)
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Str("id", user.ID).Msg("update_user_err")
-		return x.WrapWithCode(err, x.CodeSQLUpdate, "update_user_err")
+		return appErr.WrapWithCode(err, appErr.CodeSQLUpdate, "update_user_err")
 	}
 
 	rows := result.RowsAffected()
 
 	if rows == 0 {
 		zerolog.Ctx(ctx).Debug().Str("id", user.ID).Msg("user_not_found_for_update")
-		return x.NewWithCode(x.CodeSQLEmptyRow, "user_not_found_for_update")
+		return appErr.NewWithCode(appErr.CodeSQLEmptyRow, "user_not_found_for_update")
 	}
 
-	cacheKey := fmt.Sprintf("user:%s", user.ID)
+	cacheKey := "user:" + user.ID
 	d.redis0.Del(ctx, cacheKey)
 
 	return nil
@@ -225,7 +225,7 @@ func (d *userRepository) deleteSQLUser(ctx context.Context, id string) error {
 	query, args, err := d.queryLoader.Compile("DeleteUser", map[string]any{"ID": id})
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Msg("build_delete_user_query_err")
-		return x.WrapWithCode(err, x.CodeSQLQueryBuild, "build_delete_user_query_err")
+		return appErr.WrapWithCode(err, appErr.CodeSQLQueryBuild, "build_delete_user_query_err")
 	}
 
 	zerolog.Ctx(ctx).Debug().Str("query", util.CleanQuery(query)).Any("args", args).Msg("compiled_query")
@@ -233,17 +233,17 @@ func (d *userRepository) deleteSQLUser(ctx context.Context, id string) error {
 	result, err := d.sql0.Exec(ctx, query, args...)
 	if err != nil {
 		zerolog.Ctx(ctx).Error().Err(err).Str("id", id).Msg("failed_to_delete_user")
-		return x.WrapWithCode(err, x.CodeSQLDelete, "failed_to_delete_user")
+		return appErr.WrapWithCode(err, appErr.CodeSQLDelete, "failed_to_delete_user")
 	}
 
 	rows := result.RowsAffected()
 
 	if rows == 0 {
 		zerolog.Ctx(ctx).Debug().Str("id", id).Msg("user_not_found_for_deletion")
-		return x.NewWithCode(x.CodeSQLEmptyRow, "user_not_found_for_deletion")
+		return appErr.NewWithCode(appErr.CodeSQLEmptyRow, "user_not_found_for_deletion")
 	}
 
-	cacheKey := fmt.Sprintf("user:%s", id)
+	cacheKey := "user:" + id
 	d.redis0.Del(ctx, cacheKey)
 
 	return nil
