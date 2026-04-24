@@ -502,6 +502,12 @@ Apache 2.0 - See [LICENSE](LICENSE) for details.
 
 ## 📋 Changelog
 
+### v1.14.0
+
+- Added trace/span/request_id logging to scheduler jobs
+- Conditional logging: trace_id/span_id printed when tracing enabled, req_id always printed
+- Jobs now propagate context with trace IDs from scheduler to job handlers
+
 ### v1.13.0
 
 ### v1.12.0

@@ -5,16 +5,20 @@ import (
 	"strconv"
 	"sync"
 
+	"go-far/internal/infra/middleware"
+	"go-far/internal/preference"
+
 	"github.com/robfig/cron/v3"
 	"github.com/rs/zerolog"
 )
 
 // Scheduler manages scheduled jobs
 type Scheduler struct {
-	log  *zerolog.Logger
-	cron *cron.Cron
-	jobs []Job
-	mu   sync.RWMutex
+	log            *zerolog.Logger
+	cron           *cron.Cron
+	jobs           []Job
+	mu             sync.RWMutex
+	tracingEnabled bool
 }
 
 // Job defines the interface for scheduled jobs
@@ -26,8 +30,9 @@ type Job interface {
 
 // SchedulerOptions holds scheduler configuration
 type SchedulerOptions struct {
-	SchedulerJobs SchedulerJobsOptions `yaml:"jobs"`
-	Enabled       bool                 `yaml:"enabled"`
+	SchedulerJobs  SchedulerJobsOptions `yaml:"jobs"`
+	Enabled        bool                 `yaml:"enabled"`
+	TracingEnabled bool                 `yaml:"-"`
 }
 
 // SchedulerJobsOptions holds individual job configurations
@@ -57,11 +62,12 @@ type CarGeneratorJobOptions struct {
 }
 
 // InitScheduler initializes the scheduler
-func InitScheduler(log *zerolog.Logger, opt *SchedulerOptions) *Scheduler {
+func InitScheduler(log *zerolog.Logger, opt *SchedulerOptions, tracingEnabled bool) *Scheduler {
 	return &Scheduler{
-		log:  log,
-		cron: cron.New(cron.WithSeconds()),
-		jobs: make([]Job, 0),
+		log:            log,
+		cron:           cron.New(cron.WithSeconds()),
+		jobs:           make([]Job, 0),
+		tracingEnabled: tracingEnabled,
 	}
 }
 
@@ -71,15 +77,39 @@ func (s *Scheduler) AddJob(job Job) error {
 	defer s.mu.Unlock()
 
 	_, err := s.cron.AddFunc(job.Schedule(), func() {
-		s.log.Info().Str("job", job.Name()).Msg("Job started")
+		traceID := middleware.GenerateTraceID()
+		spanID := middleware.GenerateSpanID()
 
-		ctx := context.Background()
+		event := s.log.Info().Str("job", job.Name()).Str(string(preference.CONTEXT_KEY_LOG_REQUEST_ID), spanID)
+		if s.tracingEnabled {
+			event = event.
+				Str(string(preference.CONTEXT_KEY_LOG_TRACE_ID), traceID).
+				Str(string(preference.CONTEXT_KEY_LOG_SPAN_ID), spanID)
+		}
+		event.Msg("Job started")
+
+		ctx := context.WithValue(context.Background(), preference.CONTEXT_KEY_LOG_TRACE_ID, traceID)
+		ctx = context.WithValue(ctx, preference.CONTEXT_KEY_LOG_SPAN_ID, spanID)
+		ctx = context.WithValue(ctx, preference.CONTEXT_KEY_LOG_REQUEST_ID, spanID)
+
 		if err := job.Run(ctx); err != nil {
-			s.log.Error().Err(err).Str("job", job.Name()).Msg("Job execution failed")
+			errEvent := s.log.Error().Err(err).Str("job", job.Name()).Str(string(preference.CONTEXT_KEY_LOG_REQUEST_ID), spanID)
+			if s.tracingEnabled {
+				errEvent = errEvent.
+					Str(string(preference.CONTEXT_KEY_LOG_TRACE_ID), traceID).
+					Str(string(preference.CONTEXT_KEY_LOG_SPAN_ID), spanID)
+			}
+			errEvent.Msg("Job execution failed")
 			return
 		}
 
-		s.log.Info().Str("job", job.Name()).Msg("Job completed successfully")
+		successEvent := s.log.Info().Str("job", job.Name()).Str(string(preference.CONTEXT_KEY_LOG_REQUEST_ID), spanID)
+		if s.tracingEnabled {
+			successEvent = successEvent.
+				Str(string(preference.CONTEXT_KEY_LOG_TRACE_ID), traceID).
+				Str(string(preference.CONTEXT_KEY_LOG_SPAN_ID), spanID)
+		}
+		successEvent.Msg("Job completed successfully")
 	})
 	if err != nil {
 		return err

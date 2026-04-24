@@ -15,7 +15,7 @@ import (
 	httpserver "go-far/internal/infra/http/server"
 	"go-far/internal/infra/logger"
 	"go-far/internal/infra/middleware"
-	pyro "go-far/internal/infra/pyroscope"
+	"go-far/internal/infra/pyroscope"
 	"go-far/internal/infra/query"
 	cfgredis "go-far/internal/infra/redis"
 	cfgscheduler "go-far/internal/infra/scheduler"
@@ -104,13 +104,13 @@ func Run() {
 
 	// Scheduler Initialization
 	if conf.Scheduler.Enabled {
-		scheduler := cfgscheduler.InitScheduler(log, conf.Scheduler)
-		schedHandler.InitSchedulerHandler(log, scheduler, svc, &conf.Scheduler.SchedulerJobs, httpClient, conf.Scheduler.Enabled)
+		scheduler := cfgscheduler.InitScheduler(log, conf.Scheduler, conf.Tracer.Enabled)
+		schedHandler.InitSchedulerHandler(log, scheduler, svc, &conf.Scheduler.SchedulerJobs, httpClient, conf.Scheduler.Enabled, conf.Tracer.Enabled)
 		defer scheduler.Stop()
 	}
 
 	// 🔍 Start Pyroscope Profiler (VisualVM-like continuous profiling)
-	pyro := pyro.InitPyroscope(log, conf.App)
+	pyro := pyroscope.InitPyroscope(log, conf.App)
 	defer pyro.Stop()
 
 	// HTTP Server Initialization

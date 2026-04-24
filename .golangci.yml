@@ -5,7 +5,7 @@ run:
 
 linters:
   enable:
-    # ---- Existing ----
+    # ---- Core ----
     - staticcheck    # Advanced static analysis (now includes the functionality of stylecheck and gosimple)
     - gosec          # Inspects source code for security problems
     - gocritic       # Detects suspicious constructs and style issues
@@ -15,22 +15,25 @@ linters:
     - unused         # Checks for unused constants, variables, functions, and types
     - gocyclo        # Computes cyclomatic complexity of functions
 
-    # ---- New: Reliability & Concurrency ----
+    # ---- Reliability & Concurrency ----
     - noctx          # Detects missing context in HTTP requests
     - exhaustive     # Ensures switch statements on enums are exhaustive
     - durationcheck  # Catches mistakes in time.Duration calculations
     - errorlint      # Enforces error wrapping best practices
     - contextcheck   # Checks context propagation rules
+    - predeclared    # Catches shadowing of built-ins (len, new, make, error, etc.)
 
-    # ---- New: Style & Consistency ----
+    # ---- Style & Consistency ----
     - funlen         # Flags functions that are too long
     - gocognit       # Measures cognitive complexity of functions
     - nestif         # Detects deeply nested if statements
+    - misspell       # Catches typos in code, comments, and identifiers
 
-    # ---- New: Modernization ----
+    # ---- Modernization ----
     - perfsprint     # Suggests faster alternatives to fmt.Sprintf
     - intrange       # Suggests using for range int where possible
     - modernize      # Suggests modern Go constructs (Go 1.21+)
+    - usetesting     # Enforces modern test helpers (t.Setenv, t.TempDir, etc.)
 
   settings:
     gocyclo:
@@ -58,32 +61,33 @@ linters:
       int-conversion: true   # Suggest `strconv.Itoa` over `fmt.Sprint`
       err-error: true        # Suggest `errors.New` for simple errors
 
-    revive:
-      rules:
-        - name: exported
-          severity: warning
-        - name: package-comments
-          severity: warning
-        - name: blank-imports
-        - name: context-as-argument
-        - name: error-return      # Error must be last return value
-        - name: error-strings
-        - name: error-naming
-        - name: indent-error-flow
-        - name: if-return
-        - name: increment-decrement
-        - name: range
-        - name: receiver-naming
-        - name: time-naming
-        - name: unexported-return
-        - name: unnecessary-stmt
-        - name: unreachable-code
-        - name: unused-parameter
-        - name: useless-break
+    wrapcheck:
+      ignore-package-globs:
+        - "encoding/*"
+        - "github.com/pkg/*"
+
+    misspell:
+      locale: US
+
+    usetesting:
+      os-setenv: true
+      os-temp-dir: true
+      os-mkdir-temp: true
+      context-background: true
+      context-todo: true
 
 formatters:
   enable:
     - goimports
+    - gci
+    
+  settings:
+    gci:
+      sections:
+        - standard          # Go stdlib (e.g., "fmt", "os")        
+        - prefix(go-far)    # Your local packages
+        - default           # Third-party (e.g., "github.com/...")
+      custom-order: true    # Enforce exact order above
 
 issues:
   max-issues-per-linter: 0

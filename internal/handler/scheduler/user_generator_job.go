@@ -13,6 +13,7 @@ import (
 	"go-far/internal/model/dto"
 	"go-far/internal/model/entity"
 	appErr "go-far/internal/model/errors"
+	"go-far/internal/preference"
 	"go-far/internal/service/user"
 	"go-far/internal/util"
 
@@ -44,11 +45,31 @@ var (
 )
 
 type UserGeneratorJob struct {
-	userService user.UserServiceItf
-	log         *zerolog.Logger
-	config      *cfg.UserGeneratorJobOptions
-	httpClient  *http.Client
-	mu          sync.Mutex
+	userService    user.UserServiceItf
+	log            *zerolog.Logger
+	config         *cfg.UserGeneratorJobOptions
+	httpClient     *http.Client
+	mu             sync.Mutex
+	tracingEnabled bool
+}
+
+func (j *UserGeneratorJob) logWithContext(ctx context.Context) *zerolog.Event {
+	reqID, _ := ctx.Value(preference.CONTEXT_KEY_LOG_REQUEST_ID).(string)
+
+	event := j.log.Info().
+		Str(string(preference.CONTEXT_KEY_LOG_REQUEST_ID), reqID)
+
+	if j.tracingEnabled {
+		traceID, _ := ctx.Value(preference.CONTEXT_KEY_LOG_TRACE_ID).(string)
+		spanID, _ := ctx.Value(preference.CONTEXT_KEY_LOG_SPAN_ID).(string)
+		if traceID != "" {
+			event = event.Str(string(preference.CONTEXT_KEY_LOG_TRACE_ID), traceID)
+		}
+		if spanID != "" {
+			event = event.Str(string(preference.CONTEXT_KEY_LOG_SPAN_ID), spanID)
+		}
+	}
+	return event
 }
 
 type randomUserResp struct {
@@ -78,12 +99,13 @@ type randomUser struct {
 	}
 }
 
-func InitUserGeneratorJob(log *zerolog.Logger, userService user.UserServiceItf, opts *cfg.UserGeneratorJobOptions, httpClient *http.Client) *UserGeneratorJob {
+func InitUserGeneratorJob(log *zerolog.Logger, userService user.UserServiceItf, opts *cfg.UserGeneratorJobOptions, httpClient *http.Client, tracingEnabled bool) *UserGeneratorJob {
 	return &UserGeneratorJob{
-		log:         log,
-		userService: userService,
-		config:      opts,
-		httpClient:  httpClient,
+		log:            log,
+		userService:    userService,
+		config:         opts,
+		httpClient:     httpClient,
+		tracingEnabled: tracingEnabled,
 	}
 }
 
@@ -97,17 +119,17 @@ func (j *UserGeneratorJob) Schedule() string {
 
 func (j *UserGeneratorJob) Run(ctx context.Context) error {
 	if !j.config.Enabled {
-		j.log.Debug().Msg("UserGeneratorJob is disabled")
+		j.logWithContext(ctx).Msg("UserGeneratorJob is disabled")
 		return nil
 	}
 
-	j.log.Info().
+	j.logWithContext(ctx).
 		Int("batch_size", j.config.BatchSize).
 		Msg("Generating random users")
 
 	users, err := j.fetchRandomUsersFromAPI(ctx, j.config.BatchSize)
 	if err != nil {
-		j.log.Warn().Err(err).Msg("Failed to fetch from randomuser.me API, using fallback")
+		j.logWithContext(ctx).Err(err).Msg("Failed to fetch from randomuser.me API, using fallback")
 		return j.runWithFallback(ctx)
 	}
 
@@ -123,7 +145,7 @@ func (j *UserGeneratorJob) Run(ctx context.Context) error {
 
 		_, err := j.userService.CreateUser(ctx, req)
 		if err != nil {
-			j.log.Warn().
+			j.logWithContext(ctx).
 				Err(err).
 				Str("email", u.Email).
 				Msg("Failed to create user")
@@ -131,14 +153,14 @@ func (j *UserGeneratorJob) Run(ctx context.Context) error {
 		}
 
 		successCount++
-		j.log.Debug().
+		j.logWithContext(ctx).
 			Str("name", req.Name).
 			Str("email", u.Email).
 			Int("age", u.DOB.Age).
 			Msg("User created successfully")
 	}
 
-	j.log.Info().
+	j.logWithContext(ctx).
 		Int("success", successCount).
 		Int("total", j.config.BatchSize).
 		Msg("User generation batch completed")
@@ -194,7 +216,7 @@ func (j *UserGeneratorJob) doFetchRandomUsersFromAPI(ctx context.Context, count 
 }
 
 func (j *UserGeneratorJob) runWithFallback(ctx context.Context) error {
-	j.log.Info().
+	j.logWithContext(ctx).
 		Int("batch_size", j.config.BatchSize).
 		Msg("Generating random users (fallback)")
 
@@ -221,7 +243,7 @@ func (j *UserGeneratorJob) runWithFallback(ctx context.Context) error {
 
 		_, err := j.userService.CreateUser(ctx, req)
 		if err != nil {
-			j.log.Warn().
+			j.logWithContext(ctx).
 				Err(err).
 				Str("email", email).
 				Msg("Failed to create user")
@@ -229,7 +251,7 @@ func (j *UserGeneratorJob) runWithFallback(ctx context.Context) error {
 		}
 
 		successCount++
-		j.log.Debug().
+		j.logWithContext(ctx).
 			Str("name", name).
 			Str("email", email).
 			Int("age", age).

@@ -10,6 +10,7 @@ import (
 
 	cfg "go-far/internal/infra/scheduler"
 	"go-far/internal/model/dto"
+	"go-far/internal/preference"
 	"go-far/internal/service/car"
 	"go-far/internal/service/user"
 	"go-far/internal/util"
@@ -30,15 +31,35 @@ var (
 )
 
 type CarGeneratorJob struct {
-	carService  car.CarServiceItf
-	userService user.UserServiceItf
-	log         *zerolog.Logger
-	config      *cfg.CarGeneratorJobOptions
-	httpClient  *http.Client
-	nhtsaURL    string
-	carCache    []carInfo
-	mu          sync.Mutex
-	cacheMu     sync.Mutex
+	carService     car.CarServiceItf
+	userService    user.UserServiceItf
+	log            *zerolog.Logger
+	config         *cfg.CarGeneratorJobOptions
+	httpClient     *http.Client
+	nhtsaURL       string
+	carCache       []carInfo
+	mu             sync.Mutex
+	cacheMu        sync.Mutex
+	tracingEnabled bool
+}
+
+func (j *CarGeneratorJob) logWithContext(ctx context.Context) *zerolog.Event {
+	reqID, _ := ctx.Value(preference.CONTEXT_KEY_LOG_REQUEST_ID).(string)
+
+	event := j.log.Info().
+		Str(string(preference.CONTEXT_KEY_LOG_REQUEST_ID), reqID)
+
+	if j.tracingEnabled {
+		traceID, _ := ctx.Value(preference.CONTEXT_KEY_LOG_TRACE_ID).(string)
+		spanID, _ := ctx.Value(preference.CONTEXT_KEY_LOG_SPAN_ID).(string)
+		if traceID != "" {
+			event = event.Str(string(preference.CONTEXT_KEY_LOG_TRACE_ID), traceID)
+		}
+		if spanID != "" {
+			event = event.Str(string(preference.CONTEXT_KEY_LOG_SPAN_ID), spanID)
+		}
+	}
+	return event
 }
 
 type carInfo struct {
@@ -77,15 +98,16 @@ type carData struct {
 	IsAvailable  bool
 }
 
-func InitCarGeneratorJob(log *zerolog.Logger, carService car.CarServiceItf, userService user.UserServiceItf, opts *cfg.CarGeneratorJobOptions, httpClient *http.Client, nhtsaURL string) *CarGeneratorJob {
+func InitCarGeneratorJob(log *zerolog.Logger, carService car.CarServiceItf, userService user.UserServiceItf, opts *cfg.CarGeneratorJobOptions, httpClient *http.Client, nhtsaURL string, tracingEnabled bool) *CarGeneratorJob {
 	return &CarGeneratorJob{
-		log:         log,
-		carService:  carService,
-		userService: userService,
-		config:      opts,
-		httpClient:  httpClient,
-		carCache:    make([]carInfo, 0),
-		nhtsaURL:    nhtsaURL,
+		log:            log,
+		carService:     carService,
+		userService:    userService,
+		config:         opts,
+		httpClient:     httpClient,
+		carCache:       make([]carInfo, 0),
+		nhtsaURL:       nhtsaURL,
+		tracingEnabled: tracingEnabled,
 	}
 }
 
@@ -99,13 +121,13 @@ func (j *CarGeneratorJob) Schedule() string {
 
 func (j *CarGeneratorJob) Run(ctx context.Context) error {
 	if !j.config.Enabled {
-		j.log.Debug().Msg("CarGeneratorJob is disabled")
+		j.logWithContext(ctx).Msg("CarGeneratorJob is disabled")
 		return nil
 	}
 
 	j.fetchCarDataFromAPI(ctx)
 
-	j.log.Info().
+	j.logWithContext(ctx).
 		Int("batch_size", j.config.BatchSize).
 		Msg("Generating random cars")
 
@@ -113,7 +135,7 @@ func (j *CarGeneratorJob) Run(ctx context.Context) error {
 	cacheControl := dto.CacheControl{}
 	users, _, err := j.userService.ListUsers(ctx, cacheControl, &filter)
 	if err != nil || users == nil || len(*users) == 0 {
-		j.log.Warn().Err(err).Msg("No users found to assign cars to")
+		j.logWithContext(ctx).Err(err).Msg("No users found to assign cars to")
 		return nil
 	}
 
@@ -124,7 +146,7 @@ func (j *CarGeneratorJob) Run(ctx context.Context) error {
 
 	successCount := 0
 	for range j.config.BatchSize {
-		carData := j.generateRandomCar()
+		carData := j.generateRandomCar(ctx)
 
 		owner := userList[util.RandomInt(len(userList))]
 
@@ -138,7 +160,7 @@ func (j *CarGeneratorJob) Run(ctx context.Context) error {
 
 		_, err := j.carService.CreateCar(ctx, req, owner.ID)
 		if err != nil {
-			j.log.Warn().
+			j.logWithContext(ctx).
 				Err(err).
 				Str("license_plate", carData.LicensePlate).
 				Msg("Failed to create car")
@@ -146,14 +168,14 @@ func (j *CarGeneratorJob) Run(ctx context.Context) error {
 		}
 
 		successCount++
-		j.log.Debug().
+		j.logWithContext(ctx).
 			Str("brand", carData.Brand).
 			Str("model", carData.Model).
 			Str("license_plate", carData.LicensePlate).
 			Msg("Car created successfully")
 	}
 
-	j.log.Info().
+	j.logWithContext(ctx).
 		Int("success", successCount).
 		Int("total", j.config.BatchSize).
 		Msg("Car generation batch completed")
@@ -161,8 +183,8 @@ func (j *CarGeneratorJob) Run(ctx context.Context) error {
 	return nil
 }
 
-func (j *CarGeneratorJob) generateRandomCar() *carData {
-	carInfo := j.randomCar()
+func (j *CarGeneratorJob) generateRandomCar(ctx context.Context) *carData {
+	carInfo := j.randomCar(ctx)
 	year := j.config.MinYear + util.RandomInt(j.config.MaxYear-j.config.MinYear+1)
 	licensePlate := j.generateLicensePlate()
 
@@ -176,12 +198,12 @@ func (j *CarGeneratorJob) generateRandomCar() *carData {
 	}
 }
 
-func (j *CarGeneratorJob) randomCar() *carInfo {
+func (j *CarGeneratorJob) randomCar(ctx context.Context) *carInfo {
 	j.cacheMu.Lock()
 	defer j.cacheMu.Unlock()
 
 	if len(j.carCache) == 0 {
-		j.log.Warn().Msg("car cache is empty, returning fallback")
+		j.logWithContext(ctx).Msg("car cache is empty, returning fallback")
 		return j.getFallbackCar()
 	}
 
@@ -192,23 +214,23 @@ func (j *CarGeneratorJob) randomCar() *carInfo {
 
 func (j *CarGeneratorJob) fetchCarDataFromAPI(ctx context.Context) {
 	if j.nhtsaURL == "" {
-		j.log.Warn().Msg("NHTSA API URL not configured, skipping")
+		j.logWithContext(ctx).Msg("NHTSA API URL not configured, skipping")
 		return
 	}
 
 	if j.httpClient == nil {
-		j.log.Warn().Msg("HTTP client not available, skipping")
+		j.logWithContext(ctx).Msg("HTTP client not available, skipping")
 		return
 	}
 
 	newCars, err := j.fetchMakesFromAPI(ctx)
 	if err != nil {
-		j.log.Warn().Err(err).Msg("failed to fetch car data from NHTSA API")
+		j.logWithContext(ctx).Err(err).Msg("failed to fetch car data from NHTSA API")
 		return
 	}
 
 	if len(newCars) == 0 {
-		j.log.Warn().Msg("no car data fetched from NHTSA API")
+		j.logWithContext(ctx).Msg("no car data fetched from NHTSA API")
 		return
 	}
 

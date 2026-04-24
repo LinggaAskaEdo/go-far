@@ -51,6 +51,16 @@ func WithAuthUser(ctx context.Context, user *AuthUser) context.Context {
 	return context.WithValue(ctx, preference.ContextKeyAuthUser, user)
 }
 
+// GenerateTraceID generates a new trace ID
+func GenerateTraceID() string {
+	return xid.New().String()
+}
+
+// GenerateSpanID generates a new span ID
+func GenerateSpanID() string {
+	return xid.New().String()
+}
+
 // GetAuthUser retrieves authenticated user info from context
 func GetAuthUser(ctx context.Context) (*AuthUser, bool) {
 	user, ok := ctx.Value(preference.ContextKeyAuthUser).(*AuthUser)
@@ -64,7 +74,7 @@ func (mw *middleware) isPublicPath(path string) bool {
 	}
 
 	for pub := range mw.publicPaths {
-		// Handle exact slash suffix (existing behaviour)
+		// Handle exact slash suffix (existing behavior)
 		if strings.HasSuffix(pub, "/") && strings.HasPrefix(path, pub) {
 			return true
 		}
