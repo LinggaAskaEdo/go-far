@@ -6,8 +6,8 @@ A production-ready RESTful API built with Go following Domain-Driven Design prin
 
 - **Domain-Driven Design** - Separation of concerns with handlers, services, and repositories
 - **REST API** - Built with Go's native `net/http` (Go 1.25+ pattern matching)
-- **Database** - PostgreSQL with sqlx (MySQL supported)
-- **Caching** - Redis with snappy compression
+- **Database** - PostgreSQL with pgx (MySQL supported)
+- **Caching** - Redis
 - **Authentication** - JWT with HS-256 signing, refresh tokens, and role-based access
 - **Role-Based Rate Limiting** - Per-role sliding window rate limiting via Redis Lua script (atomic, race-condition free)
 - **Observability** - OpenTelemetry tracing with OTLP exporter
@@ -66,6 +66,7 @@ go-far/
 ├── api/                        # Generated API docs
 │   └── openapi/                # Swagger documentation
 ├── configs/                    # Application configuration
+│   └── queries/             # SQL queries with tqla templates
 ├── db/                         # Database migrations
 ├── deployments/                # Deployment configs
 ├── scripts/                    # Utility scripts
@@ -341,35 +342,27 @@ export LOG_LEVEL=info
 Run `make help` to see all available commands:
 
 ```bash
-make help            # Show all available commands
-make all             # Clean, build, and run app
-make deps            # Download and install dependencies
-make update          # Update all dependencies to latest
-make install-tools   # Install dev tools (swag, lint, etc)
+make help              # Show this help message
+make all               # Clean, build, and run app
+make deps              # Download and install dependencies
+make update            # Update all dependencies to latest
+make install-tools      # Install dev tools (swag, lint, etc)
 
-make build           # Build application with optimizations
-make run             # Run the built application
-make clean           # Remove build artifacts and logs
+make build             # Build application with optimizations
+make run               # Run the built application
+make clean             # Remove build artifacts
+make kill              # Kill app running on port 8181
 
-make check           # Run all checks (fmt, vet, lint)
-make fmt             # Format code with go fmt
-make vet             # Run go vet for common issues
-make lint            # Run golangci-lint
-make test            # Run tests with coverage report
+make lint              # Run golangci-lint
+make test             # Run tests with coverage report
 
-make swagger         # Generate Swagger API docs
+make swagger          # Generate Swagger API docs
 
-make migrate         # Run database migrations (postgres)
 make sql-postgres-create   # Create new postgres migration
-make sql-postgres-up       # Apply postgres migrations
-make sql-mysql-create      # Create new mysql migration
-make sql-mysql-up          # Apply mysql migrations
+make sql-postgres-up     # Apply postgres migrations
 
-make cert-install    # Install OpenSSL (auto-detects package manager)
-make cert-create     # Generate RSA key pair (4096-bit)
-
-make mon-start       # Start monitoring stack
-make mon-stop        # Stop monitoring stack
+make monitoring-start  # Start monitoring stack
+make monitoring-stop   # Stop monitoring stack
 
 make benchmark       # Run API benchmark with Apache Bench
 ```
@@ -473,7 +466,7 @@ Tokens are generated on `/auth/login` and can be refreshed using `/auth/refresh`
 
 ### Logging
 
-Logs are written to `logs/app.log` with rotation. Format is configurable (JSON/Console).
+Logs are written to stdout with rotation. Format is configurable (JSON/Console).
 
 ### Tracing
 
@@ -481,7 +474,7 @@ OpenTelemetry traces are exported to `localhost:4317` (OTLP/gRPC). Configure you
 
 ### Metrics
 
-Metrics collection is available via OpenTelemetry (configuration required).
+Metrics collection is available via OpenTelemetry but disabled by default (set `tracer.enabled: true` in config).
 
 ## 🧪 Testing
 
@@ -519,7 +512,7 @@ Apache 2.0 - See [LICENSE](LICENSE) for details.
 
 ### v1.11.0
 
-- Added circuit breaker configuration in httpclient package (`src/config/httpclient`)
+- Added circuit breaker configuration in http client package (`internal/infra/http`)
 - Integrated failsafe-go for external API protection with retry policy
 - Circuit breaker with 503 status code handling and exponential backoff
 - Per-job circuit breaker configuration in scheduler (user_generator, car_generator)
@@ -527,7 +520,7 @@ Apache 2.0 - See [LICENSE](LICENSE) for details.
 
 ### v1.8.0
 
-- Added dedicated validator package (`src/config/validator`) with configurable validation rules
+- Added dedicated validator package (`internal/infra/validator`) with configurable validation rules
 - Implemented SQL query cleaning utility for safe logging
 - Added dynamic SQL query loader with tqla template support
 - Added API benchmarking with Apache Bench (`make benchmark`)
