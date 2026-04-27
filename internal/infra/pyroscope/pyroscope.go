@@ -10,6 +10,10 @@ import (
 	"github.com/rs/zerolog"
 )
 
+type PyroscopeOptions struct {
+	Enabled bool `yaml:"enabled"`
+}
+
 type pyro struct {
 	log      *zerolog.Logger
 	profiler *pyroscope.Profiler

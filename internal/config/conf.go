@@ -8,6 +8,7 @@ import (
 	"go-far/internal/infra/logger"
 	"go-far/internal/infra/metrics"
 	"go-far/internal/infra/middleware"
+	"go-far/internal/infra/pyroscope"
 	"go-far/internal/infra/query"
 	"go-far/internal/infra/redis"
 	cfgscheduler "go-far/internal/infra/scheduler"
@@ -29,6 +30,7 @@ type Config struct {
 	Queries    *query.QueriesOptions          `yaml:"queries"`
 	Tracer     *tracer.TracerOptions          `yaml:"tracer"`
 	Metric     *metrics.MetricsOptions        `yaml:"metric"`
+	Pyroscope  *pyroscope.PyroscopeOptions    `yaml:"pyroscope"`
 }
 
 type HTTPConfig struct {

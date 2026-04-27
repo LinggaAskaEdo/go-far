@@ -502,6 +502,15 @@ Apache 2.0 - See [LICENSE](LICENSE) for details.
 
 ## 📋 Changelog
 
+### v1.17.0
+
+- Added PostgreSQL pool metrics collector (`pgx_pool_*`) for connection monitoring
+- Added Redis pool metrics collector (`redis_pool_*`) for connection monitoring
+- Added HTTP request duration metrics (`http_request_duration_seconds`)
+- Implemented custom Prometheus registry to avoid conflicts with pyroscope
+- Added `client` label to Redis metrics to distinguish between apps/auth/limiter instances
+- Refactored metrics initialization to reduce cognitive complexity
+
 ### v1.16.0
 
 - Added Prometheus metrics via `/metrics` endpoint for database pool and Redis monitoring

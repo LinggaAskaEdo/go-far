@@ -54,7 +54,7 @@ func Run() {
 	sql0 := database.InitDB(log, conf.Database.Postgres)
 	defer sql0.Close()
 
-	// Redis Initialization
+	// Redis Initialization - Apps
 	redis0 := cfgredis.InitRedis(log, conf.Redis, preference.REDIS_APPS)
 	defer func() {
 		if err := redis0.Close(); err != nil {
@@ -62,6 +62,7 @@ func Run() {
 		}
 	}()
 
+	// Redis Initialization - Auth
 	redis1 := cfgredis.InitRedis(log, conf.Redis, preference.REDIS_AUTH)
 	defer func() {
 		if err := redis1.Close(); err != nil {
@@ -69,6 +70,7 @@ func Run() {
 		}
 	}()
 
+	// Redis Initialization - Limiter
 	redis2 := cfgredis.InitRedis(log, conf.Redis, preference.REDIS_LIMITER)
 	defer func() {
 		if err := redis2.Close(); err != nil {
@@ -95,7 +97,7 @@ func Run() {
 	// Metrics Initialization
 	var metricsInst metrics.Metrics
 	if conf.Metric.Enabled {
-		metricsInst = metrics.InitMetrics(log)
+		metricsInst = metrics.InitMetrics(log, sql0, redis0, redis1, redis2)
 		metricsInst.StartPoolMetricsRecorder(3 * time.Second)
 		defer metricsInst.StopPoolMetricsRecorder()
 	}
@@ -119,8 +121,10 @@ func Run() {
 	}
 
 	// 🔍 Start Pyroscope Profiler (VisualVM-like continuous profiling)
-	pyro := pyroscope.InitPyroscope(log, conf.App)
-	defer pyro.Stop()
+	if conf.Pyroscope.Enabled {
+		pyro := pyroscope.InitPyroscope(log, conf.App)
+		defer pyro.Stop()
+	}
 
 	// HTTP Server Initialization
 	httpServer := httpserver.InitHttpServer(log, conf.HTTP.Server, mw, httpMux)

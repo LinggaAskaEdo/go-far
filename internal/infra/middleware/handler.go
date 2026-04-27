@@ -162,7 +162,11 @@ func (mw *middleware) prepareContext(ctx context.Context, r *http.Request) (ctxO
 	span := trace.SpanFromContext(ctx)
 	spanContext := span.SpanContext()
 
-	traceID = spanContext.TraceID().String()
+	if spanContext.HasTraceID() {
+		traceID = spanContext.TraceID().String()
+	} else {
+		traceID = xid.New().String()
+	}
 
 	if requestID := r.Header.Get(preference.HeaderXRequestID); requestID != "" {
 		spanID = requestID

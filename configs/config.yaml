@@ -1,6 +1,6 @@
 app:
   name: go-far
-  version: 1.14.0
+  version: 1.17.0
   environment: development  # development/staging/production)
   shutdown_timeout: 5s
 
@@ -133,3 +133,6 @@ tracer:
 
 metric:
   enabled: true
+
+pyroscope:
+  enabled: false
