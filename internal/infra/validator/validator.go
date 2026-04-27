@@ -12,14 +12,14 @@ import (
 	"github.com/rs/zerolog"
 )
 
+type Validator struct {
+	*validator.Validate
+}
+
 var (
 	once sync.Once
 	val  *Validator
 )
-
-type Validator struct {
-	*validator.Validate
-}
 
 func InitValidator(log *zerolog.Logger) {
 	once.Do(func() {

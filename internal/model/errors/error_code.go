@@ -2,17 +2,6 @@ package errors
 
 import "github.com/palantir/stacktrace"
 
-var (
-	svcError map[ServiceType]ErrorMessage
-
-	ErrCode      = stacktrace.GetCode
-	New          = stacktrace.NewError
-	NewWithCode  = stacktrace.NewErrorWithCode
-	RootCause    = stacktrace.RootCause
-	Wrap         = stacktrace.Propagate
-	WrapWithCode = stacktrace.PropagateWithCode
-)
-
 type (
 	ServiceType  int
 	Code         = stacktrace.ErrorCode
@@ -110,4 +99,15 @@ const (
 	CodeTemplateExecute
 	CodeSQLQueryNotFound
 	CodeInvalidIdentifier
+)
+
+var (
+	svcError map[ServiceType]ErrorMessage
+
+	ErrCode      = stacktrace.GetCode
+	New          = stacktrace.NewError
+	NewWithCode  = stacktrace.NewErrorWithCode
+	RootCause    = stacktrace.RootCause
+	Wrap         = stacktrace.Propagate
+	WrapWithCode = stacktrace.PropagateWithCode
 )

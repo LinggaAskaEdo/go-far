@@ -20,8 +20,6 @@ type errorResp struct {
 // contextKey is a custom type for context keys
 type contextKey string
 
-const startTimeKey contextKey = "request_start_time"
-
 // AuthUser holds authenticated user info from the token
 type AuthUser struct {
 	UserID   string
@@ -34,6 +32,8 @@ type responseWriter struct {
 	http.ResponseWriter
 	statusCode int
 }
+
+const startTimeKey contextKey = "request_start_time"
 
 // WriteHeader captures the status code
 func (rw *responseWriter) WriteHeader(code int) {
@@ -96,10 +96,15 @@ func (mw *middleware) Handler() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			path := r.URL.Path
-			isPublic := mw.isPublicPath(path)
 
-			// Authentication (skip public paths)
-			if !isPublic {
+			// Skip auth and logging for swagger, metrics, debug
+			if mw.shouldSkipAuthAndLog(path) {
+				next.ServeHTTP(w, r)
+				return
+			}
+
+			// Authentication
+			if !mw.isPublicPath(path) {
 				authHeader := r.Header.Get(preference.HeaderAuthorization)
 				if authHeader == "" {
 					mw.writeJSONError(w, http.StatusUnauthorized, "missing authorization header")
@@ -121,12 +126,6 @@ func (mw *middleware) Handler() func(http.Handler) http.Handler {
 				r = r.WithContext(WithAuthUser(r.Context(), authUser))
 			}
 
-			// Skip logging for swagger
-			if strings.HasPrefix(path, "/swagger/") {
-				next.ServeHTTP(w, r)
-				return
-			}
-
 			// Logging and tracing
 			start := time.Now()
 			ctx := withStartTime(r.Context(), start)
@@ -140,6 +139,12 @@ func (mw *middleware) Handler() func(http.Handler) http.Handler {
 			mw.logRequestEnd(traceID, spanID, start, rw.statusCode)
 		})
 	}
+}
+
+func (mw *middleware) shouldSkipAuthAndLog(path string) bool {
+	return strings.HasPrefix(path, "/swagger/") ||
+		strings.HasPrefix(path, "/metrics") ||
+		strings.HasPrefix(path, "/debug/")
 }
 
 func (mw *middleware) prepareContext(ctx context.Context, r *http.Request) (ctxOut context.Context, traceID, spanID string) {
@@ -162,6 +167,10 @@ func (mw *middleware) prepareContext(ctx context.Context, r *http.Request) (ctxO
 
 func (mw *middleware) logRequestStart(r *http.Request, traceID, spanID string) {
 	path := r.URL.Path
+	if path == "/metrics" || path == "/debug/vars" {
+		return
+	}
+
 	if r.URL.RawQuery != "" {
 		path = path + "?" + r.URL.RawQuery
 	}
@@ -220,15 +229,6 @@ func (mw *middleware) attachTraceSpanIDs(ctx context.Context, traceID, spanID st
 }
 
 func (mw *middleware) attachLogger(ctx context.Context) context.Context {
-	// traceID, _ := ctx.Value(preference.CONTEXT_KEY_LOG_TRACE_ID).(string)
-	// spanID, _ := ctx.Value(preference.CONTEXT_KEY_LOG_SPAN_ID).(string)
-
-	// return mw.log.With().
-	// 	Str(string(preference.CONTEXT_KEY_LOG_TRACE_ID), traceID).
-	// 	Str(string(preference.CONTEXT_KEY_LOG_SPAN_ID), spanID).
-	// 	Logger().
-	// 	WithContext(ctx)
-
 	logBuilder := mw.log.With()
 
 	if mw.tracingEnabled {

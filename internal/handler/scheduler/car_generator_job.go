@@ -18,18 +18,6 @@ import (
 	"github.com/rs/zerolog"
 )
 
-var (
-	carColors = []string{
-		"Pearl White", "Midnight Black", "Silver Metallic",
-		"Ruby Red", "Navy Blue", "Crimson Red",
-		"Forest Green", "Ocean Blue", "Sunset Orange",
-		"Champagne Gold",
-	}
-
-	licenseLetters = []string{"A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"}
-	licenseNumbers = []string{"0", "1", "2", "3", "4", "5", "6", "7", "8", "9"}
-)
-
 type CarGeneratorJob struct {
 	carService     car.CarServiceItf
 	userService    user.UserServiceItf
@@ -41,25 +29,6 @@ type CarGeneratorJob struct {
 	mu             sync.Mutex
 	cacheMu        sync.Mutex
 	tracingEnabled bool
-}
-
-func (j *CarGeneratorJob) logWithContext(ctx context.Context) *zerolog.Event {
-	reqID, _ := ctx.Value(preference.CONTEXT_KEY_LOG_REQUEST_ID).(string)
-
-	event := j.log.Info().
-		Str(string(preference.CONTEXT_KEY_LOG_REQUEST_ID), reqID)
-
-	if j.tracingEnabled {
-		traceID, _ := ctx.Value(preference.CONTEXT_KEY_LOG_TRACE_ID).(string)
-		spanID, _ := ctx.Value(preference.CONTEXT_KEY_LOG_SPAN_ID).(string)
-		if traceID != "" {
-			event = event.Str(string(preference.CONTEXT_KEY_LOG_TRACE_ID), traceID)
-		}
-		if spanID != "" {
-			event = event.Str(string(preference.CONTEXT_KEY_LOG_SPAN_ID), spanID)
-		}
-	}
-	return event
 }
 
 type carInfo struct {
@@ -96,6 +65,37 @@ type carData struct {
 	LicensePlate string
 	Year         int
 	IsAvailable  bool
+}
+
+var (
+	carColors = []string{
+		"Pearl White", "Midnight Black", "Silver Metallic",
+		"Ruby Red", "Navy Blue", "Crimson Red",
+		"Forest Green", "Ocean Blue", "Sunset Orange",
+		"Champagne Gold",
+	}
+
+	licenseLetters = []string{"A", "B", "C", "D", "E", "F", "G", "H", "I", "J", "K", "L", "M", "N", "O", "P", "Q", "R", "S", "T", "U", "V", "W", "X", "Y", "Z"}
+	licenseNumbers = []string{"0", "1", "2", "3", "4", "5", "6", "7", "8", "9"}
+)
+
+func (j *CarGeneratorJob) logWithContext(ctx context.Context) *zerolog.Event {
+	reqID, _ := ctx.Value(preference.CONTEXT_KEY_LOG_REQUEST_ID).(string)
+
+	event := j.log.Info().
+		Str(string(preference.CONTEXT_KEY_LOG_REQUEST_ID), reqID)
+
+	if j.tracingEnabled {
+		traceID, _ := ctx.Value(preference.CONTEXT_KEY_LOG_TRACE_ID).(string)
+		spanID, _ := ctx.Value(preference.CONTEXT_KEY_LOG_SPAN_ID).(string)
+		if traceID != "" {
+			event = event.Str(string(preference.CONTEXT_KEY_LOG_TRACE_ID), traceID)
+		}
+		if spanID != "" {
+			event = event.Str(string(preference.CONTEXT_KEY_LOG_SPAN_ID), spanID)
+		}
+	}
+	return event
 }
 
 func InitCarGeneratorJob(log *zerolog.Logger, carService car.CarServiceItf, userService user.UserServiceItf, opts *cfg.CarGeneratorJobOptions, httpClient *http.Client, nhtsaURL string, tracingEnabled bool) *CarGeneratorJob {

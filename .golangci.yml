@@ -5,90 +5,126 @@ run:
 
 linters:
   enable:
-    # ---- Core ----
-    - staticcheck    # Advanced static analysis (now includes the functionality of stylecheck and gosimple)
-    - gosec          # Inspects source code for security problems
-    - gocritic       # Detects suspicious constructs and style issues
-    - govet          # Go's official static analyzer
-    - errcheck       # Checks for unchecked errors
-    - ineffassign    # Detects ineffectual assignments
-    - unused         # Checks for unused constants, variables, functions, and types
-    - gocyclo        # Computes cyclomatic complexity of functions
+    # ---- Core Correctness & Safety ----
+    - staticcheck     # Advanced static analysis (includes stylecheck & gosimple). Catches bugs, performance issues, and style violations.
+    - gosec           # Security scanner: finds potential vulnerabilities like SQL injection, unsafe blocks, and hardcoded secrets.
+    - gocritic        # Highly customizable linting: detects suspicious constructs, performance pitfalls, and style issues.
+    - govet           # Go's official static analyzer. Reports suspicious constructs, e.g., impossible interfaces, unreachable code.
+    - errcheck        # Reports unchecked errors in return values. Essential for robust error handling.
+    - ineffassign     # Finds assignments to variables that are never used. Reduces dead code and mental overhead.
+    - unused          # Flags unused constants, variables, functions, types, and exported symbols.
+    - gocyclo         # Computes cyclomatic complexity. High complexity indicates code that is hard to test/maintain.
+    - wastedassign    # Detects assignments that are never read before being overwritten or the variable goes out of scope. Cleans up pointless writes.
+    - copyloopvar     # Prevents bugs where a loop variable is captured by a goroutine or closure incorrectly (pre‑Go1.22 semantics).
+
+    # ---- Performance & Memory Efficiency ----
+    - prealloc        # Suggests pre‑allocating slices when the final length is known, reducing dynamic re‑allocations and improving performance.
+    - mirror          # Recommends using standard library patterns (e.g., `bytes.Equal` instead of manual loops) that are faster and less error‑prone.
+    - perfsprint      # Replaces `fmt.Sprintf` with faster alternatives like `strconv.Itoa`, `strconv.FormatInt`, or plain concatenation.
+    - intrange        # Suggests `for range int` loops (Go 1.22+) instead of `for i := 0; i < n; i++`. Cleaner and enables compiler optimisations.
 
     # ---- Reliability & Concurrency ----
-    - noctx          # Detects missing context in HTTP requests
-    - exhaustive     # Ensures switch statements on enums are exhaustive
-    - durationcheck  # Catches mistakes in time.Duration calculations
-    - errorlint      # Enforces error wrapping best practices
-    - contextcheck   # Checks context propagation rules
-    - predeclared    # Catches shadowing of built-ins (len, new, make, error, etc.)
+    - noctx           # Detects outgoing HTTP requests that don't use a `context.Context`, risking cancellation/timeout not being honoured.
+    - exhaustive      # Ensures switch statements on enum‑like types are exhaustive (covers all constants). Adds safety for sum types.
+    - durationcheck   # Catches mistakes when multiplying `time.Duration` – e.g., `time.Second * time.Second` (invalid).
+    - errorlint       # Enforces error wrapping best practices: using `%w`, not comparing errors directly, avoiding `fmt.Errorf` without `%w`.
+    - contextcheck    # Checks that functions correctly pass `context.Context` down the call chain (no context loss).
+    - predeclared     # Flags shadowing of predeclared identifiers (`len`, `new`, `make`, `error`, `nil`, etc.). Avoids confusion.
+    - nilnil          # Reports returns of `nil, nil` – ambiguous and often leads to caller bugs. Forces clearer API design.
 
     # ---- Style & Consistency ----
-    - funlen         # Flags functions that are too long
-    - gocognit       # Measures cognitive complexity of functions
-    - nestif         # Detects deeply nested if statements
-    - misspell       # Catches typos in code, comments, and identifiers
+    - funlen          # Flags functions that exceed line or statement limits. Encourages small, focused functions.
+    - gocognit        # Measures cognitive complexity (nesting, conditionals, breaks). High complexity hurts readability.
+    - nestif          # Detects deeply nested `if` statements. Suggests early returns or refactoring.
+    - misspell        # Catches common typos in code, comments, and string literals. Uses US English locale by default.
+    - decorder        # Enforces consistent declaration order: `const`, `var`, `type`, `func`. Improves file readability.
 
-    # ---- Modernization ----
-    - perfsprint     # Suggests faster alternatives to fmt.Sprintf
-    - intrange       # Suggests using for range int where possible
-    - modernize      # Suggests modern Go constructs (Go 1.21+)
-    - usetesting     # Enforces modern test helpers (t.Setenv, t.TempDir, etc.)
+    # ---- Modernisation ----
+    - modernize       # Suggests modern Go constructs introduced in Go 1.21+ (e.g., `slices.Contains`, `maps.Copy`, `clear` builtin).
+    - usetesting      # Encourages using modern testing helpers: `t.Setenv`, `t.TempDir`, `t.Context`, instead of manual setup/teardown.
+
+    # ---- Protobuf Helpers ----
+    - protogetter     # Enforces use of generated getter methods (e.g., `GetField()`) instead of direct field access, avoiding nil panics.
 
   settings:
     gocyclo:
-      min-complexity: 15
-      
+      min-complexity: 15        # Functions with complexity >15 are flagged.
+
     govet:
       enable-all: true
       disable:
-        - fieldalignment  # fieldalignment is often noisy and may be disabled
+        - fieldalignment        # Too noisy – often suggests reordering fields for memory optimisation but rarely worth the churn.
 
     funlen:
-      lines: 80           # Maximum number of lines for a function
-      statements: 50      # Maximum number of statements for a function
-      
+      lines: 80                 # Max source lines (not just statements).
+      statements: 50            # Max number of statements.
+
     gocognit:
-      min-complexity: 20  # Cognitive complexity threshold
-      
+      min-complexity: 20        # Cognitive complexity threshold (higher than cyclomatic).
+
     nestif:
-      min-complexity: 4   # Minimum complexity for a nested `if` to trigger
-      
+      min-complexity: 4         # Minimum complexity of a nested `if` to trigger a warning.
+
     exhaustive:
-      default-signifies-exhaustive: true  # Treat 'default' as exhaustive
-        
+      default-signifies-exhaustive: true   # `default` case makes a switch exhaustive.
+
     perfsprint:
-      int-conversion: true   # Suggest `strconv.Itoa` over `fmt.Sprint`
-      err-error: true        # Suggest `errors.New` for simple errors
+      int-conversion: true      # Suggest `strconv.Itoa` over `fmt.Sprint`.
+      err-error: true           # Suggest `errors.New` for simple error strings.
 
     wrapcheck:
-      ignore-package-globs:
+      ignore-package-globs:     # Skip error wrapping checks for these packages (they already wrap properly).
         - "encoding/*"
         - "github.com/pkg/*"
 
     misspell:
-      locale: US
+      locale: US                # Use American English spelling.
 
     usetesting:
-      os-setenv: true
-      os-temp-dir: true
-      os-mkdir-temp: true
-      context-background: true
-      context-todo: true
+      os-setenv: true           # Suggest `t.Setenv` over `os.Setenv` in tests.
+      os-temp-dir: true         # Suggest `t.TempDir` over `os.MkdirTemp`.
+      os-mkdir-temp: true       # Same as above (legacy alias).
+      context-background: true  # Suggest `t.Context()` over `context.Background()` in tests.
+      context-todo: true        # Suggest `t.Context()` over `context.TODO()`.
+
+    gocritic:
+      enabled-checks:
+        - hugeParam             # Flags structs >80 bytes passed by value (including method receivers).
+        - rangeValCopy          # Flags `for _, v := range largeArray` where `v` copies a huge element.
+      settings:
+        hugeParam:
+          sizeThreshold: 80     # Bytes after which a struct is considered "large".
+
+    staticcheck:
+      checks:
+        - all                   # Enable all checks.
+        - -ST1000               # Disable: missing package comment (opinionated).
+        - -ST1020               # Disable: missing documentation on exported function (too strict).
+        - -ST1003               # Disable: naming rules for initialisms (e.g., "URL" vs "Url" – often too pedantic).
+        - -ST1021               # Disable: missing documentation on exported type.
+
+    prealloc:
+      simple: true              # Suggest preallocation for simple `append` loops.
+      range-loops: true         # Also check `for range` loops that append.
+      for-loops: false          # Ignore plain `for` loops (they can be more complex).
+
+    decorder:
+      disable-dec-order-check: false       # Enforce const/var/type/func order.
+      disable-init-func-first-check: false # Do not require `init()` to be first function.
 
 formatters:
   enable:
-    - goimports
-    - gci
-    
+    - goimports   # Formats imports and code, removes unused imports.
+    - gci         # Groups imports into sections: standard, local, third‑party.
+
   settings:
     gci:
       sections:
-        - standard          # Go stdlib (e.g., "fmt", "os")        
-        - prefix(go-far)    # Your local packages
-        - default           # Third-party (e.g., "github.com/...")
-      custom-order: true    # Enforce exact order above
+        - standard          # Standard library imports (e.g., "fmt", "os").
+        - prefix(go-far)    # Your project's local packages (change to your module name).
+        - default           # All other third‑party imports.
+      custom-order: true    # Enforce the exact order above.
 
 issues:
-  max-issues-per-linter: 0
-  max-same-issues: 0
+  max-issues-per-linter: 0   # No limit – show all issues from each linter.
+  max-same-issues: 0         # No limit – show every occurrence of the same issue type.

@@ -12,9 +12,6 @@ import (
 	"github.com/rs/zerolog"
 )
 
-var onceGrace = &sync.Once{}
-
-// App defines the application interface
 type App interface {
 	Serve()
 }
@@ -31,6 +28,8 @@ type AppOptions struct {
 	Environment     string        `yaml:"environment"`
 	ShutdownTimeout time.Duration `yaml:"shutdown_timeout"`
 }
+
+var onceGrace = &sync.Once{}
 
 // InitGrace initializes graceful shutdown handling
 func InitGrace(log *zerolog.Logger, httpServer *http.Server, timeout time.Duration) App {

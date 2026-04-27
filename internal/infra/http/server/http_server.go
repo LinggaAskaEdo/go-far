@@ -12,13 +12,6 @@ import (
 	"go.opentelemetry.io/contrib/instrumentation/net/http/otelhttp"
 )
 
-var (
-	onceServer     = sync.Once{}
-	httpServerInst *http.Server
-	handler        http.Handler
-)
-
-// ServerOptions holds HTTP server configuration
 type HttpServerOptions struct {
 	AppName      string        `yaml:"app_name"`
 	Mode         string        `yaml:"mode"`
@@ -29,7 +22,12 @@ type HttpServerOptions struct {
 	MaxBodyBytes int64         `yaml:"max_body_bytes"`
 }
 
-// InitHttpServer initializes the HTTP server
+var (
+	onceServer     = sync.Once{}
+	httpServerInst *http.Server
+	handler        http.Handler
+)
+
 func InitHttpServer(logger *zerolog.Logger, opt *HttpServerOptions, mw middleware.Middleware, mux *http.ServeMux) *http.Server {
 	onceServer.Do(func() {
 		serverPort := fmt.Sprintf(":%d", opt.Port)

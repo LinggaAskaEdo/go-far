@@ -14,6 +14,15 @@ import (
 	_ "github.com/lib/pq"
 )
 
+type SQLBuilder struct {
+	values      map[string]reflect.Value
+	paramTag    string
+	colTag      string
+	suffixQuery string
+	page        int64
+	limit       int64
+}
+
 const (
 	one = iota
 	many
@@ -34,15 +43,6 @@ const (
 )
 
 var sortFieldPattern = regexp.MustCompile(`(?P<sign>-)?(?P<col>[a-zA-Z_]+),?`)
-
-type SQLBuilder struct {
-	values      map[string]reflect.Value
-	paramTag    string
-	colTag      string
-	suffixQuery string
-	page        int64
-	limit       int64
-}
 
 func NewSQLBuilder(paramTag, colTag, suffix string, page, limit int64) *SQLBuilder {
 	return &SQLBuilder{

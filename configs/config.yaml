@@ -81,8 +81,8 @@ middleware:
     - /swagger
     - /swagger/*
     - /auth/*
-    - /debug/statsviz
-    - /debug/statsviz/ws
+    - /metrics
+    - /debug/*
     - /favicon.ico
   auth_rate_limit:
     command: "3-M"  # 3 requests per minute per IP
@@ -127,5 +127,9 @@ queries:
   path: ./configs/queries/
 
 tracer:
-  enabled: false
-  endpoint: "http://localhost:4317"
+  enabled: true
+  endpoint: "tempo-docker:4317"
+  protocol: "grpc"
+
+metric:
+  enabled: true

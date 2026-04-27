@@ -5,7 +5,10 @@ import (
 	"strings"
 )
 
-const maxLimit, defaultLimit int64 = 1e4, 10
+const (
+	maxLimit, defaultLimit int64 = 1e4, 10
+	MaxIdentifierLength          = 64
+)
 
 var (
 	reDoubleNewline   = regexp.MustCompile(`\n\s*\n`)
@@ -14,8 +17,6 @@ var (
 	injectionPattern  = regexp.MustCompile(`(?i)(;|--|\/\*|\*\/|xp_|sp_executesql|exec\s*\(|execute\s*\(|union\s+select)`)
 	identifierPattern = regexp.MustCompile(`^[a-zA-Z_][a-zA-Z0-9_]*$`)
 )
-
-const MaxIdentifierLength = 64
 
 func ValidatePage(page int64) int64 {
 	if page < 1 {

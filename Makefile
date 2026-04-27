@@ -77,15 +77,19 @@ clean:
 	@printf "$(BLUE)Clean complete$(RESET)\n"
 
 ## Run linter
-lint:
-	@echo "Running linter..."
-	@if command -v $(GOLANGCI_LINT) >/dev/null 2>&1; then \
-		$(GOLANGCI_LINT) run; \
+lint: lint-golint
+	@echo "All linting completed."
+
+## Go Linter
+lint-golint:
+	@echo "Running golangci-lint..."
+	@if command -v golangci-lint >/dev/null 2>&1; then \
+		golangci-lint run; \
 	else \
-		echo "$(YELLOW)golangci-lint not installed. Install with: make install-tools$(RESET)"; \
+		echo "golangci-lint not installed. Run: make install-tools"; \
 		exit 1; \
 	fi
-	@echo "Lint complete"
+	@echo "golangci-lint finished."
 
 ## Update dependencies to latest versions
 update:
@@ -143,7 +147,6 @@ deps:
 install-tools:
 	@echo "Installing tools..."
 	@$(GO) install github.com/swaggo/swag/cmd/swag@latest
-	@$(GO) install github.com/golangci/golangci-lint/cmd/golangci-lint@latest
 	@$(GO) install github.com/golangci/golangci-lint/v2/cmd/golangci-lint@latest
 	@$(GO) install github.com/pressly/goose/v3/cmd/goose@latest
 	@$(GO) install mvdan.cc/gofumpt@latest
@@ -152,7 +155,6 @@ install-tools:
 	@$(GO) install honnef.co/go/tools/cmd/staticcheck@latest
 	@$(GO) install github.com/securego/gosec/v2/cmd/gosec@latest
 	@$(GO) install -v github.com/go-critic/go-critic/cmd/go-critic@latest
-	@$(GO) install golang.org/x/tools/go/analysis/passes/fieldalignment/cmd/fieldalignment@latest
 	@printf "$(BLUE)Tools installed$(RESET)\n"
 
 ## Start monitoring stack (Grafana, Prometheus, Loki, Tempo)

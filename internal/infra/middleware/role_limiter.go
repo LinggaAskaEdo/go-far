@@ -16,6 +16,13 @@ import (
 	"github.com/rs/zerolog"
 )
 
+// rateLimitResult holds parsed rate limiting data
+type rateLimitResult struct {
+	Allowed bool
+	Count   int64
+	TTL     int64
+}
+
 // Lua script for atomic rate limiting (single key, no race conditions)
 const rateLimitLuaScript = `
 	local key = KEYS[1]
@@ -40,13 +47,6 @@ var (
 	uuidPattern    = regexp.MustCompile(`/[a-f0-9]{20,}`)
 	numericPattern = regexp.MustCompile(`/\d+`)
 )
-
-// rateLimitResult holds parsed rate limiting data
-type rateLimitResult struct {
-	Allowed bool
-	Count   int64
-	TTL     int64
-}
 
 // parseRateLimitResult converts raw Redis result to structured data
 func parseRateLimitResult(resultArr []any) rateLimitResult {

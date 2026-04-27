@@ -19,15 +19,6 @@ type UserTokenData struct {
 	Role     entity.Role
 }
 
-// ToTokenResponse converts token.TokenDetails to a DTO for API responses
-func ToTokenResponse(td *token.TokenDetails) TokenResponse {
-	return TokenResponse{
-		AccessToken:  td.AccessToken,
-		RefreshToken: td.RefreshToken,
-		ExpiresAt:    td.ExpiresAt,
-	}
-}
-
 type Meta struct {
 	Error      *appErr.AppError `json:"error,omitempty" swaggertype:"primitive,object" extensions:"x-order=4"`
 	Path       string           `json:"path" extensions:"x-order=0"`
@@ -60,4 +51,13 @@ type ReadinessStatus struct {
 	Dependencies map[string]string `json:"dependencies"`
 	Status       string            `json:"status"`
 	Timestamp    string            `json:"timestamp"`
+}
+
+// ToTokenResponse converts token.TokenDetails to a DTO for API responses
+func ToTokenResponse(td *token.TokenDetails) TokenResponse {
+	return TokenResponse{
+		AccessToken:  td.AccessToken,
+		RefreshToken: td.RefreshToken,
+		ExpiresAt:    td.ExpiresAt,
+	}
 }

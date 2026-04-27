@@ -10,8 +10,6 @@ import (
 	"github.com/rs/zerolog"
 )
 
-var onceSchedulerHandler = &sync.Once{}
-
 type schedulerHandler struct {
 	log            *zerolog.Logger
 	sch            *cfg.Scheduler
@@ -21,6 +19,8 @@ type schedulerHandler struct {
 	enabled        bool
 	tracingEnabled bool
 }
+
+var onceSchedulerHandler = &sync.Once{}
 
 func InitSchedulerHandler(log *zerolog.Logger, sch *cfg.Scheduler, svc *service.Service, jobs *cfg.SchedulerJobsOptions, httpClient *http.Client, enabled, tracingEnabled bool) {
 	var s *schedulerHandler

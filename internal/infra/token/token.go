@@ -20,13 +20,6 @@ import (
 	"github.com/segmentio/ksuid"
 )
 
-const (
-	refreshTokenRotation   = true
-	minSecretLength        = 32
-	redisTimeout           = 3 * time.Second
-	RefreshTokenUsedPrefix = "rt_used:"
-)
-
 type token struct {
 	log                 *zerolog.Logger
 	redis               *redis.Client
@@ -34,11 +27,6 @@ type token struct {
 	expiredToken        time.Duration
 	expiredRefreshToken time.Duration
 }
-
-var (
-	onceToken = &sync.Once{}
-	tokenInst *token
-)
 
 // Token defines the token management interface
 type Token interface {
@@ -71,6 +59,18 @@ type AccessDetails struct {
 	Username    string
 	Role        string
 }
+
+const (
+	refreshTokenRotation   = true
+	minSecretLength        = 32
+	redisTimeout           = 3 * time.Second
+	RefreshTokenUsedPrefix = "rt_used:"
+)
+
+var (
+	onceToken = &sync.Once{}
+	tokenInst *token
+)
 
 // InitToken initializes the token module
 func InitToken(log *zerolog.Logger, opt *TokenOptions, redisClient *redis.Client) Token {

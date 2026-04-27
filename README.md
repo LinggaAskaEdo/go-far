@@ -502,7 +502,21 @@ Apache 2.0 - See [LICENSE](LICENSE) for details.
 
 ## 📋 Changelog
 
-### v1.14.0
+### v1.16.0
+
+- Added Prometheus metrics via `/metrics` endpoint for database pool and Redis monitoring
+- Added Grafana dashboard for go-far in `deployments/monitoring/grafana/dashboards/`
+- Added HTTP/HTTPS OTLP protocol support for tracer (configurable via `tracer.protocol`)
+- Added configurable service name and version for OpenTelemetry (`tracer.name`, `tracer.version`)
+- Added `go.opentelemetry.io/otel/sdk/trace` composite text propagator (TraceContext + Baggage)
+- Improved tracer error handling (graceful fallback instead of panic)
+- Refactored middleware: consolidated swagger/metrics/debug path handling with `shouldSkipAuthAndLog()`
+- Updated public paths: added `/metrics`, `/debug/*`; removed `/debug/statsviz`
+- Enhanced `.golangci.yml` with new linters (wastedassign, copyloopvar, prealloc, mirror, nilnil, protogetter, decorder)
+- Improved linter documentation and settings with gocritic checks
+- Organized code structure per decorder linter: types/constants before functions in error_code.go, user.go, response.go, request_filter.go
+
+### v1.15.0
 
 - Added trace/span/request_id logging to scheduler jobs
 - Conditional logging: trace_id/span_id printed when tracing enabled, req_id always printed

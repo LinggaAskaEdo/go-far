@@ -20,30 +20,6 @@ import (
 	"github.com/rs/zerolog"
 )
 
-const defaultPassword = "UserPass123!"
-
-var (
-	fallbackFirstNames = []string{
-		"James", "Mary", "John", "Patricia", "Robert", "Jennifer", "Michael", "Linda",
-		"William", "Barbara", "David", "Elizabeth", "Richard", "Susan", "Joseph", "Jessica",
-		"Thomas", "Sarah", "Charles", "Karen", "Christopher", "Nancy", "Daniel", "Lisa",
-		"Matthew", "Betty", "Anthony", "Margaret", "Mark", "Sandra", "Donald", "Ashley",
-		"Steven", "Kimberly", "Paul", "Emily", "Andrew", "Donna", "Joshua", "Michelle",
-		"Kenneth", "Dorothy", "Kevin", "Carol", "Brian", "Amanda", "George", "Melissa",
-		"Edward", "Deborah", "Ronald", "Stephanie", "Timothy", "Rebecca", "Jason", "Sharon",
-	}
-
-	fallbackLastNames = []string{
-		"Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis",
-		"Rodriguez", "Martinez", "Hernandez", "Lopez", "Gonzalez", "Wilson", "Anderson", "Thomas",
-		"Taylor", "Moore", "Jackson", "Martin", "Lee", "Perez", "Thompson", "White",
-		"Harris", "Sanchez", "Clark", "Ramirez", "Lewis", "Robinson", "Walker", "Young",
-		"Allen", "King", "Wright", "Scott", "Torres", "Nguyen", "Hill", "Flores",
-		"Green", "Adams", "Nelson", "Baker", "Hall", "Rivera", "Campbell", "Mitchell",
-		"Carter", "Roberts", "Gomez", "Phillips", "Evans", "Turner", "Diaz", "Parker",
-	}
-)
-
 type UserGeneratorJob struct {
 	userService    user.UserServiceItf
 	log            *zerolog.Logger
@@ -51,25 +27,6 @@ type UserGeneratorJob struct {
 	httpClient     *http.Client
 	mu             sync.Mutex
 	tracingEnabled bool
-}
-
-func (j *UserGeneratorJob) logWithContext(ctx context.Context) *zerolog.Event {
-	reqID, _ := ctx.Value(preference.CONTEXT_KEY_LOG_REQUEST_ID).(string)
-
-	event := j.log.Info().
-		Str(string(preference.CONTEXT_KEY_LOG_REQUEST_ID), reqID)
-
-	if j.tracingEnabled {
-		traceID, _ := ctx.Value(preference.CONTEXT_KEY_LOG_TRACE_ID).(string)
-		spanID, _ := ctx.Value(preference.CONTEXT_KEY_LOG_SPAN_ID).(string)
-		if traceID != "" {
-			event = event.Str(string(preference.CONTEXT_KEY_LOG_TRACE_ID), traceID)
-		}
-		if spanID != "" {
-			event = event.Str(string(preference.CONTEXT_KEY_LOG_SPAN_ID), spanID)
-		}
-	}
-	return event
 }
 
 type randomUserResp struct {
@@ -97,6 +54,49 @@ type randomUser struct {
 	DOB   struct {
 		Age int
 	}
+}
+
+const defaultPassword = "UserPass123!"
+
+var (
+	fallbackFirstNames = []string{
+		"James", "Mary", "John", "Patricia", "Robert", "Jennifer", "Michael", "Linda",
+		"William", "Barbara", "David", "Elizabeth", "Richard", "Susan", "Joseph", "Jessica",
+		"Thomas", "Sarah", "Charles", "Karen", "Christopher", "Nancy", "Daniel", "Lisa",
+		"Matthew", "Betty", "Anthony", "Margaret", "Mark", "Sandra", "Donald", "Ashley",
+		"Steven", "Kimberly", "Paul", "Emily", "Andrew", "Donna", "Joshua", "Michelle",
+		"Kenneth", "Dorothy", "Kevin", "Carol", "Brian", "Amanda", "George", "Melissa",
+		"Edward", "Deborah", "Ronald", "Stephanie", "Timothy", "Rebecca", "Jason", "Sharon",
+	}
+
+	fallbackLastNames = []string{
+		"Smith", "Johnson", "Williams", "Brown", "Jones", "Garcia", "Miller", "Davis",
+		"Rodriguez", "Martinez", "Hernandez", "Lopez", "Gonzalez", "Wilson", "Anderson", "Thomas",
+		"Taylor", "Moore", "Jackson", "Martin", "Lee", "Perez", "Thompson", "White",
+		"Harris", "Sanchez", "Clark", "Ramirez", "Lewis", "Robinson", "Walker", "Young",
+		"Allen", "King", "Wright", "Scott", "Torres", "Nguyen", "Hill", "Flores",
+		"Green", "Adams", "Nelson", "Baker", "Hall", "Rivera", "Campbell", "Mitchell",
+		"Carter", "Roberts", "Gomez", "Phillips", "Evans", "Turner", "Diaz", "Parker",
+	}
+)
+
+func (j *UserGeneratorJob) logWithContext(ctx context.Context) *zerolog.Event {
+	reqID, _ := ctx.Value(preference.CONTEXT_KEY_LOG_REQUEST_ID).(string)
+
+	event := j.log.Info().
+		Str(string(preference.CONTEXT_KEY_LOG_REQUEST_ID), reqID)
+
+	if j.tracingEnabled {
+		traceID, _ := ctx.Value(preference.CONTEXT_KEY_LOG_TRACE_ID).(string)
+		spanID, _ := ctx.Value(preference.CONTEXT_KEY_LOG_SPAN_ID).(string)
+		if traceID != "" {
+			event = event.Str(string(preference.CONTEXT_KEY_LOG_TRACE_ID), traceID)
+		}
+		if spanID != "" {
+			event = event.Str(string(preference.CONTEXT_KEY_LOG_SPAN_ID), spanID)
+		}
+	}
+	return event
 }
 
 func InitUserGeneratorJob(log *zerolog.Logger, userService user.UserServiceItf, opts *cfg.UserGeneratorJobOptions, httpClient *http.Client, tracingEnabled bool) *UserGeneratorJob {

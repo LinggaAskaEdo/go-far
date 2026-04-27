@@ -14,6 +14,7 @@ import (
 	httpmux "go-far/internal/infra/http/mux"
 	httpserver "go-far/internal/infra/http/server"
 	"go-far/internal/infra/logger"
+	"go-far/internal/infra/metrics"
 	"go-far/internal/infra/middleware"
 	"go-far/internal/infra/pyroscope"
 	"go-far/internal/infra/query"
@@ -91,12 +92,22 @@ func Run() {
 		defer tracerInst.Stop()
 	}
 
+	// Metrics Initialization
+	var metricsInst metrics.Metrics
+	if conf.Metric.Enabled {
+		metricsInst = metrics.InitMetrics(log, sql0, redis0)
+		metricsInst.RecordDBMetrics()
+		metricsInst.RecordRedisMetrics(redis0)
+		metricsInst.StartPoolMetricsRecorder(3 * time.Second)
+		defer metricsInst.StopPoolMetricsRecorder()
+	}
+
 	// Auth & MiddlewareInitialization
 	authToken := token.InitToken(log, conf.Token, redis1)
 	mw := middleware.InitMiddleware(log, conf.Middleware, authToken, redis2, conf.Tracer.Enabled)
 
 	// HTTP router & validator
-	httpMux := httpmux.InitHttpMux(log)
+	httpMux := httpmux.InitHttpMux(log, metricsInst)
 	validator.InitValidator(log)
 
 	// REST Handler Initialization (registers routes on mux)

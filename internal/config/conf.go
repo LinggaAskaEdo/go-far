@@ -6,6 +6,7 @@ import (
 	httpclient "go-far/internal/infra/http/client"
 	httpserver "go-far/internal/infra/http/server"
 	"go-far/internal/infra/logger"
+	"go-far/internal/infra/metrics"
 	"go-far/internal/infra/middleware"
 	"go-far/internal/infra/query"
 	"go-far/internal/infra/redis"
@@ -27,6 +28,7 @@ type Config struct {
 	Token      *token.TokenOptions            `yaml:"token"`
 	Queries    *query.QueriesOptions          `yaml:"queries"`
 	Tracer     *tracer.TracerOptions          `yaml:"tracer"`
+	Metric     *metrics.MetricsOptions        `yaml:"metric"`
 }
 
 type HTTPConfig struct {

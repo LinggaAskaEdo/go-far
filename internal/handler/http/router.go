@@ -14,8 +14,6 @@ import (
 	"github.com/redis/go-redis/v9"
 )
 
-var onceRestHandler = &sync.Once{}
-
 type rest struct {
 	mux   *http.ServeMux
 	auth  token.Token
@@ -25,6 +23,8 @@ type rest struct {
 	sql0  *pgxpool.Pool
 	redis *redis.Client
 }
+
+var onceRestHandler = &sync.Once{}
 
 func InitHttpHandler(mux *http.ServeMux, auth token.Token, mw middleware.Middleware, svc *service.Service, usvc user.UserServiceItf, sql0 *pgxpool.Pool, redisClient *redis.Client) {
 	var e *rest

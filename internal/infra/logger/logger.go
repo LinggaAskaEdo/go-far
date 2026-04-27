@@ -12,12 +12,6 @@ import (
 	"gopkg.in/natefinch/lumberjack.v2"
 )
 
-var (
-	onceLogger = sync.Once{}
-	logInst    zerolog.Logger
-)
-
-// LoggerOptions holds logger configuration
 type LoggerOptions struct {
 	Level      string `yaml:"level"`
 	Format     string `yaml:"format"`
@@ -29,6 +23,11 @@ type LoggerOptions struct {
 	Enabled    bool   `yaml:"enabled"`
 	Compress   bool   `yaml:"compress"`
 }
+
+var (
+	onceLogger = sync.Once{}
+	logInst    zerolog.Logger
+)
 
 // InitLogger initializes the logger
 func InitLogger(opt *LoggerOptions) *zerolog.Logger {

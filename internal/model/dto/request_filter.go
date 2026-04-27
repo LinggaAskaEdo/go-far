@@ -12,6 +12,18 @@ type UserFilter struct {
 	PageSize int64  `form:"page_size" validate:"min=1,max=100"`
 }
 
+type UserFilterV2 struct {
+	ID       string `param:"id" db:"id"`
+	Name     string `param:"name" db:"name"`
+	Email    string `param:"email" db:"email"`
+	SortBy   string `param:"-"`
+	SortDir  string `param:"-"`
+	MinAge   int    `param:"min_age__gte" db:"age"`
+	MaxAge   int    `param:"max_age__lte" db:"age"`
+	Page     int64  `param:"-"`
+	PageSize int64  `param:"-"`
+}
+
 func (f *UserFilter) NamePattern() string {
 	return "%" + f.Name + "%"
 }
@@ -26,16 +38,4 @@ func (f *UserFilter) Limit() int64 {
 
 func (f *UserFilter) Offset() int64 {
 	return (f.Page - 1) * f.PageSize
-}
-
-type UserFilterV2 struct {
-	ID       string `param:"id" db:"id"`
-	Name     string `param:"name" db:"name"`
-	Email    string `param:"email" db:"email"`
-	SortBy   string `param:"-"`
-	SortDir  string `param:"-"`
-	MinAge   int    `param:"min_age__gte" db:"age"`
-	MaxAge   int    `param:"max_age__lte" db:"age"`
-	Page     int64  `param:"-"`
-	PageSize int64  `param:"-"`
 }

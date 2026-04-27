@@ -15,20 +15,6 @@ import (
 	"github.com/rs/zerolog"
 )
 
-const TimeFormat = time.RFC3339
-
-var (
-	onceMiddleware = &sync.Once{}
-	middlewareInst Middleware
-
-	timeDict = map[string]time.Duration{
-		"S": time.Second,
-		"M": time.Minute,
-		"H": time.Hour,
-		"D": time.Hour * 24,
-	}
-)
-
 // Middleware defines the middleware interface
 type Middleware interface {
 	Handler() func(http.Handler) http.Handler
@@ -84,6 +70,20 @@ type RoleRateLimit struct {
 	Command string `yaml:"command"`
 	Limit   int    `yaml:"limit"`
 }
+
+const TimeFormat = time.RFC3339
+
+var (
+	onceMiddleware = &sync.Once{}
+	middlewareInst Middleware
+
+	timeDict = map[string]time.Duration{
+		"S": time.Second,
+		"M": time.Minute,
+		"H": time.Hour,
+		"D": time.Hour * 24,
+	}
+)
 
 // InitMiddleware initializes the middleware
 func InitMiddleware(log *zerolog.Logger, opt *MiddlewareOptions, tkn token.Token, rdb *redis.Client, tracingEnabled bool) Middleware {
