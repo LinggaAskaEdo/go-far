@@ -95,16 +95,14 @@ func Run() {
 	// Metrics Initialization
 	var metricsInst metrics.Metrics
 	if conf.Metric.Enabled {
-		metricsInst = metrics.InitMetrics(log, sql0, redis0)
-		metricsInst.RecordDBMetrics()
-		metricsInst.RecordRedisMetrics(redis0)
+		metricsInst = metrics.InitMetrics(log)
 		metricsInst.StartPoolMetricsRecorder(3 * time.Second)
 		defer metricsInst.StopPoolMetricsRecorder()
 	}
 
 	// Auth & MiddlewareInitialization
 	authToken := token.InitToken(log, conf.Token, redis1)
-	mw := middleware.InitMiddleware(log, conf.Middleware, authToken, redis2, conf.Tracer.Enabled)
+	mw := middleware.InitMiddleware(log, conf.Middleware, authToken, redis2, conf.Tracer.Enabled, metricsInst)
 
 	// HTTP router & validator
 	httpMux := httpmux.InitHttpMux(log, metricsInst)

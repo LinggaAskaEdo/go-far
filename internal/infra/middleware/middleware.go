@@ -7,6 +7,7 @@ import (
 	"sync"
 	"time"
 
+	"go-far/internal/infra/metrics"
 	"go-far/internal/infra/token"
 	appErr "go-far/internal/model/errors"
 	"go-far/internal/preference"
@@ -36,6 +37,7 @@ type middleware struct {
 	authLimit      int
 	authPeriod     time.Duration
 	tracingEnabled bool
+	metrics        metrics.Metrics
 }
 
 // MiddlewareOptions holds middleware configuration
@@ -86,7 +88,7 @@ var (
 )
 
 // InitMiddleware initializes the middleware
-func InitMiddleware(log *zerolog.Logger, opt *MiddlewareOptions, tkn token.Token, rdb *redis.Client, tracingEnabled bool) Middleware {
+func InitMiddleware(log *zerolog.Logger, opt *MiddlewareOptions, tkn token.Token, rdb *redis.Client, tracingEnabled bool, metricsInst metrics.Metrics) Middleware {
 	onceMiddleware.Do(func() {
 		// --- Main rate limiter (mandatory) ---
 		limit := opt.RateLimiter.Limit
@@ -126,6 +128,7 @@ func InitMiddleware(log *zerolog.Logger, opt *MiddlewareOptions, tkn token.Token
 			authPeriod:     authPeriod,
 			publicPaths:    publicPathsMap,
 			tracingEnabled: tracingEnabled,
+			metrics:        metricsInst,
 		}
 	})
 

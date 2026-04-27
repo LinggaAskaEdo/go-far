@@ -96,10 +96,13 @@ func (mw *middleware) Handler() func(http.Handler) http.Handler {
 	return func(next http.Handler) http.Handler {
 		return http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
 			path := r.URL.Path
+			start := time.Now()
+			statusCode := http.StatusOK
 
 			// Skip auth and logging for swagger, metrics, debug
 			if mw.shouldSkipAuthAndLog(path) {
 				next.ServeHTTP(w, r)
+				mw.recordMetrics(r, statusCode, start)
 				return
 			}
 
@@ -108,12 +111,14 @@ func (mw *middleware) Handler() func(http.Handler) http.Handler {
 				authHeader := r.Header.Get(preference.HeaderAuthorization)
 				if authHeader == "" {
 					mw.writeJSONError(w, http.StatusUnauthorized, "missing authorization header")
+					mw.recordMetrics(r, http.StatusUnauthorized, start)
 					return
 				}
 
 				accessDetails, err := mw.tkn.ValidateToken(r)
 				if err != nil {
 					mw.writeJSONError(w, http.StatusUnauthorized, "invalid token")
+					mw.recordMetrics(r, http.StatusUnauthorized, start)
 					return
 				}
 
@@ -127,7 +132,6 @@ func (mw *middleware) Handler() func(http.Handler) http.Handler {
 			}
 
 			// Logging and tracing
-			start := time.Now()
 			ctx := withStartTime(r.Context(), start)
 			ctx, traceID, spanID := mw.prepareContext(ctx, r)
 
@@ -137,6 +141,7 @@ func (mw *middleware) Handler() func(http.Handler) http.Handler {
 			next.ServeHTTP(rw, r.WithContext(ctx))
 
 			mw.logRequestEnd(traceID, spanID, start, rw.statusCode)
+			mw.recordMetrics(r, rw.statusCode, start)
 		})
 	}
 }
@@ -145,6 +150,12 @@ func (mw *middleware) shouldSkipAuthAndLog(path string) bool {
 	return strings.HasPrefix(path, "/swagger/") ||
 		strings.HasPrefix(path, "/metrics") ||
 		strings.HasPrefix(path, "/debug/")
+}
+
+func (mw *middleware) recordMetrics(r *http.Request, status int, start time.Time) {
+	if mw.metrics != nil {
+		mw.metrics.RecordHttpRequestDuration(r.Method, r.URL.Path, status, time.Since(start))
+	}
 }
 
 func (mw *middleware) prepareContext(ctx context.Context, r *http.Request) (ctxOut context.Context, traceID, spanID string) {
