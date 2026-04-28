@@ -1,12 +1,12 @@
 app:
-  name: go-far
+  name: &app_name go-far
   version: 1.18.0
   environment: development  # development/staging/production)
   shutdown_timeout: 5s
 
 http:
   server:
-    app_name: go-far
+    app_name: *app_name
     mode: release # debug, release
     port: 8181
     write_timeout: 10s

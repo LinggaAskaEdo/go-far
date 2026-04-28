@@ -1,12 +1,12 @@
-# Go-Far - DDD CRUD API
+# Go-Far - Golang Standard Project Layout CRUD API
 
-A production-ready RESTful API built with Go following Domain-Driven Design principles, featuring PostgreSQL, Redis, JWT authentication, role-based rate limiting, and OpenTelemetry tracing.
+A production-ready RESTful API built with Go following [golang-standards/project-layout](https://github.com/golang-standards/project-layout), featuring PostgreSQL, Redis, JWT authentication, role-based rate limiting, and OpenTelemetry tracing.
 
 ## Version: 1.18.0
 
 ## 🚀 Features
 
-- **Domain-Driven Design** - Separation of concerns with handlers, services, and repositories
+- **Go Standard Layout** - Separation of concerns with handlers, services, and repositories
 - **REST API** - Built with Go's native `net/http` (Go 1.25+ pattern matching)
 - **Database** - PostgreSQL with pgx (MySQL supported)
 - **Caching** - Redis
@@ -20,7 +20,7 @@ A production-ready RESTful API built with Go following Domain-Driven Design prin
   - **Many-to-Many Relationships** - Users and cars via junction table
   - **Generic Query Decoder** - Reflection-based HTTP query decoder for reusable filter handling
 - **SQL Query Cleaner** - Utility to clean SQL queries for logging (masks sensitive values like passwords)
-- **Query Loader** - Dynamic SQL query loading from files with tqla template support
+- **Go Templating** - Native Go templates for dynamic SQL query loading
 - **Custom Validators** - Separate validator configuration package for reusable validation logic
 - **API Benchmarking** - Built-in Apache Bench integration for performance testing
 
@@ -47,7 +47,7 @@ go-far/
 │   │   ├── http/               # HTTP client & mux
 │   │   ├── logger/             # Zerolog logger
 │   │   ├── middleware/         # Request middleware (CORS, rate limiting)
-│   │   ├── query/              # SQL query loader (tqla templates)
+│   │   ├── query/              # SQL query loader (Go templates)
 │   │   ├── redis/              # Redis client
 │   │   ├── scheduler/          # Cron scheduler
 │   │   ├── token/              # JWT token management (HS-256)
@@ -68,7 +68,7 @@ go-far/
 ├── api/                        # Generated API docs
 │   └── openapi/                # Swagger documentation
 ├── configs/                    # Application configuration
-│   └── queries/             # SQL queries with tqla templates
+│   └── queries/             # SQL queries with Go templates
 ├── db/                         # Database migrations
 ├── deployments/                # Deployment configs
 ├── scripts/                    # Utility scripts
@@ -78,22 +78,25 @@ go-far/
 
 ## 🛠️ Tech Stack
 
-| Component       | Technology                   |
-| --------------- | ---------------------------- |
-| Framework       | Go 1.25+ `net/http`          |
-| Database        | PostgreSQL (MySQL supported) |
-| DB Driver       | pgx (jackc/pgx)              |
-| Cache           | Redis                        |
-| Auth            | JWT (HS-256) + bcrypt        |
-| Logging         | Zerolog                      |
-| Tracing         | OpenTelemetry                |
-| Scheduler       | robfig/cron/v3               |
-| Circuit Breaker | failsafe-go                  |
-| Validation      | go-playground/validator      |
-| Docs            | Swagger (swaggo)             |
-| SQL Templating  | tqla                         |
-| Query Decoder   | Custom reflection-based      |
-| Benchmark       | Apache Bench (ab)            |
+| Component       | Technology                        | Dependencies URL                                     |
+| --------------- | --------------------------------- | ---------------------------------------------------- |
+| Framework       | Go 1.25+ `net/http`               | <https://pkg.go.dev/net/http>                        |
+| Database        | PostgreSQL (MySQL supported)      | <https://www.postgresql.org>                         |
+| DB Driver       | pgx (jackc/pgx)                   | <https://github.com/jackc/pgx>                       |
+| Cache           | Redis                             | <https://redis.io>                                   |
+| Redis Driver    | go-redis (redis/go-redis)         | <https://github.com/redis/go-redis>                  |
+| Auth            | JWT (HS-256) + bcrypt             | <https://github.com/golang-jwt/jwt>                  |
+| Logging         | Zerolog                           | <https://github.com/rs/zerolog>                      |
+| Logging File    | lumberjack (natefinch/lumberjack) | <https://github.com/natefinch/lumberjack>            |
+| Tracing         | OpenTelemetry                     | <https://opentelemetry.io>                           |
+| Metric          | Prometheus (client_golang)        | <https://github.com/prometheus/client_golang>        |
+| Scheduler       | robfig/cron/v3                    | <https://github.com/robfig/cron>                     |
+| Circuit Breaker | failsafe-go                       | <https://github.com/failsafe-go/failsafe>            |
+| Validation      | go-playground/validator           | <https://github.com/go-playground/validator>         |
+| Docs            | Swagger (swaggo)                  | <https://github.com/swaggo/swag>                     |
+| SQL Templating  | Go text/template                  | <https://pkg.go.dev/text/template>                   |
+| Query Decoder   | Custom reflection-based           | -                                                    |
+| Benchmark       | Apache Bench (ab)                 | <https://httpd.apache.org/docs/2.4/programs/ab.html> |
 
 ## 📋 API Endpoints
 
@@ -161,86 +164,160 @@ Roles are assigned during registration and stored as a PostgreSQL enum type.
 Edit `configs/config.yaml` or use environment variables:
 
 ```yaml
+app:
+  name: go-far
+  version: 1.18.0
+  environment: development  # development/staging/production)
+  shutdown_timeout: 5s
+
 http:
   server:
-    app_name: go-far-app
+    app_name: go-far
     mode: release # debug, release
     port: 8181
     write_timeout: 10s
     read_timeout: 10s
     idle_timeout: 60s
-    shutdown_timeout: 5s
+    max_body_bytes: 1048576 # 1MB (1 << 20), typical: 1-10MB for REST APIs
+  metrics_server:
+    mode: release # debug, release
+    port: 9191
+    write_timeout: 10s
+    read_timeout: 10s
+    idle_timeout: 60s
     max_body_bytes: 1048576 # 1MB
-
-  database:
-    postgres:
-      enabled: true
-      driver: postgres
-      host: localhost
-      port: 5432
-      user: postgres
-      password: ${POSTGRES_DOCKER_PASSWORD}
-      dbname: go_far
-
-  redis:
+  client:
     enabled: true
-    address: localhost:6379
-    password: ""
+    max_idle_conns: 100
+    max_idle_conns_per_host: 10
+    max_conns_per_host: 20
+    idle_conn_timeout: 90s
+    dial_timeout: 30s
+    keep_alive: 30s
+    tls_handshake_timeout: 10s
+    response_header_timeout: 10s
+    expect_continue_timeout: 1s
+    disable_compression: false
+    timeout: 10s
+    circuit_breaker:
+      max_retries: 2
+      backoff_min: 100ms
+      backoff_max: 2s
 
-  logger:
+database: # postgres, mysql, oracle
+  postgres:
     enabled: true
-    level: debug # debug, info, warn, error
-    format: json # json, console
+    driver: postgres
+    host: localhost
+    port: 5432
+    user: postgres
+    password: ${POSTGRES_DOCKER_PASSWORD}
+    dbname: go-far
+    sslmode: false
+    max_open_conns: 25
+    max_idle_conns: 5
+    conn_max_lifetime: 1h
+    conn_max_idle_time: 30m
 
-  middleware:
-    public_paths:
-      - /health
-      - /ready
-      - /swagger
-      - /auth/*
-    rate_limiter:
-      command: "1-S"
-      limit: 500
-    role_rate_limit:
-      admin:
-        command: "1-M"
-        limit: 10000000
-      user:
-        command: "1-M"
-        limit: 5
-      guest:
-        command: "1-M"
-        limit: 1
+redis:
+  enabled: true
+  network: tcp
+  address: "localhost:6379"
+  password: ""
+  cache_ttl: 60s
+  max_retries: 3
+  min_retry_backoff: 8ms
+  max_retry_backoff: 512ms
+  dial_timeout: 5s
+  read_timeout: 3s
+  write_timeout: 3s
+  pool_size: 10
+  min_idle_conns: 5
+  max_idle_conns: 5
+  max_active_conns: 10
+  pool_timeout: 30s
 
-  scheduler:
-    enabled: true
-    jobs:
-      user_generator:
-        enabled: false
-        cron: "0 0 */1 * * *"
-      car_generator:
-        enabled: true
-        cron: "0 */30 * * * *"
+logger:
+  enabled: true
+  level: debug # debug, info, warn, error
+  format: json # json, console
+  output: stdout # stdout, file
+  path: ./logs/app.log
+  max_size: 100 # megabytes
+  max_backups: 7
+  max_age: 30 # days
+  compress: true # disabled by default
 
-  token:
-    expired_token: 5m
-    expired_refresh_token: 15m
+middleware:
+  public_paths:
+    - /health
+    - /ready
+    - /swagger
+    - /swagger/*
+    - /auth/*
+    - /metrics
+    - /debug/*
+    - /favicon.ico
+  auth_rate_limit:
+    command: "3-M"  # 3 requests per minute per IP
+    limit: 3
+  rate_limiter:
+    command: "1-S" # 1 request per second
+    limit: 500 # max 500 clients
+  role_rate_limit:
+    admin:
+      command: "1-M"
+      limit: 10000000
+    user:
+      command: "1-M"
+      limit: 5
+    guest:
+      command: "1-M"
+      limit: 1
 
-  tracer:
-    enabled: false
-    endpoint: "http://localhost:4317"
+scheduler:
+  enabled: true
+  jobs:
+    user_generator:
+      enabled: false
+      random_user_url: "https://randomuser.me/api/"
+      cron: "0 0 */1 * * *" # Every 1 hour
+      batch_size: 5
+      min_age: 18
+      max_age: 80
+    car_generator:
+      enabled: false
+      nhtsa_api_url: "https://vpic.nhtsa.dot.gov/api/vehicles"
+      cron: "0 */30 * * * *" # Every 30 minutes
+      batch_size: 3
+      min_year: 2015
+      max_year: 2025
+
+token:
+  expired_token: 5m
+  expired_refresh_token: 15m
+
+queries:
+  path: ./configs/queries/
+
+tracer:
+  enabled: true
+  endpoint: "localhost:4317"
+  protocol: "grpc"
+
+metric:
+  enabled: true
+
+pyroscope:
+  enabled: false
 ```
 
 ### Scheduler Jobs
 
-The application includes automatic data seeding via cron jobs:
-
-| Job              | Schedule        | Description                                      |
-| ---------------- | --------------- | ------------------------------------------------ |
-| `user_generator` | Every 1 hour    | Generates random users with realistic names      |
-| `car_generator`  | Every 30 mins   | Generates random cars with real models/colors    |
-
-**Car Generator** includes 70+ real car models from major brands (Toyota, Honda, Ford, BMW, Mercedes-Benz, Audi, Tesla, etc.) with authentic colors and randomly generated US-format license plates.
+| Job              | Schedule          | Description                                      | Enabled |
+| ---------------- | ----------------- | ------------------------------------------------ | ------- |
+| `user_generator` | Every 1 hour      | Generates random users from randomuser.me API    | false   |
+| `car_generator`  | Every 30 minutes  | Generates random cars from NHTSA API             | false   |
 
 ### Environment Variables
 
@@ -433,7 +510,7 @@ curl -X GET "http://localhost:8181/users?page=1&page_size=10&sort_by=name&sort_d
 
 ### Generic Query Decoder Usage
 
-The `util.DecodeQuery` function automatically decodes HTTP query parameters to DTOs using struct tags:
+The `util.DecodeURL` function automatically decodes HTTP query parameters to DTOs using struct tags:
 
 ```go
 // DTO with param or form tags
@@ -449,7 +526,7 @@ type UserFilter struct {
 }
 
 // Handler usage - single line instead of 30+ lines
-filter := util.DecodeQuery[dto.UserFilter](r.URL.Query())
+filter := util.DecodeURL[dto.UserFilter](r.URL.Query())
 ```
 
 Supports: `string`, `int`, `int64`, `float64`, `bool`, `time.Time`, `[]string`
@@ -502,8 +579,6 @@ Apache 2.0 - See [LICENSE](LICENSE) for details.
 - Issues: GitHub Issues
 - Email: <lemp.otis@gmail.com>
 
-## 📋 Changelog
-
 ### v1.18.0
 
 - Added metrics server on separate port (9191) for Prometheus scraping
@@ -544,7 +619,21 @@ Apache 2.0 - See [LICENSE](LICENSE) for details.
 - Conditional logging: trace_id/span_id printed when tracing enabled, req_id always printed
 - Jobs now propagate context with trace IDs from scheduler to job handlers
 
+### v1.14.0
+
+- Added trace/span/request_id logging to scheduler jobs
+- Added GenerateTraceID/GenerateSpanID functions to middleware
+- Conditional logging: trace_id/span_id printed when tracing enabled
+- Jobs propagate context with trace IDs from scheduler to handlers
+- Updated golangci.yml with additional linters (predeclared, misspell, usetesting)
+
 ### v1.13.0
+
+- Added Pyroscope profiler integration for continuous profiling
+- Restructured config with dedicated app section
+- Fixed query loader arg syntax
+- Updated dependency: statsviz to pyroscope
+- Disabled car_generator by default
 
 ### v1.12.0
 
@@ -562,23 +651,38 @@ Apache 2.0 - See [LICENSE](LICENSE) for details.
 - Per-job circuit breaker configuration in scheduler (user_generator, car_generator)
 - State change logging for circuit breaker monitoring
 
-### v1.8.0
+### v1.10.0
 
-- Added dedicated validator package (`internal/infra/validator`) with configurable validation rules
-- Implemented SQL query cleaning utility for safe logging
-- Added dynamic SQL query loader with tqla template support
-- Added API benchmarking with Apache Bench (`make benchmark`)
-- Added UserV2 handler, repository, and service for enhanced user operations
-- Improved security by masking sensitive values in debug logs
+- Fixed go-critic issues in util package
+- Updated Makefile fmt target with gofumpt
+- Added circuit breaker with failsafe-go for external API protection
+
+### v1.9.0
+
+- Migration: Replace sqlx with pgx (jackc/pgx/v5) for PostgreSQL driver
+- Updated database config to use pgxpool instead of sqlx.DB
+- Updated repositories to use pgx Tx, Query, QueryRow APIs
+- Fixed scan field mismatches to match SQL column count
+- Fixed RowsAffected() return type (no error in pgx)
 
 ### v1.8.1
 
 - Refactor: Move queryLoader.Compile calls from car_.go to car_sql.go
 - Code quality: Define constant for duplicate cache key literal in car repository
-- Migration: Replace sqlx with pgx (jackc/pgx/v5) for PostgreSQL driver
+
+### v1.8.0
+
+- Added dedicated validator package (`internal/infra/validator`) with configurable validation rules
+- Implemented SQL query cleaning utility for safe logging
+- Added dynamic SQL query loader with native Go templates
+- Added API benchmarking with Apache Bench (`make benchmark`)
+- Added UserV2 handler, repository, and service for enhanced user operations
+- Improved security by masking sensitive values in debug logs
+- Added error codes and error messages for structured error handling
 
 ### v1.7.0
 
-- Added generic query decoder for reusable filter handling
-- Added many-to-many relationships (users and cars)
+- Added generic query decoder (`util.DecodeQuery`) for reusable filter handling
+- Added sql_builder utility for dynamic SQL query building with filtering/pagination
+- Added many-to-many relationships (users and cars via junction table)
 - Improved IDOR protection on user-scoped endpoints
