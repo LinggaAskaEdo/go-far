@@ -27,6 +27,7 @@ type TracerOptions struct {
 type Tracer interface {
 	Stop()
 	GetServiceName() string
+	ForceFlush(context.Context) error
 }
 
 type tracerImpl struct {
@@ -102,8 +103,11 @@ func createTracerProvider(ctx context.Context, log *zerolog.Logger, endpoint, pr
 }
 
 func createHTTPProvider(ctx context.Context, log *zerolog.Logger, endpoint string, res *resource.Resource) *sdktrace.TracerProvider {
+	log.Info().Str("endpoint", endpoint).Msg("Creating HTTP OTLP exporter")
+
 	exporter, err := otlptracehttp.New(ctx,
 		otlptracehttp.WithEndpoint(endpoint),
+		otlptracehttp.WithInsecure(),
 		otlptracehttp.WithTimeout(5*time.Second),
 	)
 	if err != nil {
@@ -111,17 +115,18 @@ func createHTTPProvider(ctx context.Context, log *zerolog.Logger, endpoint strin
 		return nil
 	}
 
+	log.Info().Msg("HTTP OTLP exporter created, creating TracerProvider")
+
 	return sdktrace.NewTracerProvider(
-		sdktrace.WithBatcher(exporter,
-			sdktrace.WithBatchTimeout(5*time.Second),
-			sdktrace.WithMaxExportBatchSize(512),
-		),
+		sdktrace.WithSyncer(exporter),
 		sdktrace.WithResource(res),
 		sdktrace.WithSampler(sdktrace.AlwaysSample()),
 	)
 }
 
 func createGRPCProvider(ctx context.Context, log *zerolog.Logger, endpoint string, res *resource.Resource) *sdktrace.TracerProvider {
+	log.Info().Str("endpoint", endpoint).Msg("Creating gRPC OTLP exporter")
+
 	exporter, err := otlptracegrpc.New(ctx,
 		otlptracegrpc.WithEndpoint(endpoint),
 		otlptracegrpc.WithInsecure(),
@@ -132,11 +137,10 @@ func createGRPCProvider(ctx context.Context, log *zerolog.Logger, endpoint strin
 		return nil
 	}
 
+	log.Info().Msg("gRPC OTLP exporter created, creating TracerProvider")
+
 	return sdktrace.NewTracerProvider(
-		sdktrace.WithBatcher(exporter,
-			sdktrace.WithBatchTimeout(5*time.Second),
-			sdktrace.WithMaxExportBatchSize(512),
-		),
+		sdktrace.WithSyncer(exporter),
 		sdktrace.WithResource(res),
 		sdktrace.WithSampler(sdktrace.AlwaysSample()),
 	)
@@ -159,4 +163,11 @@ func (t *tracerImpl) Stop() {
 
 func (t *tracerImpl) GetServiceName() string {
 	return t.serviceName
+}
+
+func (t *tracerImpl) ForceFlush(ctx context.Context) error {
+	if t.provider == nil {
+		return nil
+	}
+	return t.provider.ForceFlush(ctx)
 }

@@ -3,6 +3,7 @@ package app
 import (
 	"flag"
 	"log"
+	"net/http"
 	"time"
 
 	"go-far/internal/config"
@@ -89,8 +90,9 @@ func Run() {
 	svc := service.InitService(repo)
 
 	// Tracer Initialization
+	var tracerInst tracer.Tracer
 	if conf.Tracer.Enabled {
-		tracerInst := tracer.InitTracer(log, conf.Tracer)
+		tracerInst = tracer.InitTracer(log, conf.Tracer)
 		defer tracerInst.Stop()
 	}
 
@@ -98,8 +100,6 @@ func Run() {
 	var metricsInst metrics.Metrics
 	if conf.Metric.Enabled {
 		metricsInst = metrics.InitMetrics(log, sql0, redis0, redis1, redis2)
-		metricsInst.StartPoolMetricsRecorder(3 * time.Second)
-		defer metricsInst.StopPoolMetricsRecorder()
 	}
 
 	// Auth & MiddlewareInitialization
@@ -129,8 +129,14 @@ func Run() {
 	// HTTP Server Initialization
 	httpServer := httpserver.InitHttpServer(log, conf.HTTP.Server, mw, httpMux)
 
+	// Metrics Server Initialization
+	var metricsServer *http.Server
+	if conf.Metric.Enabled && conf.HTTP.MetricsServer != nil {
+		metricsServer = httpserver.InitMetricsServer(log, conf.HTTP.MetricsServer, metricsInst.HTTPHandler())
+	}
+
 	// App Initialization
-	app := grace.InitGrace(log, httpServer, conf.App.ShutdownTimeout)
+	app := grace.InitGrace(log, httpServer, metricsServer, conf.App.ShutdownTimeout)
 	app.Serve()
 }
 

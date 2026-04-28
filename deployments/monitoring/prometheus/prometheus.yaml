@@ -8,16 +8,16 @@ scrape_configs:
       - targets: ['localhost:9090']
   
   - job_name: 'go-far'
-    scrape_interval: 3s
+    scrape_interval: 5s
     static_configs:
-      - targets: ['192.168.1.6:8181']
+      - targets: ['192.168.1.6:9191']
   
   - job_name: 'postgres'
-    scrape_interval: 3s
+    scrape_interval: 15s
     static_configs:
       - targets: ['postgres-exporter-docker:9187']
     
   - job_name: 'redis'
-    scrape_interval: 3s
+    scrape_interval: 15s
     static_configs:
       - targets: ['redis-exporter-docker:9121']

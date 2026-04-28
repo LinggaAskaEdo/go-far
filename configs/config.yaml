@@ -1,17 +1,25 @@
 app:
   name: go-far
-  version: 1.17.0
+  version: 1.18.0
   environment: development  # development/staging/production)
   shutdown_timeout: 5s
 
 http:
   server:
+    app_name: go-far
     mode: release # debug, release
     port: 8181
     write_timeout: 10s
     read_timeout: 10s
     idle_timeout: 60s
     max_body_bytes: 1048576 # 1MB (1 << 20), typical: 1-10MB for REST APIs
+  metrics_server:
+    mode: release # debug, release
+    port: 9191
+    write_timeout: 10s
+    read_timeout: 10s
+    idle_timeout: 60s
+    max_body_bytes: 1048576 # 1MB
   client:
     enabled: true
     max_idle_conns: 100
@@ -128,7 +136,7 @@ queries:
 
 tracer:
   enabled: true
-  endpoint: "tempo-docker:4317"
+  endpoint: "localhost:4317"
   protocol: "grpc"
 
 metric:

@@ -2,6 +2,8 @@
 
 A production-ready RESTful API built with Go following Domain-Driven Design principles, featuring PostgreSQL, Redis, JWT authentication, role-based rate limiting, and OpenTelemetry tracing.
 
+## Version: 1.18.0
+
 ## 🚀 Features
 
 - **Domain-Driven Design** - Separation of concerns with handlers, services, and repositories
@@ -10,7 +12,7 @@ A production-ready RESTful API built with Go following Domain-Driven Design prin
 - **Caching** - Redis
 - **Authentication** - JWT with HS-256 signing, refresh tokens, and role-based access
 - **Role-Based Rate Limiting** - Per-role sliding window rate limiting via Redis Lua script (atomic, race-condition free)
-- **Observability** - OpenTelemetry tracing with OTLP exporter
+- **Observability** - OpenTelemetry tracing with OTLP exporter, Prometheus metrics on separate port
 - **Scheduled Jobs** - Cron-based job scheduler
 - **Circuit Breaker** - Per-job circuit breaker using failsafe-go for external API protection
 - **API Documentation** - Swagger/OpenAPI 2.0
@@ -501,6 +503,17 @@ Apache 2.0 - See [LICENSE](LICENSE) for details.
 - Email: <lemp.otis@gmail.com>
 
 ## 📋 Changelog
+
+### v1.18.0
+
+- Added metrics server on separate port (9191) for Prometheus scraping
+- Added metrics config: `http.metrics_server` in config.yaml
+- Added Go runtime and process collectors (CPU, memory, goroutines)
+- Added HTTP request counter (`http_server_requests_total`)
+- Added dedicated `/metrics` endpoint exposed on port 9191
+- Separated metrics server from main API server
+- Fixed trace not exported to Tempo (missing app_name in http.server config)
+- Added app_name validation to ensure OTel handler is created
 
 ### v1.17.0
 

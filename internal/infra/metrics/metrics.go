@@ -9,6 +9,7 @@ import (
 
 	"github.com/jackc/pgx/v5/pgxpool"
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/prometheus/client_golang/prometheus/collectors"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
 	"github.com/redis/go-redis/v9"
 	"github.com/rs/zerolog"
@@ -20,8 +21,7 @@ type MetricsOptions struct {
 
 type Metrics interface {
 	RecordHttpRequestDuration(method, path string, status int, duration time.Duration)
-	StartPoolMetricsRecorder(interval time.Duration)
-	StopPoolMetricsRecorder()
+	RecordHttpRequest(method, path string, status int)
 	HTTPHandler() http.Handler
 }
 
@@ -30,6 +30,7 @@ type metricsImpl struct {
 	pool         *pgxpool.Pool
 	redisClients []*redis.Client
 	httpDuration *prometheus.HistogramVec
+	httpRequests *prometheus.CounterVec
 }
 
 var (
@@ -65,6 +66,9 @@ func InitMetrics(log *zerolog.Logger, pool *pgxpool.Pool, redisClients ...*redis
 	onceMetrics.Do(func() {
 		reg = prometheus.NewRegistry()
 
+		reg.MustRegister(collectors.NewProcessCollector(collectors.ProcessCollectorOpts{}))
+		reg.MustRegister(collectors.NewGoCollector())
+
 		httpDuration := prometheus.NewHistogramVec(
 			prometheus.HistogramOpts{
 				Name:    "http_request_duration_seconds",
@@ -77,11 +81,23 @@ func InitMetrics(log *zerolog.Logger, pool *pgxpool.Pool, redisClients ...*redis
 			log.Warn().Err(err).Msg("Failed to register httpDuration metric")
 		}
 
+		httpRequests := prometheus.NewCounterVec(
+			prometheus.CounterOpts{
+				Name: "http_server_requests_total",
+				Help: "Total number of HTTP requests by method, path and status",
+			},
+			[]string{"method", "path", "status"},
+		)
+		if err := reg.Register(httpRequests); err != nil {
+			log.Warn().Err(err).Msg("Failed to register httpRequests metric")
+		}
+
 		metricsInst = &metricsImpl{
 			log:          log,
 			pool:         pool,
 			redisClients: redisClients,
 			httpDuration: httpDuration,
+			httpRequests: httpRequests,
 		}
 
 		if pool != nil {
@@ -100,12 +116,8 @@ func (m *metricsImpl) RecordHttpRequestDuration(method, path string, status int,
 	m.httpDuration.WithLabelValues(method, path, strconv.Itoa(status)).Observe(duration.Seconds())
 }
 
-func (m *metricsImpl) StartPoolMetricsRecorder(interval time.Duration) {
-	m.log.Info().Dur("interval", interval).Msg("Started pool metrics recorder")
-}
-
-func (m *metricsImpl) StopPoolMetricsRecorder() {
-	// Metrics are recorded inline during request handling; no background goroutines to stop
+func (m *metricsImpl) RecordHttpRequest(method, path string, status int) {
+	m.httpRequests.WithLabelValues(method, path, strconv.Itoa(status)).Inc()
 }
 
 func (m *metricsImpl) HTTPHandler() http.Handler {
@@ -115,10 +127,6 @@ func (m *metricsImpl) HTTPHandler() http.Handler {
 			return
 		}
 
-		if reg != nil {
-			promhttp.HandlerFor(reg, promhttp.HandlerOpts{}).ServeHTTP(w, r)
-		} else {
-			promhttp.Handler().ServeHTTP(w, r)
-		}
+		promhttp.HandlerFor(reg, promhttp.HandlerOpts{}).ServeHTTP(w, r)
 	})
 }

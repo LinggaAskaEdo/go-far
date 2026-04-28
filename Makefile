@@ -130,10 +130,11 @@ run:
 	@echo "Starting application..."
 	@$(BIN_DIR)/$(BINARY_NAME)
 
-## Kill app running on port 8181
+## Kill app running on ports 8181 and 9191
 kill:
-	@echo "Killing app on port 8181..."
-	@pkill -f "./bin/app" || true
+	@echo "Killing app on ports 8181, 9191..."
+	@kill $$(lsof -ti:8181,9191 2>/dev/null) 2>/dev/null || true
+	@sleep 1
 	@echo "Done"
 
 ## Download and tidy dependencies

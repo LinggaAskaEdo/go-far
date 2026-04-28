@@ -158,7 +158,7 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=\"go-far\"}[5m])) by (le, status))",
+                      "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=\"go-far\", path!~\"/metrics|/swagger.*|/debug/vars|/health.*\"}[5m])) by (le, method, path))",
                       "legendFormat": "{{code}}",
                       "range": true
                     },
@@ -193,8 +193,8 @@
                   "axisPlacement": "auto",
                   "barAlignment": 0,
                   "barWidthFactor": 0.6,
-                  "drawStyle": "bars",
-                  "fillOpacity": 80,
+                  "drawStyle": "line",
+                  "fillOpacity": 25,
                   "gradientMode": "none",
                   "hideFrom": {
                     "legend": false,
@@ -202,7 +202,7 @@
                     "viz": false
                   },
                   "insertNulls": false,
-                  "lineInterpolation": "smooth",
+                  "lineInterpolation": "linear",
                   "lineWidth": 1,
                   "pointSize": 5,
                   "scaleDistribution": {
@@ -213,7 +213,7 @@
                   "spanNulls": false,
                   "stacking": {
                     "group": "A",
-                    "mode": "none"
+                    "mode": "normal"
                   },
                   "thresholdsStyle": {
                     "mode": "off"
@@ -276,7 +276,7 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{job=\"go-far\"}[5m])) by (le))",
+                      "expr": "histogram_quantile(0.99, sum(rate(http_request_duration_seconds_bucket{job=\"go-far\", path!~\"/metrics|/swagger.*|/debug/vars|/health.*\"}[5m])) by (le, method, path))",
                       "legendFormat": "Total req/min",
                       "range": true
                     },
@@ -311,8 +311,8 @@
                   "axisPlacement": "auto",
                   "barAlignment": 0,
                   "barWidthFactor": 0.6,
-                  "drawStyle": "bars",
-                  "fillOpacity": 80,
+                  "drawStyle": "line",
+                  "fillOpacity": 25,
                   "gradientMode": "none",
                   "hideFrom": {
                     "legend": false,
@@ -320,7 +320,7 @@
                     "viz": false
                   },
                   "insertNulls": false,
-                  "lineInterpolation": "smooth",
+                  "lineInterpolation": "linear",
                   "lineWidth": 1,
                   "pointSize": 5,
                   "scaleDistribution": {
@@ -331,7 +331,7 @@
                   "spanNulls": false,
                   "stacking": {
                     "group": "A",
-                    "mode": "none"
+                    "mode": "normal"
                   },
                   "thresholdsStyle": {
                     "mode": "off"
@@ -1443,7 +1443,7 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "redis_pool_total_connections{client=\"apps\", instance=\"192.168.1.6:8181\", job=\"go-far\"}",
+                      "expr": "redis_pool_total_connections{client=\"apps\", instance=\"192.168.1.6:9191\", job=\"go-far\"}",
                       "legendFormat": "Apps",
                       "range": true
                     },
@@ -1465,7 +1465,7 @@
                     "spec": {
                       "editorMode": "code",
                       "exemplar": false,
-                      "expr": "redis_pool_total_connections{client=\"auth\", instance=\"192.168.1.6:8181\", job=\"go-far\"}",
+                      "expr": "redis_pool_total_connections{client=\"auth\", instance=\"192.168.1.6:9191\", job=\"go-far\"}",
                       "instant": false,
                       "legendFormat": "Auth",
                       "range": true
@@ -1487,7 +1487,7 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "redis_pool_total_connections{client=\"limiter\", instance=\"192.168.1.6:8181\", job=\"go-far\"}",
+                      "expr": "redis_pool_total_connections{client=\"limiter\", instance=\"192.168.1.6:9191\", job=\"go-far\"}",
                       "instant": false,
                       "legendFormat": "Limiter",
                       "range": true
@@ -1936,8 +1936,10 @@
                     "group": "prometheus",
                     "kind": "DataQuery",
                     "spec": {
-                      "expr": "promhttp_metric_handler_requests_total{job=\"go-far\"}",
-                      "legendFormat": "Total Requests"
+                      "editorMode": "code",
+                      "expr": "http_server_requests_total{job=\"go-far\"}",
+                      "legendFormat": "Total Requests",
+                      "range": true
                     },
                     "version": "v0"
                   },
@@ -2052,8 +2054,10 @@
                     "group": "prometheus",
                     "kind": "DataQuery",
                     "spec": {
-                      "expr": "sum by (code) (promhttp_metric_handler_requests_total{job=\"go-far\"})",
-                      "legendFormat": "Status {{code}}"
+                      "editorMode": "code",
+                      "expr": "sum by (status) (http_server_requests_total{job=\"go-far\"})",
+                      "legendFormat": "Status {{code}}",
+                      "range": true
                     },
                     "version": "v0"
                   },
@@ -2285,7 +2289,7 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "histogram_quantile(0.90, sum(rate(http_request_duration_seconds_bucket{job=\"go-far\"}[5m])) by (le))",
+                      "expr": "histogram_quantile(0.90, sum(rate(http_request_duration_seconds_bucket{job=\"go-far\", path!~\"/metrics|/swagger.*|/debug/vars|/health.*\"}[5m])) by (le, method, path))",
                       "legendFormat": "req/min",
                       "range": true
                     },
@@ -2320,8 +2324,8 @@
                   "axisPlacement": "auto",
                   "barAlignment": 0,
                   "barWidthFactor": 0.6,
-                  "drawStyle": "bars",
-                  "fillOpacity": 80,
+                  "drawStyle": "line",
+                  "fillOpacity": 25,
                   "gradientMode": "none",
                   "hideFrom": {
                     "legend": false,
@@ -2329,7 +2333,7 @@
                     "viz": false
                   },
                   "insertNulls": false,
-                  "lineInterpolation": "smooth",
+                  "lineInterpolation": "linear",
                   "lineWidth": 1,
                   "pointSize": 5,
                   "scaleDistribution": {
@@ -2340,7 +2344,7 @@
                   "spanNulls": false,
                   "stacking": {
                     "group": "A",
-                    "mode": "none"
+                    "mode": "normal"
                   },
                   "thresholdsStyle": {
                     "mode": "off"

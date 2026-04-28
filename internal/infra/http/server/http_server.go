@@ -24,7 +24,9 @@ type HttpServerOptions struct {
 
 var (
 	onceServer     = sync.Once{}
+	onceMetricsSrv = sync.Once{}
 	httpServerInst *http.Server
+	metricsServer  *http.Server
 	handler        http.Handler
 )
 
@@ -64,4 +66,34 @@ func InitHttpServer(logger *zerolog.Logger, opt *HttpServerOptions, mw middlewar
 	})
 
 	return httpServerInst
+}
+
+func InitMetricsServer(logger *zerolog.Logger, opt *HttpServerOptions, handler http.Handler) *http.Server {
+	onceMetricsSrv.Do(func() {
+		serverPort := fmt.Sprintf(":%d", opt.Port)
+
+		maxBodyBytes := opt.MaxBodyBytes
+		if maxBodyBytes == 0 {
+			maxBodyBytes = 1 << 20 // 1MB
+		}
+
+		var wrappedHandler = handler
+		if maxBodyBytes > 0 {
+			bodyLimitedHandler := wrappedHandler
+			wrappedHandler = http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+				r.Body = http.MaxBytesReader(w, r.Body, maxBodyBytes)
+				bodyLimitedHandler.ServeHTTP(w, r)
+			})
+		}
+
+		metricsServer = &http.Server{
+			Addr:         serverPort,
+			WriteTimeout: opt.WriteTimeout,
+			ReadTimeout:  opt.ReadTimeout,
+			IdleTimeout:  opt.IdleTimeout,
+			Handler:      wrappedHandler,
+		}
+	})
+
+	return metricsServer
 }

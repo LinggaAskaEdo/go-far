@@ -133,7 +133,7 @@ func (mw *middleware) Handler() func(http.Handler) http.Handler {
 
 			// Logging and tracing
 			ctx := withStartTime(r.Context(), start)
-			ctx, traceID, spanID := mw.prepareContext(ctx, r)
+			ctx, traceID, spanID := mw.prepareContext(ctx)
 
 			mw.logRequestStart(r, traceID, spanID)
 
@@ -155,10 +155,11 @@ func (mw *middleware) shouldSkipAuthAndLog(path string) bool {
 func (mw *middleware) recordMetrics(r *http.Request, status int, start time.Time) {
 	if mw.metrics != nil {
 		mw.metrics.RecordHttpRequestDuration(r.Method, r.URL.Path, status, time.Since(start))
+		mw.metrics.RecordHttpRequest(r.Method, r.URL.Path, status)
 	}
 }
 
-func (mw *middleware) prepareContext(ctx context.Context, r *http.Request) (ctxOut context.Context, traceID, spanID string) {
+func (mw *middleware) prepareContext(ctx context.Context) (ctxOut context.Context, traceID, spanID string) {
 	span := trace.SpanFromContext(ctx)
 	spanContext := span.SpanContext()
 
@@ -168,16 +169,12 @@ func (mw *middleware) prepareContext(ctx context.Context, r *http.Request) (ctxO
 		traceID = xid.New().String()
 	}
 
-	if requestID := r.Header.Get(preference.HeaderXRequestID); requestID != "" {
-		spanID = requestID
-	} else {
-		spanID = xid.New().String()
-		r.Header.Set(preference.HeaderXRequestID, spanID)
-	}
+	spanID = xid.New().String()
 
-	ctxOut = mw.attachTraceSpanIDs(ctx, traceID, spanID)
+	ctx = context.WithValue(ctx, preference.CONTEXT_KEY_LOG_TRACE_ID, traceID)
+	ctx = context.WithValue(ctx, preference.CONTEXT_KEY_LOG_SPAN_ID, spanID)
 
-	return
+	return ctx, traceID, spanID
 }
 
 func (mw *middleware) logRequestStart(r *http.Request, traceID, spanID string) {
@@ -234,31 +231,6 @@ func (mw *middleware) logRequestEnd(traceID, spanID string, start time.Time, sta
 		Int(preference.STATUS, statusCode)
 
 	event.Send()
-}
-
-func (mw *middleware) attachTraceSpanIDs(ctx context.Context, traceID, spanID string) context.Context {
-	ctx = context.WithValue(ctx, preference.CONTEXT_KEY_LOG_TRACE_ID, traceID)
-	ctx = context.WithValue(ctx, preference.CONTEXT_KEY_LOG_SPAN_ID, spanID)
-
-	return mw.attachLogger(ctx)
-}
-
-func (mw *middleware) attachLogger(ctx context.Context) context.Context {
-	logBuilder := mw.log.With()
-
-	if mw.tracingEnabled {
-		traceID, _ := ctx.Value(preference.CONTEXT_KEY_LOG_TRACE_ID).(string)
-		spanID, _ := ctx.Value(preference.CONTEXT_KEY_LOG_SPAN_ID).(string)
-
-		logBuilder = logBuilder.
-			Str(string(preference.CONTEXT_KEY_LOG_TRACE_ID), traceID).
-			Str(string(preference.CONTEXT_KEY_LOG_SPAN_ID), spanID)
-	} else {
-		logBuilder = logBuilder.
-			Str(string(preference.CONTEXT_KEY_LOG_REQUEST_ID), ctx.Value(preference.CONTEXT_KEY_LOG_SPAN_ID).(string))
-	}
-
-	return logBuilder.Logger().WithContext(ctx)
 }
 
 func (mw *middleware) writeJSONError(w http.ResponseWriter, status int, msg string) {
