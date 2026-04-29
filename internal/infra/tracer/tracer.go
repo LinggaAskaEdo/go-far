@@ -86,7 +86,7 @@ func InitTracer(log *zerolog.Logger, opt *TracerOptions) Tracer {
 		propagation.Baggage{},
 	))
 
-	log.Info().Str("endpoint", endpoint).Str("protocol", protocol).Msg("Tracer initialized successfully")
+	log.Debug().Str("endpoint", endpoint).Str("protocol", protocol).Msg("Tracer initialized successfully")
 
 	return &tracerImpl{
 		log:         log,
@@ -99,6 +99,7 @@ func createTracerProvider(ctx context.Context, log *zerolog.Logger, endpoint, pr
 	if protocol == "http" {
 		return createHTTPProvider(ctx, log, endpoint, res)
 	}
+
 	return createGRPCProvider(ctx, log, endpoint, res)
 }
 
@@ -125,7 +126,7 @@ func createHTTPProvider(ctx context.Context, log *zerolog.Logger, endpoint strin
 }
 
 func createGRPCProvider(ctx context.Context, log *zerolog.Logger, endpoint string, res *resource.Resource) *sdktrace.TracerProvider {
-	log.Info().Str("endpoint", endpoint).Msg("Creating gRPC OTLP exporter")
+	log.Debug().Str("endpoint", endpoint).Msg("Creating gRPC OTLP exporter")
 
 	exporter, err := otlptracegrpc.New(ctx,
 		otlptracegrpc.WithEndpoint(endpoint),
@@ -137,7 +138,7 @@ func createGRPCProvider(ctx context.Context, log *zerolog.Logger, endpoint strin
 		return nil
 	}
 
-	log.Info().Msg("gRPC OTLP exporter created, creating TracerProvider")
+	log.Debug().Msg("gRPC OTLP exporter created, creating TracerProvider")
 
 	return sdktrace.NewTracerProvider(
 		sdktrace.WithSyncer(exporter),
@@ -169,5 +170,6 @@ func (t *tracerImpl) ForceFlush(ctx context.Context) error {
 	if t.provider == nil {
 		return nil
 	}
+
 	return t.provider.ForceFlush(ctx)
 }

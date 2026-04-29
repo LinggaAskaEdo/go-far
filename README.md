@@ -2,7 +2,7 @@
 
 A production-ready RESTful API built with Go following [golang-standards/project-layout](https://github.com/golang-standards/project-layout), featuring PostgreSQL, Redis, JWT authentication, role-based rate limiting, and OpenTelemetry tracing.
 
-## Version: 1.18.0
+## Version: 1.18.1
 
 ## 🚀 Features
 
@@ -166,7 +166,7 @@ Edit `configs/config.yaml` or use environment variables:
 ```yaml
 app:
   name: go-far
-  version: 1.18.0
+  version: 1.18.1
   environment: development  # development/staging/production)
   shutdown_timeout: 5s
 
@@ -578,6 +578,13 @@ Apache 2.0 - See [LICENSE](LICENSE) for details.
 
 - Issues: GitHub Issues
 - Email: <lemp.otis@gmail.com>
+
+### v1.18.1
+
+- Improved HTTP server startup using `net.ListenConfig` with KeepAlive (30s) for graceful listener setup
+- Refactored server `Serve` to use pre-created listeners instead of `ListenAndServe`
+- Adjusted tracer initialization log level from Info to Debug for less verbose startup logs
+- Added missing blank line in tracer.go for code style consistency
 
 ### v1.18.0
 

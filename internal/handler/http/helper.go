@@ -24,7 +24,7 @@ func (e *rest) Health(w http.ResponseWriter, r *http.Request) {
 		Status:    "healthy",
 		Timestamp: time.Now().Format(time.RFC3339),
 		Service:   "go-far",
-		Version:   "1.12.0",
+		Version:   "1.18.1",
 	}
 
 	e.httpRespSuccess(w, r, http.StatusOK, status, nil)

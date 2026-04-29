@@ -2,6 +2,7 @@ package grace
 
 import (
 	"context"
+	"net"
 	"net/http"
 	"os"
 	"os/signal"
@@ -53,18 +54,39 @@ func (g *app) Serve() {
 	signal.Notify(signalCh, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 
 	var wg sync.WaitGroup
+	listenConfig := net.ListenConfig{
+		KeepAlive: 30 * time.Second,
+	}
+
+	// Main HTTP server
+	httpListener, err := listenConfig.Listen(context.Background(), "tcp", g.httpServer.Addr)
+	if err != nil {
+		g.log.Error().Err(err).Str("addr", g.httpServer.Addr).Msg("Failed to listen for HTTP server")
+		return
+	}
+
+	g.log.Info().Msg("✅ HTTP server already started at " + g.httpServer.Addr)
+
 	wg.Go(func() {
-		g.log.Info().Str("addr", g.httpServer.Addr).Msg("Starting HTTP server")
-		if err := g.httpServer.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-			g.log.Error().Err(err).Msg("HTTP server error")
+		if serveErr := g.httpServer.Serve(httpListener); serveErr != nil && serveErr != http.ErrServerClosed {
+			g.log.Error().Err(serveErr).Msg("HTTP server error")
 		}
 	})
 
+	// Metrics server (if enabled)
+	var metricsListener net.Listener
 	if g.metricsSrv != nil {
+		metricsListener, err = listenConfig.Listen(context.Background(), "tcp", g.metricsSrv.Addr)
+		if err != nil {
+			g.log.Error().Err(err).Str("addr", g.metricsSrv.Addr).Msg("Failed to listen for metrics HTTP server")
+			return
+		}
+
+		g.log.Info().Msg("✅ Metrics HTTP server already started at " + g.metricsSrv.Addr)
+
 		wg.Go(func() {
-			g.log.Info().Str("addr", g.metricsSrv.Addr).Msg("Starting metrics HTTP server")
-			if err := g.metricsSrv.ListenAndServe(); err != nil && err != http.ErrServerClosed {
-				g.log.Error().Err(err).Msg("Metrics HTTP server error")
+			if serveErr := g.metricsSrv.Serve(metricsListener); serveErr != nil && serveErr != http.ErrServerClosed {
+				g.log.Error().Err(serveErr).Msg("Metrics HTTP server error")
 			}
 		})
 	}
@@ -75,10 +97,12 @@ func (g *app) Serve() {
 	shutdownCtx, cancelShutdown := context.WithTimeout(context.Background(), g.timeout)
 	defer cancelShutdown()
 
+	// Shutdown main server
 	if err := g.httpServer.Shutdown(shutdownCtx); err != nil {
 		g.log.Error().Err(err).Msg("HTTP server shutdown error")
 	}
 
+	// Shutdown metrics server if present and was successfully started
 	if g.metricsSrv != nil {
 		if err := g.metricsSrv.Shutdown(shutdownCtx); err != nil {
 			g.log.Error().Err(err).Msg("Metrics HTTP shutdown error")
