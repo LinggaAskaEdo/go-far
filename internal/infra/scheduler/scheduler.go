@@ -4,6 +4,7 @@ import (
 	"context"
 	"strconv"
 	"sync"
+	"time"
 
 	"go-far/internal/infra/middleware"
 	"go-far/internal/preference"
@@ -19,6 +20,7 @@ type Scheduler struct {
 	jobs           []Job
 	mu             sync.RWMutex
 	tracingEnabled bool
+	metrics        *SchedulerMetrics
 }
 
 // Job defines the interface for scheduled jobs
@@ -62,12 +64,13 @@ type CarGeneratorJobOptions struct {
 }
 
 // InitScheduler initializes the scheduler
-func InitScheduler(log *zerolog.Logger, opt *SchedulerOptions, tracingEnabled bool) *Scheduler {
+func InitScheduler(log *zerolog.Logger, opt *SchedulerOptions, tracingEnabled bool, metrics *SchedulerMetrics) *Scheduler {
 	return &Scheduler{
 		log:            log,
 		cron:           cron.New(cron.WithSeconds()),
 		jobs:           make([]Job, 0),
 		tracingEnabled: tracingEnabled,
+		metrics:        metrics,
 	}
 }
 
@@ -77,39 +80,41 @@ func (s *Scheduler) AddJob(job Job) error {
 	defer s.mu.Unlock()
 
 	_, err := s.cron.AddFunc(job.Schedule(), func() {
+		start := time.Now()
 		traceID := middleware.GenerateTraceID()
 		spanID := middleware.GenerateSpanID()
 
-		event := s.log.Info().Str("job", job.Name()).Str(string(preference.CONTEXT_KEY_LOG_REQUEST_ID), spanID)
-		if s.tracingEnabled {
-			event = event.
-				Str(string(preference.CONTEXT_KEY_LOG_TRACE_ID), traceID).
-				Str(string(preference.CONTEXT_KEY_LOG_SPAN_ID), spanID)
-		}
-		event.Msg("Job started")
+		s.log.Info().
+			Str("job", job.Name()).
+			Str(string(preference.CONTEXT_KEY_LOG_TRACE_ID), traceID).
+			Str(string(preference.CONTEXT_KEY_LOG_SPAN_ID), spanID).
+			Msg("Job started")
 
 		ctx := context.WithValue(context.Background(), preference.CONTEXT_KEY_LOG_TRACE_ID, traceID)
 		ctx = context.WithValue(ctx, preference.CONTEXT_KEY_LOG_SPAN_ID, spanID)
-		ctx = context.WithValue(ctx, preference.CONTEXT_KEY_LOG_REQUEST_ID, spanID)
 
-		if err := job.Run(ctx); err != nil {
-			errEvent := s.log.Error().Err(err).Str("job", job.Name()).Str(string(preference.CONTEXT_KEY_LOG_REQUEST_ID), spanID)
-			if s.tracingEnabled {
-				errEvent = errEvent.
-					Str(string(preference.CONTEXT_KEY_LOG_TRACE_ID), traceID).
-					Str(string(preference.CONTEXT_KEY_LOG_SPAN_ID), spanID)
-			}
-			errEvent.Msg("Job execution failed")
+		execErr := job.Run(ctx)
+
+		duration := time.Since(start)
+		if s.metrics != nil {
+			s.metrics.RecordExecution(job.Name(), duration, execErr)
+		}
+
+		if execErr != nil {
+			s.log.Error().
+				Err(execErr).
+				Str("job", job.Name()).
+				Str(string(preference.CONTEXT_KEY_LOG_TRACE_ID), traceID).
+				Str(string(preference.CONTEXT_KEY_LOG_SPAN_ID), spanID).
+				Msg("Job execution failed")
 			return
 		}
 
-		successEvent := s.log.Info().Str("job", job.Name()).Str(string(preference.CONTEXT_KEY_LOG_REQUEST_ID), spanID)
-		if s.tracingEnabled {
-			successEvent = successEvent.
-				Str(string(preference.CONTEXT_KEY_LOG_TRACE_ID), traceID).
-				Str(string(preference.CONTEXT_KEY_LOG_SPAN_ID), spanID)
-		}
-		successEvent.Msg("Job completed successfully")
+		s.log.Info().
+			Str("job", job.Name()).
+			Str(string(preference.CONTEXT_KEY_LOG_TRACE_ID), traceID).
+			Str(string(preference.CONTEXT_KEY_LOG_SPAN_ID), spanID).
+			Msg("Job completed successfully")
 	})
 	if err != nil {
 		return err

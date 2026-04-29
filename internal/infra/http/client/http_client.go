@@ -5,6 +5,8 @@ import (
 	"net/http"
 	"time"
 
+	"go-far/internal/preference"
+
 	"github.com/failsafe-go/failsafe-go"
 	"github.com/failsafe-go/failsafe-go/circuitbreaker"
 	"github.com/failsafe-go/failsafe-go/failsafehttp"
@@ -13,6 +15,7 @@ import (
 	"github.com/rs/zerolog"
 )
 
+// HttpClientOptions holds HTTP client configuration
 type HttpClientOptions struct {
 	CircuitBreaker        CircuitBreakerOptions `yaml:"circuit_breaker"`
 	KeepAlive             time.Duration         `yaml:"keep_alive"`
@@ -29,10 +32,88 @@ type HttpClientOptions struct {
 	DisableCompression    bool                  `yaml:"disable_compression"`
 }
 
+// CircuitBreakerOptions holds circuit breaker configuration
 type CircuitBreakerOptions struct {
 	MaxRetries int           `yaml:"max_retries"`
 	BackoffMin time.Duration `yaml:"backoff_min"`
 	BackoffMax time.Duration `yaml:"backoff_max"`
+}
+
+// getTraceInfo extracts trace/span ID from failsafe execution event context
+func getTraceInfo(e failsafe.ExecutionInfo) (traceID, spanID string) {
+	ctx := e.Context()
+	if ctx == nil {
+		return "", ""
+	}
+	if v, ok := ctx.Value(preference.CONTEXT_KEY_LOG_TRACE_ID).(string); ok && v != "" {
+		traceID = v
+	}
+	if v, ok := ctx.Value(preference.CONTEXT_KEY_LOG_SPAN_ID).(string); ok && v != "" {
+		spanID = v
+	}
+	return traceID, spanID
+}
+
+// createTimeoutPolicy creates a timeout policy with tracing support
+func createTimeoutPolicy(log *zerolog.Logger) failsafe.Policy[*http.Response] {
+	return timeout.NewBuilder[*http.Response](3 * time.Second).
+		OnTimeoutExceeded(func(e failsafe.ExecutionDoneEvent[*http.Response]) {
+			event := log.Info()
+			if traceID, spanID := getTraceInfo(e); traceID != "" || spanID != "" {
+				if traceID != "" {
+					event = event.Str(string(preference.CONTEXT_KEY_LOG_TRACE_ID), traceID)
+				}
+				if spanID != "" {
+					event = event.Str(string(preference.CONTEXT_KEY_LOG_SPAN_ID), spanID)
+				}
+			}
+			event.Msg("Request timed out")
+		}).Build()
+}
+
+// createRetryPolicy creates a retry policy with tracing support
+func createRetryPolicy(log *zerolog.Logger, opt *CircuitBreakerOptions) failsafe.Policy[*http.Response] {
+	return retrypolicy.NewBuilder[*http.Response]().
+		WithMaxRetries(opt.MaxRetries).
+		WithBackoff(opt.BackoffMin, opt.BackoffMax).
+		HandleIf(func(response *http.Response, err error) bool {
+			if response == nil {
+				log.Warn().Err(err).Msg("Retry attempt: response is nil")
+				return true
+			}
+			if response.StatusCode == http.StatusServiceUnavailable {
+				log.Warn().Err(err).Msg("Retry attempt: response status is 503 Service Unavailable")
+				return true
+			}
+			return false
+		}).
+		OnRetryScheduled(func(e failsafe.ExecutionScheduledEvent[*http.Response]) {
+			event := log.Info().Int("attempt", e.Attempts()).Dur("delay", e.Delay)
+			if traceID, spanID := getTraceInfo(e); traceID != "" || spanID != "" {
+				if traceID != "" {
+					event = event.Str(string(preference.CONTEXT_KEY_LOG_TRACE_ID), traceID)
+				}
+				if spanID != "" {
+					event = event.Str(string(preference.CONTEXT_KEY_LOG_SPAN_ID), spanID)
+				}
+			}
+			event.Msg("Retry scheduled")
+		}).Build()
+}
+
+// createCircuitBreakerPolicy creates a circuit breaker policy
+func createCircuitBreakerPolicy(log *zerolog.Logger) failsafe.Policy[*http.Response] {
+	return circuitbreaker.NewBuilder[*http.Response]().
+		HandleIf(func(response *http.Response, err error) bool {
+			return response != nil && response.StatusCode == http.StatusServiceUnavailable
+		}).
+		WithDelayFunc(failsafehttp.DelayFunc).
+		OnStateChanged(func(event circuitbreaker.StateChangedEvent) {
+			log.Info().
+				Str("old_state", event.OldState.String()).
+				Str("new_state", event.NewState.String()).
+				Msg("Circuit breaker state changed")
+		}).Build()
 }
 
 func InitHttpClient(log *zerolog.Logger, opt *HttpClientOptions) *http.Client {
@@ -41,7 +122,7 @@ func InitHttpClient(log *zerolog.Logger, opt *HttpClientOptions) *http.Client {
 		return nil
 	}
 
-	transport := &http.Transport{
+	baseTransport := &http.Transport{
 		MaxIdleConns:          opt.MaxIdleConns,
 		MaxIdleConnsPerHost:   opt.MaxIdleConnsPerHost,
 		MaxConnsPerHost:       opt.MaxConnsPerHost,
@@ -56,41 +137,13 @@ func InitHttpClient(log *zerolog.Logger, opt *HttpClientOptions) *http.Client {
 		}).DialContext,
 	}
 
-	timeoutPolicy := timeout.NewBuilder[*http.Response](3 * time.Second).
-		OnTimeoutExceeded(func(e failsafe.ExecutionDoneEvent[*http.Response]) {
-			log.Info().Msg("Request timed out")
-		}).Build()
+	transport := baseTransport
 
-	circuitBreakerPolicy := circuitbreaker.NewBuilder[*http.Response]().
-		HandleIf(func(response *http.Response, err error) bool {
-			return response != nil && response.StatusCode == http.StatusServiceUnavailable
-		}).
-		WithDelayFunc(failsafehttp.DelayFunc).
-		OnStateChanged(func(event circuitbreaker.StateChangedEvent) {
-			log.Info().Str("old_state", event.OldState.String()).Str("new_state", event.NewState.String()).Msg("Circuit breaker state changed")
-		}).
-		Build()
+	timeoutPolicy := createTimeoutPolicy(log)
 
-	retryPolicy := retrypolicy.NewBuilder[*http.Response]().
-		WithMaxRetries(opt.CircuitBreaker.MaxRetries).
-		WithBackoff(opt.CircuitBreaker.BackoffMin, opt.CircuitBreaker.BackoffMax).
-		HandleIf(func(response *http.Response, err error) bool {
-			if response == nil {
-				log.Warn().Err(err).Msg("Retry attempt: response is nil")
-				return true
-			}
+	circuitBreakerPolicy := createCircuitBreakerPolicy(log)
 
-			if response.StatusCode == http.StatusServiceUnavailable {
-				log.Warn().Err(err).Msg("Retry attempt: response status is 503 Service Unavailable")
-				return true
-			}
-
-			return false
-		}).
-		OnRetryScheduled(func(e failsafe.ExecutionScheduledEvent[*http.Response]) {
-			log.Info().Int("attempt", e.Attempts()).Dur("delay", e.Delay).Msg("Retry scheduled")
-		}).
-		Build()
+	retryPolicy := createRetryPolicy(log, &opt.CircuitBreaker)
 
 	wrappedTransport := failsafehttp.NewRoundTripper(
 		transport,            // innerRoundTripper

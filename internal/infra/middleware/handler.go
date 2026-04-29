@@ -188,18 +188,9 @@ func (mw *middleware) logRequestStart(r *http.Request, traceID, spanID string) {
 	}
 
 	event := mw.log.Info().
-		Str(preference.EVENT, "START")
-
-	if mw.tracingEnabled {
-		event = event.
-			Str(string(preference.CONTEXT_KEY_LOG_TRACE_ID), traceID).
-			Str(string(preference.CONTEXT_KEY_LOG_SPAN_ID), spanID)
-	} else {
-		event = event.
-			Str(string(preference.CONTEXT_KEY_LOG_REQUEST_ID), spanID)
-	}
-
-	event = event.
+		Str(preference.EVENT, "START").
+		Str(string(preference.CONTEXT_KEY_LOG_TRACE_ID), traceID).
+		Str(string(preference.CONTEXT_KEY_LOG_SPAN_ID), spanID).
 		Str(preference.METHOD, r.Method).
 		Str(preference.URL, path).
 		Str(preference.USER_AGENT, r.UserAgent()).
@@ -215,18 +206,9 @@ func (mw *middleware) logRequestEnd(traceID, spanID string, start time.Time, sta
 	}
 
 	event := mw.log.Info().
-		Str(preference.EVENT, "END")
-
-	if mw.tracingEnabled {
-		event = event.
-			Str(string(preference.CONTEXT_KEY_LOG_TRACE_ID), traceID).
-			Str(string(preference.CONTEXT_KEY_LOG_SPAN_ID), spanID)
-	} else {
-		event = event.
-			Str(string(preference.CONTEXT_KEY_LOG_REQUEST_ID), spanID)
-	}
-
-	event = event.
+		Str(preference.EVENT, "END").
+		Str(string(preference.CONTEXT_KEY_LOG_TRACE_ID), traceID).
+		Str(string(preference.CONTEXT_KEY_LOG_SPAN_ID), spanID).
 		Str(preference.LATENCY, latency.String()).
 		Int(preference.STATUS, statusCode)
 

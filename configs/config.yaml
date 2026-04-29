@@ -1,6 +1,6 @@
 app:
   name: &app_name go-far
-  version: 1.18.0
+  version: 1.19.0
   environment: development  # development/staging/production)
   shutdown_timeout: 5s
 
@@ -113,16 +113,18 @@ scheduler:
   enabled: true
   jobs:
     user_generator:
-      enabled: false
+      enabled: true
       random_user_url: "https://randomuser.me/api/"
-      cron: "0 0 */1 * * *" # Every 1 hour
+      # cron: "0 0 */1 * * *" # Every 1 hour
+      cron: "0 */6 * * * *" # Every 6 minutes
       batch_size: 5
       min_age: 18
       max_age: 80
     car_generator:
-      enabled: false
+      enabled: true
       nhtsa_api_url: "https://vpic.nhtsa.dot.gov/api/vehicles"
-      cron: "0 */30 * * * *" # Every 30 minutes
+      # cron: "0 */30 * * * *" # Every 30 minutes
+      cron: "0 */3 * * * *" # Every 3 minutes
       batch_size: 3
       min_year: 2015
       max_year: 2025

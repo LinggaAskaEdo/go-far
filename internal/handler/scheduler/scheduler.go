@@ -10,30 +10,43 @@ import (
 	"github.com/rs/zerolog"
 )
 
+type SchedulerHandlerOptions struct {
+	Log            *zerolog.Logger
+	Sch            *cfg.Scheduler
+	Svc            *service.Service
+	Jobs           *cfg.SchedulerJobsOptions
+	HTTPClient     *http.Client
+	Metrics        *cfg.SchedulerMetrics
+	Enabled        bool
+	TracingEnabled bool
+}
+
 type schedulerHandler struct {
 	log            *zerolog.Logger
 	sch            *cfg.Scheduler
 	svc            *service.Service
 	jobs           *cfg.SchedulerJobsOptions
 	httpClient     *http.Client
+	metrics        *cfg.SchedulerMetrics
 	enabled        bool
 	tracingEnabled bool
 }
 
 var onceSchedulerHandler = &sync.Once{}
 
-func InitSchedulerHandler(log *zerolog.Logger, sch *cfg.Scheduler, svc *service.Service, jobs *cfg.SchedulerJobsOptions, httpClient *http.Client, enabled, tracingEnabled bool) {
+func InitSchedulerHandler(opt *SchedulerHandlerOptions) {
 	var s *schedulerHandler
 
 	onceSchedulerHandler.Do(func() {
 		s = &schedulerHandler{
-			log:            log,
-			sch:            sch,
-			svc:            svc,
-			jobs:           jobs,
-			httpClient:     httpClient,
-			enabled:        enabled,
-			tracingEnabled: tracingEnabled,
+			log:            opt.Log,
+			sch:            opt.Sch,
+			svc:            opt.Svc,
+			jobs:           opt.Jobs,
+			httpClient:     opt.HTTPClient,
+			metrics:        opt.Metrics,
+			enabled:        opt.Enabled,
+			tracingEnabled: opt.TracingEnabled,
 		}
 
 		s.Serve()

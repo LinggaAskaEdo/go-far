@@ -2,7 +2,7 @@
 
 A production-ready RESTful API built with Go following [golang-standards/project-layout](https://github.com/golang-standards/project-layout), featuring PostgreSQL, Redis, JWT authentication, role-based rate limiting, and OpenTelemetry tracing.
 
-## Version: 1.18.1
+## Version: 1.19.0
 
 ## 🚀 Features
 
@@ -578,6 +578,15 @@ Apache 2.0 - See [LICENSE](LICENSE) for details.
 
 - Issues: GitHub Issues
 - Email: <lemp.otis@gmail.com>
+
+### v1.19.0
+
+- Added scheduler job metrics (`scheduler_job_execution_total`, `scheduler_job_failure_total`, `scheduler_job_duration_seconds`, `scheduler_job_last_run_timestamp_seconds`)
+- Fixed job name mismatch in metrics (aligned `Name()` return values with config yaml keys)
+- Added `NewSchedulerMetrics` with pre-initialized label combinations
+- Updated Grafana dashboard with scheduler job metrics panels
+- Refactored scheduler initialization to properly wire metrics
+- Added `RecordExecution` method for consistent metrics recording across jobs
 
 ### v1.18.1
 

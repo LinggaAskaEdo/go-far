@@ -81,21 +81,18 @@ var (
 )
 
 func (j *UserGeneratorJob) logWithContext(ctx context.Context) *zerolog.Event {
-	reqID, _ := ctx.Value(preference.CONTEXT_KEY_LOG_REQUEST_ID).(string)
+	event := j.log.Info()
 
-	event := j.log.Info().
-		Str(string(preference.CONTEXT_KEY_LOG_REQUEST_ID), reqID)
+	traceID, _ := ctx.Value(preference.CONTEXT_KEY_LOG_TRACE_ID).(string)
+	spanID, _ := ctx.Value(preference.CONTEXT_KEY_LOG_SPAN_ID).(string)
 
-	if j.tracingEnabled {
-		traceID, _ := ctx.Value(preference.CONTEXT_KEY_LOG_TRACE_ID).(string)
-		spanID, _ := ctx.Value(preference.CONTEXT_KEY_LOG_SPAN_ID).(string)
-		if traceID != "" {
-			event = event.Str(string(preference.CONTEXT_KEY_LOG_TRACE_ID), traceID)
-		}
-		if spanID != "" {
-			event = event.Str(string(preference.CONTEXT_KEY_LOG_SPAN_ID), spanID)
-		}
+	if traceID != "" {
+		event = event.Str(string(preference.CONTEXT_KEY_LOG_TRACE_ID), traceID)
 	}
+	if spanID != "" {
+		event = event.Str(string(preference.CONTEXT_KEY_LOG_SPAN_ID), spanID)
+	}
+
 	return event
 }
 
@@ -110,7 +107,7 @@ func InitUserGeneratorJob(log *zerolog.Logger, userService user.UserServiceItf, 
 }
 
 func (j *UserGeneratorJob) Name() string {
-	return "UserGeneratorJob"
+	return "user_generator"
 }
 
 func (j *UserGeneratorJob) Schedule() string {

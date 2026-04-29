@@ -28,6 +28,8 @@ import (
 	"go-far/internal/repository"
 	"go-far/internal/service"
 	"go-far/internal/util"
+
+	"github.com/rs/zerolog"
 )
 
 const (
@@ -114,9 +116,8 @@ func Run() {
 	httpHandler.InitHttpHandler(httpMux, authToken, mw, svc, svc.User, sql0, redis0)
 
 	// Scheduler Initialization
-	if conf.Scheduler.Enabled {
-		scheduler := cfgscheduler.InitScheduler(log, conf.Scheduler, conf.Tracer.Enabled)
-		schedHandler.InitSchedulerHandler(log, scheduler, svc, &conf.Scheduler.SchedulerJobs, httpClient, conf.Scheduler.Enabled, conf.Tracer.Enabled)
+	scheduler := initScheduler(log, conf, svc, httpClient)
+	if scheduler != nil {
 		defer scheduler.Stop()
 	}
 
@@ -138,6 +139,27 @@ func Run() {
 	// App Initialization
 	app := grace.InitGrace(log, httpServer, metricsServer, conf.App.ShutdownTimeout)
 	app.Serve()
+}
+
+func initScheduler(log *zerolog.Logger, conf *config.Config, svc *service.Service, httpClient *http.Client) *cfgscheduler.Scheduler {
+	if !conf.Scheduler.Enabled {
+		return nil
+	}
+
+	schedulerMetrics := cfgscheduler.NewSchedulerMetrics(metrics.GetRegistry(), &conf.Scheduler.SchedulerJobs)
+	scheduler := cfgscheduler.InitScheduler(log, conf.Scheduler, conf.Tracer.Enabled, schedulerMetrics)
+	schedHandler.InitSchedulerHandler(&schedHandler.SchedulerHandlerOptions{
+		Log:            log,
+		Sch:            scheduler,
+		Svc:            svc,
+		Jobs:           &conf.Scheduler.SchedulerJobs,
+		HTTPClient:     httpClient,
+		Metrics:        schedulerMetrics,
+		Enabled:        conf.Scheduler.Enabled,
+		TracingEnabled: conf.Tracer.Enabled,
+	})
+
+	return scheduler
 }
 
 func parseFlags() (minJitter, maxJitter int) {

@@ -80,21 +80,18 @@ var (
 )
 
 func (j *CarGeneratorJob) logWithContext(ctx context.Context) *zerolog.Event {
-	reqID, _ := ctx.Value(preference.CONTEXT_KEY_LOG_REQUEST_ID).(string)
+	event := j.log.Info()
 
-	event := j.log.Info().
-		Str(string(preference.CONTEXT_KEY_LOG_REQUEST_ID), reqID)
+	traceID, _ := ctx.Value(preference.CONTEXT_KEY_LOG_TRACE_ID).(string)
+	spanID, _ := ctx.Value(preference.CONTEXT_KEY_LOG_SPAN_ID).(string)
 
-	if j.tracingEnabled {
-		traceID, _ := ctx.Value(preference.CONTEXT_KEY_LOG_TRACE_ID).(string)
-		spanID, _ := ctx.Value(preference.CONTEXT_KEY_LOG_SPAN_ID).(string)
-		if traceID != "" {
-			event = event.Str(string(preference.CONTEXT_KEY_LOG_TRACE_ID), traceID)
-		}
-		if spanID != "" {
-			event = event.Str(string(preference.CONTEXT_KEY_LOG_SPAN_ID), spanID)
-		}
+	if traceID != "" {
+		event = event.Str(string(preference.CONTEXT_KEY_LOG_TRACE_ID), traceID)
 	}
+	if spanID != "" {
+		event = event.Str(string(preference.CONTEXT_KEY_LOG_SPAN_ID), spanID)
+	}
+
 	return event
 }
 
@@ -112,7 +109,7 @@ func InitCarGeneratorJob(log *zerolog.Logger, carService car.CarServiceItf, user
 }
 
 func (j *CarGeneratorJob) Name() string {
-	return "CarGeneratorJob"
+	return "car_generator"
 }
 
 func (j *CarGeneratorJob) Schedule() string {

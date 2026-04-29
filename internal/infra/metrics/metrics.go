@@ -41,6 +41,10 @@ var (
 	redisClientNames           = []string{"apps", "auth", "limiter"}
 )
 
+func GetRegistry() *prometheus.Registry {
+	return reg
+}
+
 func getRedisClientName(index int, total int) string {
 	if total > 1 && index < len(redisClientNames) {
 		return redisClientNames[index]

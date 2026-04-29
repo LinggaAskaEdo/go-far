@@ -17,17 +17,16 @@ const (
 	REDIS_AUTH    string = "AUTH"
 
 	// Logging Context Keys
-	CONTEXT_KEY_REQUEST_ID     contextKey = "requestID"
-	CONTEXT_KEY_LOG_REQUEST_ID contextKey = "req_id"
-	CONTEXT_KEY_LOG_TRACE_ID   contextKey = "trace_id"
-	CONTEXT_KEY_LOG_SPAN_ID    contextKey = "span_id"
-	EVENT                      string     = "event"
-	METHOD                     string     = "method"
-	URL                        string     = "url"
-	ADDR                       string     = "addr"
-	STATUS                     string     = "status_code"
-	LATENCY                    string     = "latency"
-	USER_AGENT                 string     = "user_agent"
+	CONTEXT_KEY_LOG_TRACE_ID contextKey = "trace_id"
+	CONTEXT_KEY_LOG_SPAN_ID  contextKey = "span_id"
+
+	EVENT      string = "event"
+	METHOD     string = "method"
+	URL        string = "url"
+	ADDR       string = "addr"
+	STATUS     string = "status_code"
+	LATENCY    string = "latency"
+	USER_AGENT string = "user_agent"
 
 	// Lang Header
 	LANG_EN string = `en`
