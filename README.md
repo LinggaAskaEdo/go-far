@@ -560,6 +560,17 @@ OpenTelemetry traces are exported to `localhost:4317` (OTLP/gRPC). Configure you
 
 Metrics collection is available via OpenTelemetry but disabled by default (set `tracer.enabled: true` in config).
 
+#### Grafana Dashboard
+
+![Go-Far App Dashboard](deployments/monitoring/Go-Far-App-Dashboards-Grafana.png)
+
+The Grafana dashboard is located in `deployments/monitoring/grafana/dashboards/` and includes panels for:
+- HTTP request rate and duration
+- Database pool metrics (PostgreSQL)
+- Redis pool metrics
+- Go runtime metrics (goroutines, memory, GC)
+- Scheduler job execution metrics
+
 ## 🧪 Testing
 
 ```bash
