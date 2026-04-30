@@ -1,6 +1,6 @@
 app:
   name: &app_name go-far
-  version: 1.19.0
+  version: 1.21.0
   environment: development  # development/staging/production)
   shutdown_timeout: 5s
 
@@ -48,8 +48,8 @@ database: # postgres, mysql, oracle
     password: ${POSTGRES_DOCKER_PASSWORD}
     dbname: go-far
     sslmode: false
-    max_open_conns: 25
-    max_idle_conns: 5
+    max_conns: 25
+    min_conns: 5
     conn_max_lifetime: 1h
     conn_max_idle_time: 30m
 

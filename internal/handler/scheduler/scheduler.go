@@ -4,6 +4,7 @@ import (
 	"net/http"
 	"sync"
 
+	"go-far/internal/infra/metrics"
 	cfg "go-far/internal/infra/scheduler"
 	"go-far/internal/service"
 
@@ -16,7 +17,7 @@ type SchedulerHandlerOptions struct {
 	Svc            *service.Service
 	Jobs           *cfg.SchedulerJobsOptions
 	HTTPClient     *http.Client
-	Metrics        *cfg.SchedulerMetrics
+	Metrics        *metrics.SchedulerMetrics
 	Enabled        bool
 	TracingEnabled bool
 }
@@ -27,7 +28,7 @@ type schedulerHandler struct {
 	svc            *service.Service
 	jobs           *cfg.SchedulerJobsOptions
 	httpClient     *http.Client
-	metrics        *cfg.SchedulerMetrics
+	metrics        *metrics.SchedulerMetrics
 	enabled        bool
 	tracingEnabled bool
 }

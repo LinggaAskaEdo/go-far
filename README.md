@@ -2,7 +2,7 @@
 
 A production-ready RESTful API built with Go following [golang-standards/project-layout](https://github.com/golang-standards/project-layout), featuring PostgreSQL, Redis, JWT authentication, role-based rate limiting, and OpenTelemetry tracing.
 
-## Version: 1.19.0
+## Version: 1.21.0
 
 ## 🚀 Features
 
@@ -46,6 +46,11 @@ go-far/
 │   │   ├── grace/              # Graceful shutdown
 │   │   ├── http/               # HTTP client & mux
 │   │   ├── logger/             # Zerolog logger
+│   │   ├── metrics/            # Prometheus metrics & collectors
+│   │   │   ├── metrics.go      # Core metrics initialization
+│   │   │   ├── pgx_collector.go
+│   │   │   ├── redis_collector.go
+│   │   │   └── scheduler_collector.go
 │   │   ├── middleware/         # Request middleware (CORS, rate limiting)
 │   │   ├── query/              # SQL query loader (Go templates)
 │   │   ├── redis/              # Redis client
@@ -166,7 +171,7 @@ Edit `configs/config.yaml` or use environment variables:
 ```yaml
 app:
   name: go-far
-  version: 1.18.1
+  version: 1.20.0
   environment: development  # development/staging/production)
   shutdown_timeout: 5s
 
@@ -421,29 +426,29 @@ export LOG_LEVEL=info
 Run `make help` to see all available commands:
 
 ```bash
-make help              # Show this help message
-make all               # Clean, build, and run app
-make deps              # Download and install dependencies
-make update            # Update all dependencies to latest
-make install-tools      # Install dev tools (swag, lint, etc)
+make help                    # Show this help message
+make all                     # Clean, build, and run app
+make deps                    # Download and install dependencies
+make update                  # Update all dependencies to latest
+make install-tools           # Install dev tools (swag, lint, etc)
 
-make build             # Build application with optimizations
-make run               # Run the built application
-make clean             # Remove build artifacts
-make kill              # Kill app running on port 8181
+make build                   # Build application with optimizations
+make run                     # Run the built application
+make clean                   # Remove build artifacts
+make kill                    # Kill app running on ports 8181, 9191
 
-make lint              # Run golangci-lint
-make test             # Run tests with coverage report
+make lint                    # Run golangci-lint
+make test                    # Run tests with coverage report
 
-make swagger          # Generate Swagger API docs
+make swagger                 # Generate Swagger API docs
 
-make sql-postgres-create   # Create new postgres migration
-make sql-postgres-up     # Apply postgres migrations
+make sql-postgres-create     # Create new postgres migration
+make sql-postgres-up         # Apply postgres migrations
 
-make monitoring-start  # Start monitoring stack
-make monitoring-stop   # Stop monitoring stack
+make monitoring-start        # Start monitoring stack
+make monitoring-stop         # Stop monitoring stack
 
-make benchmark       # Run API benchmark with Apache Bench
+make benchmark               # Run API benchmark with Apache Bench
 ```
 
 ## 📝 Example Requests
@@ -578,6 +583,24 @@ Apache 2.0 - See [LICENSE](LICENSE) for details.
 
 - Issues: GitHub Issues
 - Email: <lemp.otis@gmail.com>
+
+### v1.21.0
+
+- Simplified Makefile build flags: removed git-based version ldflags to resolve linter errors
+- Added `go generate` step to build pipeline
+- Enhanced `install-tools` with additional linters: `gofumpt`, `gci`, `goimports`, `staticcheck`, `gosec`, `go-critic`
+- Updated `kill` target to terminate processes on both ports 8181 and 9191
+- Build pipeline now runs `clean`, `update`, `swagger`, `lint` before building
+- Added colored output formatting to help command
+
+### v1.20.0
+
+- Refactored scheduler metrics into dedicated `scheduler_collector.go` following pgx/redis collector pattern
+- Moved `SchedulerMetrics`, `NewSchedulerMetrics`, and `RecordExecution` to `internal/infra/metrics/scheduler_collector.go`
+- Moved scheduler job options types (`SchedulerJobsOptions`, `UserGeneratorJobOptions`, `CarGeneratorJobOptions`) to metrics package
+- Consolidated scheduler metrics creation inside `InitScheduler` - now returns `(*Scheduler, *metrics.SchedulerMetrics)`
+- Simplified `app.go` scheduler initialization - removed conversion helpers
+- Cleaner separation of concerns: `metrics.go` contains core metrics, collectors are in separate files
 
 ### v1.19.0
 

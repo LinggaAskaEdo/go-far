@@ -11,7 +11,7 @@ COVERAGE_HTML  	:= coverage.html
 GO             	:= go
 GOBIN 			:= $(shell go env GOPATH)/bin
 GOFLAGS        	:= -v
-LDFLAGS        	:= -s -w -X main.version=$(shell git describe --tags --always --dirty 2>/dev/null || echo dev)
+LDFLAGS        	:= -s -w
 
 # Tools
 SWAG           	:= swag
@@ -66,7 +66,7 @@ help:
 	@echo ""
 
 ## Execute build and run
-all: clean deps swagger build run
+all: deps build run
 
 ## Clean build artifacts and coverage files
 clean:
@@ -117,7 +117,7 @@ test:
 	@printf "$(BLUE)Tests complete. Coverage report: $(COVERAGE_HTML)$(RESET)\n"
 
 ## Build the application with optimizations
-build: clean swagger lint
+build: clean update swagger lint
 	@echo "Building application..."
 	@$(GO) mod tidy
 	@$(GO) generate $(SRC_DIR)

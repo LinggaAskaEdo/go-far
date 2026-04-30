@@ -8,6 +8,7 @@ import (
 type PgxPoolCollector struct {
 	pool *pgxpool.Pool
 
+	acquireTotal  *prometheus.Desc
 	totalConns    *prometheus.Desc
 	idleConns     *prometheus.Desc
 	acquiredConns *prometheus.Desc
@@ -18,39 +19,44 @@ type PgxPoolCollector struct {
 
 func NewPgxPoolCollector(pool *pgxpool.Pool) *PgxPoolCollector {
 	const ns, sub = "pgx", "pool"
-	label := prometheus.Labels{}
+	labels := prometheus.Labels{}
 
 	return &PgxPoolCollector{
 		pool: pool,
+		acquireTotal: prometheus.NewDesc(
+			prometheus.BuildFQName(ns, sub, "acquire_total"),
+			"Total number of successful connection acquires",
+			nil, labels,
+		),
 		totalConns: prometheus.NewDesc(
 			prometheus.BuildFQName(ns, sub, "total_connections"),
 			"Total open connections (idle + acquired)",
-			nil, label,
+			nil, labels,
 		),
 		idleConns: prometheus.NewDesc(
 			prometheus.BuildFQName(ns, sub, "idle_connections"),
 			"Connections sitting idle in the pool",
-			nil, label,
+			nil, labels,
 		),
 		acquiredConns: prometheus.NewDesc(
 			prometheus.BuildFQName(ns, sub, "acquired_connections"),
 			"Connections currently checked out by the app",
-			nil, label,
+			nil, labels,
 		),
 		maxConns: prometheus.NewDesc(
 			prometheus.BuildFQName(ns, sub, "max_connections"),
 			"MaxConns configured on the pool",
-			nil, label,
+			nil, labels,
 		),
 		waitCount: prometheus.NewDesc(
 			prometheus.BuildFQName(ns, sub, "wait_total"),
 			"Cumulative number of times a caller waited for a connection",
-			nil, label,
+			nil, labels,
 		),
 		waitDuration: prometheus.NewDesc(
 			prometheus.BuildFQName(ns, sub, "wait_duration_seconds_total"),
 			"Cumulative time spent waiting for a connection",
-			nil, label,
+			nil, labels,
 		),
 	}
 }
@@ -65,12 +71,13 @@ func (c *PgxPoolCollector) Describe(ch chan<- *prometheus.Desc) {
 }
 
 func (c *PgxPoolCollector) Collect(ch chan<- prometheus.Metric) {
-	s := c.pool.Stat()
+	stats := c.pool.Stat()
 
-	ch <- prometheus.MustNewConstMetric(c.totalConns, prometheus.GaugeValue, float64(s.TotalConns()))
-	ch <- prometheus.MustNewConstMetric(c.idleConns, prometheus.GaugeValue, float64(s.IdleConns()))
-	ch <- prometheus.MustNewConstMetric(c.acquiredConns, prometheus.GaugeValue, float64(s.AcquiredConns()))
-	ch <- prometheus.MustNewConstMetric(c.maxConns, prometheus.GaugeValue, float64(s.MaxConns()))
-	ch <- prometheus.MustNewConstMetric(c.waitCount, prometheus.CounterValue, float64(s.EmptyAcquireCount()))
-	ch <- prometheus.MustNewConstMetric(c.waitDuration, prometheus.CounterValue, s.AcquireDuration().Seconds())
+	ch <- prometheus.MustNewConstMetric(c.acquireTotal, prometheus.CounterValue, float64(stats.AcquireCount()))
+	ch <- prometheus.MustNewConstMetric(c.totalConns, prometheus.GaugeValue, float64(stats.TotalConns()))
+	ch <- prometheus.MustNewConstMetric(c.idleConns, prometheus.GaugeValue, float64(stats.IdleConns()))
+	ch <- prometheus.MustNewConstMetric(c.acquiredConns, prometheus.GaugeValue, float64(stats.AcquiredConns()))
+	ch <- prometheus.MustNewConstMetric(c.maxConns, prometheus.GaugeValue, float64(stats.MaxConns()))
+	ch <- prometheus.MustNewConstMetric(c.waitCount, prometheus.CounterValue, float64(stats.EmptyAcquireCount()))
+	ch <- prometheus.MustNewConstMetric(c.waitDuration, prometheus.CounterValue, stats.AcquireDuration().Seconds())
 }

@@ -45,12 +45,15 @@ func getTraceInfo(e failsafe.ExecutionInfo) (traceID, spanID string) {
 	if ctx == nil {
 		return "", ""
 	}
+
 	if v, ok := ctx.Value(preference.CONTEXT_KEY_LOG_TRACE_ID).(string); ok && v != "" {
 		traceID = v
 	}
+
 	if v, ok := ctx.Value(preference.CONTEXT_KEY_LOG_SPAN_ID).(string); ok && v != "" {
 		spanID = v
 	}
+
 	return traceID, spanID
 }
 
@@ -63,6 +66,7 @@ func createTimeoutPolicy(log *zerolog.Logger) failsafe.Policy[*http.Response] {
 				if traceID != "" {
 					event = event.Str(string(preference.CONTEXT_KEY_LOG_TRACE_ID), traceID)
 				}
+
 				if spanID != "" {
 					event = event.Str(string(preference.CONTEXT_KEY_LOG_SPAN_ID), spanID)
 				}
@@ -81,10 +85,12 @@ func createRetryPolicy(log *zerolog.Logger, opt *CircuitBreakerOptions) failsafe
 				log.Warn().Err(err).Msg("Retry attempt: response is nil")
 				return true
 			}
+
 			if response.StatusCode == http.StatusServiceUnavailable {
 				log.Warn().Err(err).Msg("Retry attempt: response status is 503 Service Unavailable")
 				return true
 			}
+
 			return false
 		}).
 		OnRetryScheduled(func(e failsafe.ExecutionScheduledEvent[*http.Response]) {
@@ -93,6 +99,7 @@ func createRetryPolicy(log *zerolog.Logger, opt *CircuitBreakerOptions) failsafe
 				if traceID != "" {
 					event = event.Str(string(preference.CONTEXT_KEY_LOG_TRACE_ID), traceID)
 				}
+
 				if spanID != "" {
 					event = event.Str(string(preference.CONTEXT_KEY_LOG_SPAN_ID), spanID)
 				}
@@ -138,11 +145,8 @@ func InitHttpClient(log *zerolog.Logger, opt *HttpClientOptions) *http.Client {
 	}
 
 	transport := baseTransport
-
 	timeoutPolicy := createTimeoutPolicy(log)
-
 	circuitBreakerPolicy := createCircuitBreakerPolicy(log)
-
 	retryPolicy := createRetryPolicy(log, &opt.CircuitBreaker)
 
 	wrappedTransport := failsafehttp.NewRoundTripper(

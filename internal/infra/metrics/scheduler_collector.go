@@ -1,10 +1,23 @@
-package scheduler
+package metrics
 
 import (
 	"time"
 
 	"github.com/prometheus/client_golang/prometheus"
 )
+
+type SchedulerJobsOptions struct {
+	UserGeneratorJob *UserGeneratorJobOptions
+	CarGeneratorJob  *CarGeneratorJobOptions
+}
+
+type UserGeneratorJobOptions struct {
+	Enabled bool
+}
+
+type CarGeneratorJobOptions struct {
+	Enabled bool
+}
 
 type SchedulerMetrics struct {
 	jobExecutionTotal   *prometheus.CounterVec
@@ -14,6 +27,7 @@ type SchedulerMetrics struct {
 }
 
 func NewSchedulerMetrics(reg *prometheus.Registry, jobs *SchedulerJobsOptions) *SchedulerMetrics {
+	jobNames := getSchedulerJobNames(jobs)
 	m := &SchedulerMetrics{
 		jobExecutionTotal: prometheus.NewCounterVec(
 			prometheus.CounterOpts{
@@ -53,8 +67,6 @@ func NewSchedulerMetrics(reg *prometheus.Registry, jobs *SchedulerJobsOptions) *
 		m.jobLastRunTimestamp,
 	)
 
-	// Pre-initialize all label combinations to 0
-	jobNames := getJobNames(jobs)
 	for _, job := range jobNames {
 		m.jobExecutionTotal.WithLabelValues(job)
 		m.jobFailureTotal.WithLabelValues(job)
@@ -65,17 +77,6 @@ func NewSchedulerMetrics(reg *prometheus.Registry, jobs *SchedulerJobsOptions) *
 	return m
 }
 
-func getJobNames(jobs *SchedulerJobsOptions) []string {
-	jobNames := make([]string, 0, 2)
-	if jobs.UserGeneratorJob != nil {
-		jobNames = append(jobNames, "user_generator")
-	}
-	if jobs.CarGeneratorJob != nil {
-		jobNames = append(jobNames, "car_generator")
-	}
-	return jobNames
-}
-
 func (m *SchedulerMetrics) RecordExecution(job string, duration time.Duration, err error) {
 	m.jobExecutionTotal.WithLabelValues(job).Inc()
 	m.jobDurationSeconds.WithLabelValues(job).Observe(duration.Seconds())
@@ -84,4 +85,17 @@ func (m *SchedulerMetrics) RecordExecution(job string, duration time.Duration, e
 	if err != nil {
 		m.jobFailureTotal.WithLabelValues(job).Inc()
 	}
+}
+
+func getSchedulerJobNames(jobs *SchedulerJobsOptions) []string {
+	jobNames := make([]string, 0, 2)
+	if jobs.UserGeneratorJob != nil {
+		jobNames = append(jobNames, "user_generator")
+	}
+
+	if jobs.CarGeneratorJob != nil {
+		jobNames = append(jobNames, "car_generator")
+	}
+
+	return jobNames
 }

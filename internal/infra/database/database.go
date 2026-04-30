@@ -19,8 +19,8 @@ type DatabaseOptions struct {
 	Port            int           `yaml:"port"`
 	ConnMaxLifetime time.Duration `yaml:"conn_max_lifetime"`
 	ConnMaxIdleTime time.Duration `yaml:"conn_max_idle_time"`
-	MaxOpenConns    int32         `yaml:"max_open_conns"`
-	MaxIdleConns    int32         `yaml:"max_idle_conns"`
+	MaxConns        int32         `yaml:"max_conns"`
+	MinConns        int32         `yaml:"min_conns"`
 	Enabled         bool          `yaml:"enabled"`
 	SSLMode         bool          `yaml:"sslmode"`
 }
@@ -35,8 +35,8 @@ func InitDB(log *zerolog.Logger, opt *DatabaseOptions) *pgxpool.Pool {
 		log.Panic().Err(err).Msg("failed to parse database config")
 	}
 
-	config.MaxConns = opt.MaxOpenConns
-	config.MinConns = opt.MaxIdleConns
+	config.MaxConns = opt.MaxConns
+	config.MinConns = opt.MinConns
 	config.MaxConnLifetime = opt.ConnMaxLifetime
 	config.MaxConnIdleTime = opt.ConnMaxIdleTime
 

@@ -146,8 +146,7 @@ func initScheduler(log *zerolog.Logger, conf *config.Config, svc *service.Servic
 		return nil
 	}
 
-	schedulerMetrics := cfgscheduler.NewSchedulerMetrics(metrics.GetRegistry(), &conf.Scheduler.SchedulerJobs)
-	scheduler := cfgscheduler.InitScheduler(log, conf.Scheduler, conf.Tracer.Enabled, schedulerMetrics)
+	scheduler, schedulerMetrics := cfgscheduler.InitScheduler(log, conf.Scheduler, conf.Tracer.Enabled, metrics.GetRegistry())
 	schedHandler.InitSchedulerHandler(&schedHandler.SchedulerHandlerOptions{
 		Log:            log,
 		Sch:            scheduler,

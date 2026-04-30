@@ -159,7 +159,7 @@
                     "spec": {
                       "editorMode": "code",
                       "expr": "histogram_quantile(0.95, sum(rate(http_request_duration_seconds_bucket{job=\"go-far\", path!~\"/metrics|/swagger.*|/debug/vars|/health.*\"}[5m])) by (le, method, path))",
-                      "legendFormat": "{{code}}",
+                      "legendFormat": "{{method}} {{path}}",
                       "range": true
                     },
                     "version": "v0"
@@ -395,7 +395,7 @@
                     "spec": {
                       "editorMode": "code",
                       "exemplar": false,
-                      "expr": "pgx_pool_acquired_connections",
+                      "expr": "rate(pgx_pool_acquire_total{job=\"go-far\"}[5m])",
                       "format": "time_series",
                       "instant": false,
                       "legendFormat": "",
@@ -414,7 +414,7 @@
         "description": "",
         "id": 12,
         "links": [],
-        "title": "Active connections",
+        "title": "Acquire rate (req/s)",
         "vizConfig": {
           "group": "timeseries",
           "kind": "VizConfig",
@@ -433,7 +433,7 @@
                   "barAlignment": 0,
                   "barWidthFactor": 0.6,
                   "drawStyle": "line",
-                  "fillOpacity": 0,
+                  "fillOpacity": 25,
                   "gradientMode": "none",
                   "hideFrom": {
                     "legend": false,
@@ -551,7 +551,7 @@
                   "barAlignment": 0,
                   "barWidthFactor": 0.6,
                   "drawStyle": "line",
-                  "fillOpacity": 0,
+                  "fillOpacity": 25,
                   "gradientMode": "none",
                   "hideFrom": {
                     "legend": false,
@@ -663,6 +663,28 @@
                   },
                   "refId": "B"
                 }
+              },
+              {
+                "kind": "PanelQuery",
+                "spec": {
+                  "hidden": false,
+                  "query": {
+                    "datasource": {
+                      "name": "afk43n4nysmpse"
+                    },
+                    "group": "prometheus",
+                    "kind": "DataQuery",
+                    "spec": {
+                      "editorMode": "code",
+                      "expr": "pgx_pool_max_connections{job=\"go-far\"} - pgx_pool_total_connections{job=\"go-far\"}",
+                      "instant": false,
+                      "legendFormat": "Remaining Capacity",
+                      "range": true
+                    },
+                    "version": "v0"
+                  },
+                  "refId": "C"
+                }
               }
             ],
             "queryOptions": {},
@@ -674,7 +696,7 @@
         "links": [],
         "title": "Connections",
         "vizConfig": {
-          "group": "piechart",
+          "group": "timeseries",
           "kind": "VizConfig",
           "spec": {
             "fieldConfig": {
@@ -683,33 +705,66 @@
                   "mode": "palette-classic"
                 },
                 "custom": {
+                  "axisBorderShow": false,
+                  "axisCenteredZero": false,
+                  "axisColorMode": "text",
+                  "axisLabel": "",
+                  "axisPlacement": "auto",
+                  "barAlignment": 0,
+                  "barWidthFactor": 0.6,
+                  "drawStyle": "line",
+                  "fillOpacity": 25,
+                  "gradientMode": "none",
                   "hideFrom": {
                     "legend": false,
                     "tooltip": false,
                     "viz": false
+                  },
+                  "insertNulls": false,
+                  "lineInterpolation": "linear",
+                  "lineWidth": 1,
+                  "pointSize": 5,
+                  "scaleDistribution": {
+                    "type": "linear"
+                  },
+                  "showPoints": "auto",
+                  "showValues": false,
+                  "spanNulls": false,
+                  "stacking": {
+                    "group": "A",
+                    "mode": "normal"
+                  },
+                  "thresholdsStyle": {
+                    "mode": "off"
                   }
+                },
+                "thresholds": {
+                  "mode": "absolute",
+                  "steps": [
+                    {
+                      "color": "green",
+                      "value": 0
+                    },
+                    {
+                      "color": "red",
+                      "value": 80
+                    }
+                  ]
                 }
               },
               "overrides": []
             },
             "options": {
-              "displayLabels": [
-                "percent"
-              ],
+              "annotations": {
+                "clustering": -1,
+                "multiLane": false
+              },
               "legend": {
+                "calcs": [],
                 "displayMode": "list",
                 "placement": "bottom",
                 "showLegend": true
               },
-              "pieType": "donut",
-              "reduceOptions": {
-                "calcs": [
-                  "lastNotNull"
-                ],
-                "fields": "",
-                "values": false
-              },
-              "sort": "desc",
               "tooltip": {
                 "hideZeros": false,
                 "mode": "single",
@@ -740,7 +795,7 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "pgx_pool_acquired_connections / pgx_pool_max_connections * 100",
+                      "expr": "pgx_pool_total_connections / pgx_pool_max_connections * 100",
                       "legendFormat": "__auto",
                       "range": true
                     },
@@ -776,7 +831,7 @@
                   "barAlignment": 0,
                   "barWidthFactor": 0.6,
                   "drawStyle": "line",
-                  "fillOpacity": 0,
+                  "fillOpacity": 25,
                   "gradientMode": "none",
                   "hideFrom": {
                     "legend": false,
@@ -858,7 +913,7 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "rate(pgx_pool_wait_total[1m])",
+                      "expr": "rate(pgx_pool_wait_total{job=\"go-far\"}[5m])",
                       "legendFormat": "__auto",
                       "range": true
                     },
@@ -976,7 +1031,7 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "rate(pgx_pool_wait_duration_seconds_total[1m]) / rate(pgx_pool_wait_total[1m])",
+                      "expr": "rate(pgx_pool_wait_duration_seconds_total{job=\"go-far\"}[5m])\n/\nrate(pgx_pool_wait_total{job=\"go-far\"}[5m])",
                       "legendFormat": "",
                       "range": true
                     },
@@ -1094,7 +1149,7 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "redis_pool_total_connections - redis_pool_idle_connections",
+                      "expr": "redis_pool_total_connections{job=\"go-far\"} - redis_pool_idle_connections{job=\"go-far\"}",
                       "legendFormat": "{{client}}",
                       "range": true
                     },
@@ -1212,7 +1267,7 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "redis_pool_idle_connections",
+                      "expr": "redis_pool_idle_connections{job=\"go-far\"}",
                       "legendFormat": "{{client}}",
                       "range": true
                     },
@@ -1447,7 +1502,7 @@
                     "spec": {
                       "editorMode": "code",
                       "expr": "redis_pool_total_connections{client=\"apps\", instance=\"192.168.1.6:9191\", job=\"go-far\"}",
-                      "legendFormat": "Apps",
+                      "legendFormat": "{{client}}",
                       "range": true
                     },
                     "version": "v0"
@@ -1470,7 +1525,7 @@
                       "exemplar": false,
                       "expr": "redis_pool_total_connections{client=\"auth\", instance=\"192.168.1.6:9191\", job=\"go-far\"}",
                       "instant": false,
-                      "legendFormat": "Auth",
+                      "legendFormat": "{{client}}",
                       "range": true
                     },
                     "version": "v0"
@@ -1492,7 +1547,7 @@
                       "editorMode": "code",
                       "expr": "redis_pool_total_connections{client=\"limiter\", instance=\"192.168.1.6:9191\", job=\"go-far\"}",
                       "instant": false,
-                      "legendFormat": "Limiter",
+                      "legendFormat": "{{client}}",
                       "range": true
                     },
                     "version": "v0"
@@ -1510,13 +1565,47 @@
         "links": [],
         "title": "Total Connections",
         "vizConfig": {
-          "group": "gauge",
+          "group": "timeseries",
           "kind": "VizConfig",
           "spec": {
             "fieldConfig": {
               "defaults": {
                 "color": {
                   "mode": "palette-classic"
+                },
+                "custom": {
+                  "axisBorderShow": false,
+                  "axisCenteredZero": false,
+                  "axisColorMode": "text",
+                  "axisLabel": "",
+                  "axisPlacement": "auto",
+                  "barAlignment": 0,
+                  "barWidthFactor": 0.6,
+                  "drawStyle": "line",
+                  "fillOpacity": 25,
+                  "gradientMode": "none",
+                  "hideFrom": {
+                    "legend": false,
+                    "tooltip": false,
+                    "viz": false
+                  },
+                  "insertNulls": false,
+                  "lineInterpolation": "linear",
+                  "lineWidth": 1,
+                  "pointSize": 5,
+                  "scaleDistribution": {
+                    "type": "linear"
+                  },
+                  "showPoints": "auto",
+                  "showValues": false,
+                  "spanNulls": false,
+                  "stacking": {
+                    "group": "A",
+                    "mode": "normal"
+                  },
+                  "thresholdsStyle": {
+                    "mode": "off"
+                  }
                 },
                 "thresholds": {
                   "mode": "absolute",
@@ -1535,32 +1624,21 @@
               "overrides": []
             },
             "options": {
-              "barShape": "flat",
-              "barWidthFactor": 0.3,
-              "effects": {
-                "barGlow": false,
-                "centerGlow": false,
-                "gradient": true
+              "annotations": {
+                "clustering": -1,
+                "multiLane": false
               },
-              "endpointMarker": "point",
-              "minVizHeight": 75,
-              "minVizWidth": 75,
-              "orientation": "auto",
-              "reduceOptions": {
-                "calcs": [
-                  "lastNotNull"
-                ],
-                "fields": "",
-                "values": false
+              "legend": {
+                "calcs": [],
+                "displayMode": "list",
+                "placement": "bottom",
+                "showLegend": true
               },
-              "segmentCount": 1,
-              "segmentSpacing": 0.3,
-              "shape": "circle",
-              "showThresholdLabels": false,
-              "showThresholdMarkers": false,
-              "sizing": "auto",
-              "sparkline": true,
-              "textMode": "auto"
+              "tooltip": {
+                "hideZeros": false,
+                "mode": "single",
+                "sort": "none"
+              }
             }
           },
           "version": "13.0.1"
@@ -1586,7 +1664,7 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "(redis_pool_total_connections - redis_pool_idle_connections) / redis_pool_max_connections * 100",
+                      "expr": "(redis_pool_total_connections{job=\"go-far\"} - redis_pool_idle_connections{job=\"go-far\"}) \n/ redis_pool_max_connections{job=\"go-far\"} * 100",
                       "legendFormat": "{{client}}",
                       "range": true
                     },
@@ -1704,7 +1782,7 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "rate(redis_pool_hits_total[1m]) / (rate(redis_pool_hits_total[1m]) + rate(redis_pool_misses_total[1m])) * 100",
+                      "expr": "rate(redis_pool_hits_total{job=\"go-far\"}[5m])\n/\n(rate(redis_pool_hits_total{job=\"go-far\"}[5m]) + rate(redis_pool_misses_total{job=\"go-far\"}[5m])) * 100",
                       "legendFormat": "{{client}}",
                       "range": true
                     },
@@ -1822,7 +1900,7 @@
                     "kind": "DataQuery",
                     "spec": {
                       "editorMode": "code",
-                      "expr": "rate(redis_pool_timeouts_total[1m])",
+                      "expr": "rate(redis_pool_timeouts_total{job=\"go-far\"}[5m])",
                       "legendFormat": "{{client}}",
                       "range": true
                     },
@@ -3178,7 +3256,7 @@
         {
           "kind": "RowsLayoutRow",
           "spec": {
-            "collapse": false,
+            "collapse": true,
             "layout": {
               "kind": "AutoGridLayout",
               "spec": {
@@ -3222,7 +3300,7 @@
         {
           "kind": "RowsLayoutRow",
           "spec": {
-            "collapse": false,
+            "collapse": true,
             "layout": {
               "kind": "AutoGridLayout",
               "spec": {
@@ -3435,7 +3513,7 @@
         {
           "kind": "RowsLayoutRow",
           "spec": {
-            "collapse": false,
+            "collapse": true,
             "layout": {
               "kind": "AutoGridLayout",
               "spec": {

@@ -6,9 +6,11 @@ import (
 	"sync"
 	"time"
 
+	metricspkg "go-far/internal/infra/metrics"
 	"go-far/internal/infra/middleware"
 	"go-far/internal/preference"
 
+	"github.com/prometheus/client_golang/prometheus"
 	"github.com/robfig/cron/v3"
 	"github.com/rs/zerolog"
 )
@@ -20,7 +22,7 @@ type Scheduler struct {
 	jobs           []Job
 	mu             sync.RWMutex
 	tracingEnabled bool
-	metrics        *SchedulerMetrics
+	metrics        *metricspkg.SchedulerMetrics
 }
 
 // Job defines the interface for scheduled jobs
@@ -64,14 +66,35 @@ type CarGeneratorJobOptions struct {
 }
 
 // InitScheduler initializes the scheduler
-func InitScheduler(log *zerolog.Logger, opt *SchedulerOptions, tracingEnabled bool, metrics *SchedulerMetrics) *Scheduler {
+func InitScheduler(log *zerolog.Logger, opt *SchedulerOptions, tracingEnabled bool, reg *prometheus.Registry) (*Scheduler, *metricspkg.SchedulerMetrics) {
+	metrics := metricspkg.NewSchedulerMetrics(reg, &metricspkg.SchedulerJobsOptions{
+		UserGeneratorJob: convertUserJobToMetrics(opt.SchedulerJobs.UserGeneratorJob),
+		CarGeneratorJob:  convertCarJobToMetrics(opt.SchedulerJobs.CarGeneratorJob),
+	})
+
 	return &Scheduler{
 		log:            log,
 		cron:           cron.New(cron.WithSeconds()),
 		jobs:           make([]Job, 0),
 		tracingEnabled: tracingEnabled,
 		metrics:        metrics,
+	}, metrics
+}
+
+func convertUserJobToMetrics(src *UserGeneratorJobOptions) *metricspkg.UserGeneratorJobOptions {
+	if src == nil {
+		return nil
 	}
+
+	return &metricspkg.UserGeneratorJobOptions{Enabled: src.Enabled}
+}
+
+func convertCarJobToMetrics(src *CarGeneratorJobOptions) *metricspkg.CarGeneratorJobOptions {
+	if src == nil {
+		return nil
+	}
+
+	return &metricspkg.CarGeneratorJobOptions{Enabled: src.Enabled}
 }
 
 // AddJob adds a job to the scheduler
